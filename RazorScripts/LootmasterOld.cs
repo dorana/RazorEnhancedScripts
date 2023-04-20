@@ -1,4 +1,8 @@
-﻿using System;
+﻿// this is a much older version of Lootmaster
+// it is not recommended to use this version
+//This is before the UI and many of it's mor advanced functions
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Linq;

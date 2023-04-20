@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using RazorEnhanced;
 
 namespace RazorScripts
@@ -17,18 +18,18 @@ namespace RazorScripts
         private readonly List<SlayerType> _slayerList = new List<SlayerType>
         {
             SlayerType.None,
-            SlayerType.Repond,
-            SlayerType.Undead,
-            SlayerType.Reptile,
-            SlayerType.Dragon,
-            SlayerType.Arachnid,
-            SlayerType.Elemental,
-            SlayerType.AirElemental,
-            SlayerType.FireElemental,
-            SlayerType.WaterElemental,
-            SlayerType.EarthElemental,
-            SlayerType.BloodElemental,
-            SlayerType.Demon,
+            SlayerType.RepondSlayer,
+            SlayerType.UndeadSlayer,
+            SlayerType.ReptileSlayer,
+            SlayerType.DragonSlayer,
+            SlayerType.ArachnidSlayer,
+            SlayerType.ElementalSlayer,
+            SlayerType.AirElementalSlayer,
+            SlayerType.FireElementalSlayer,
+            SlayerType.WaterElementalSlayer,
+            SlayerType.EarthElementalSlayer,
+            SlayerType.BloodElementalSlayer,
+            SlayerType.DemonSlayer,
         };
         
         private TextInfo _tinfo;
@@ -308,14 +309,16 @@ namespace RazorScripts
                 var slayerString = prop.ToString().ToLower();
                 if (slayerString == "silver")
                 {
-                    slayerString = "undead";
+                    slayerString = "undead slayer";
                 }
+                
+                
                 
                 _slayerItems.Add( new SlayerItem
                 {
                     Name = _tinfo.ToTitleCase(prop.ToString()),
                     Serial = item.Serial,
-                    Slayer = _slayerList.Any(s => slayerString.Contains(s.ToString().ToLower())) ? _slayerList.First(s => slayerString.Contains(s.ToString().ToLower())) : SlayerType.UnKnown
+                    Slayer = _slayerList.Any(s => _tinfo.ToTitleCase(slayerString).Equals(SplitCamelCase(s.ToString()))) ? _slayerList.First(s => _tinfo.ToTitleCase(slayerString).Equals(SplitCamelCase(s.ToString()))) : SlayerType.UnKnown
                 });
                 
             }
@@ -341,19 +344,32 @@ namespace RazorScripts
         public enum SlayerType
         {
             None = 20744,
-            Repond = 2277,
-            Undead = 20486,
-            Reptile = 21282,
-            Arachnid = 20994,
-            Elemental = 24014,
-            AirElemental = 2299,
-            FireElemental = 2302,
-            WaterElemental = 2303,
-            EarthElemental = 2301,
-            BloodElemental = 20993,
-            Demon = 2300,
-            Dragon = 21010,
+            RepondSlayer = 2277,
+            UndeadSlayer = 20486,
+            ReptileSlayer = 21282,
+            ArachnidSlayer = 20994,
+            ElementalSlayer = 24014,
+            AirElementalSlayer = 2299,
+            FireElementalSlayer = 2302,
+            WaterElementalSlayer = 2303,
+            EarthElementalSlayer = 2301,
+            BloodElementalSlayer = 20993,
+            DemonSlayer = 2300,
+            DragonSlayer = 21010,
             UnKnown = 24015
+        }
+        
+        public string SplitCamelCase(string str)
+        {
+            return Regex.Replace(
+                Regex.Replace(
+                    str,
+                    @"(\P{Ll})(\P{Ll}\p{Ll})",
+                    "$1 $2"
+                ),
+                @"(\p{Ll})(\P{Ll})",
+                "$1 $2"
+            );
         }
     }
 }

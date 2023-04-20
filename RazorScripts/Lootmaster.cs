@@ -13,7 +13,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static bool Debug = false;
-        private string _version = "v1.0.2";
+        private string _version = "v1.0.3";
         
         private Target _tar = new Target();
         private readonly List<int> _gems = new List<int>();
@@ -577,6 +577,8 @@ namespace RazorEnhanced
 
         private int Loot(Item container, LootRule singleRule)
         {
+            List <GrabTarget> lootItems = new List<GrabTarget>();
+            
             var sum = 0;
 
             foreach (var item in container.Contains.Where(c => c.IsLootable))
@@ -598,9 +600,11 @@ namespace RazorEnhanced
                 {
                     if (singleRule.Match(item))
                     {
-                        MoveToBag(item, singleRule.GetTargetBag());
-                        sum += item.Amount;
-                        Misc.Pause(200);
+                        lootItems.Add(new GrabTarget
+                        {
+                            Item = item,
+                            Rule = singleRule
+                        });
                     }
                 }
 
@@ -619,11 +623,6 @@ namespace RazorEnhanced
                     
                     if (rule.Match(item))
                     {
-                        if (rule.Alert)
-                        {
-                            Handler.SendMessage(MessageType.Info, $"Looted item for rule {rule.RuleName}");
-                        }
-                        
                         if (rule.TargetBag == container.Serial)
                         {
                             // don't loot to the same container
@@ -634,12 +633,23 @@ namespace RazorEnhanced
                             // Don't loot into itself
                             continue;
                         }
-
-                        MoveToBag(item, rule.GetTargetBag());
-                        sum += item.Amount;
-                        Misc.Pause(200);
+                        
+                        lootItems.Add(new GrabTarget
+                        {
+                            Item = item,
+                            Rule = rule
+                        });
                         break;
                     }
+                }
+            }
+
+            foreach (var li in lootItems)
+            {
+                var checkItem = Items.FindBySerial(li.Item.Serial);
+                if (checkItem?.Container == container.Serial)
+                {
+                    sum += GrabItem(li.Item, li.Rule);
                 }
             }
 
@@ -681,6 +691,21 @@ namespace RazorEnhanced
             return true;
         }
 
+        private int GrabItem(Item item,LootRule rule)
+        {
+            MoveToBag(item, rule.GetTargetBag());
+            Misc.Pause(200);
+            
+            if (rule.Alert)
+            {
+                Handler.SendMessage(MessageType.Info, $"Looted item for rule {rule.RuleName}");
+            }
+
+            
+            
+            return item.Amount;
+        }
+
         private void SetBag(int itemSerial, LootRule rule)
         {
             Item current;
@@ -715,6 +740,12 @@ namespace RazorEnhanced
             Items.Move(item, destinationBag, item.Amount);
             Misc.Pause(_lootDelay);
         }
+    }
+
+    public class GrabTarget
+    {
+        public Item Item { get; set; }
+        public LootRule Rule { get; set; }
     }
 
     public class LootRule
@@ -2578,7 +2609,6 @@ namespace RazorEnhanced
             nameLabel.Text = Player.Name;
             enabledCheckbox.Checked = true;
             
-            
             ShowDialog();
         }
 
@@ -3103,6 +3133,7 @@ namespace RazorEnhanced
             this.slotContainer.PerformLayout();
             this.propertiesContainer.ResumeLayout(false);
             this.propertiesContainer.PerformLayout();
+            
             this.ResumeLayout(false);
             this.PerformLayout();
 
