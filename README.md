@@ -7,6 +7,8 @@ Lootmaster and SlayerBar
 
 They are the ones that would benefit most people.
 
+If you have feature requests to any of my scripts or you find a bug, please report them as issues, adding an appropriate Label would be helpful
+
 ## Lootmaster
 
 This is an autolooter that uses a set of rules, each rule has it's own settings, and each characters has his or hers own ruleset
