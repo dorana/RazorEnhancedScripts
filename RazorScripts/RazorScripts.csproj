@@ -48,12 +48,9 @@
         <Compile Include="ChestBreaker.cs" />
         <Compile Include="CottonPicker.cs" />
         <Compile Include="Debugger.cs" />
-        <Compile Include="GembagSort.cs" />
-        <Compile Include="GemGrabber.cs" />
         <Compile Include="GuardMe.cs" />
         <Compile Include="HealSelf.cs" />
         <Compile Include="Honoring.cs" />
-        <Compile Include="HorseToTrash.cs" />
         <Compile Include="FindAndUseTool.cs" />
         <Compile Include="Lootmaster.cs" />
         <Compile Include="LootmasterClearCurrentConfig.cs" />
@@ -66,11 +63,8 @@
         <Compile Include="ReleaseAll.cs" />
         <Compile Include="Reloader.cs" />
         <Compile Include="Repeater.cs" />
-        <Compile Include="BookSwapper.cs" />
         <Compile Include="SlayerBar.cs" />
-        <Compile Include="SortFish.cs" />
         <Compile Include="TargetAllOfType.cs" />
-        <Compile Include="TreasureHunter.cs" />
         <Compile Include="LootmasterDirectContainer.cs" />
     </ItemGroup>
     <ItemGroup>

@@ -180,7 +180,6 @@ namespace RazorEnhanced
 
                     if (Misc.ReadSharedValue("Lootmaster:DirectContainer") is int directContainerSerial && directContainerSerial != 0)
                     {
-                        Misc.SendMessage($"{directContainerSerial}");
                         if (directContainerSerial == -1)
                         {
                             continue;
