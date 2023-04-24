@@ -13,7 +13,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static bool Debug = false;
-        private string _version = "v1.0.3";
+        private string _version = "v1.0.4";
         
         private Target _tar = new Target();
         private readonly List<int> _gems = new List<int>();
@@ -22,7 +22,7 @@ namespace RazorEnhanced
         private Journal.JournalEntry _lastEntry = null;
 
         private Mobile _player;
-        private int _lootDelay = 300;
+        private int _lootDelay = 200;
         Journal _journal = new Journal();
         
         public void Run()
@@ -51,40 +51,7 @@ namespace RazorEnhanced
                 UpdateLootMasterGump(Hue.Idle);
                 if (firstRun)
                 {
-                    var welcome = Gumps.CreateGump();
-                    Gumps.AddBackground(ref welcome, 0, 0, 500, 800, -1);
-                    Gumps.AddPage(ref welcome, 0);
-                    Gumps.AddImage(ref welcome, 0, 0, 1596);
-                    Gumps.AddImage(ref welcome, 0, 142, 1597);
-                    Gumps.AddImage(ref welcome, 0, 283, 1598);
-                    Gumps.AddImage(ref welcome, 0, 425, 1599);
-                    Gumps.AddHtml(ref welcome, 0, 60, 400, 20, "<center><h1>Welcome to Lootmaster</h1></center>", false, false);
-                    Gumps.AddLabel(ref welcome, 30, 90, 0, "It seems this is your first time starting lootmaster.");
-                    Gumps.AddLabel(ref welcome, 30, 105, 0, "First off, let me say THANK YOU");
-                    Gumps.AddLabel(ref welcome, 30, 120, 0, "for deciding to use my script.");
-                    Gumps.AddLabel(ref welcome, 30, 150, 0, "Lootmaster is an Autolooter designed to simplify");
-                    Gumps.AddLabel(ref welcome, 30, 165, 0, "the looting process in Ultima Online.");
-                    Gumps.AddLabel(ref welcome, 30, 195, 0, "It does so by using a set of User Defined Rules");
-                    Gumps.AddLabel(ref welcome, 30, 210, 0, "That you can access from the Configurator");
-                    Gumps.AddLabel(ref welcome, 30, 240, 0, "In order to access the Options of Lootmaster");
-                    Gumps.AddLabel(ref welcome, 30, 255, 0, "press the blue gem in the Lootmaster status window");
-                    Gumps.AddLabel(ref welcome, 30, 270, 0, "This will open the Options Menu");
-                    Gumps.AddLabel(ref welcome, 30, 300, 0, "Since this is your first time using Lootmaster");
-                    Gumps.AddLabel(ref welcome, 30, 315, 0, "I recommend that you start by setting up some of the");
-                    Gumps.AddLabel(ref welcome, 30, 330, 0, "Preset rules found in Configurator");
-                    Gumps.AddLabel(ref welcome, 30, 360, 0, "This will give you a good starting point to learn");
-                    Gumps.AddLabel(ref welcome, 30, 375, 0, "How Lootmaster works and how to use it");
-                    Gumps.AddLabel(ref welcome, 30, 405, 0, "If you are new to Ultima Online or do not know");
-                    Gumps.AddLabel(ref welcome, 30, 420, 0, "What items to look for, I suggest you start with");
-                    Gumps.AddLabel(ref welcome, 30, 435, 0, "our Preset Starter Rules for New Players");
-                    Gumps.AddButton(ref welcome, 25, 470, 2152, 2151, 1, 1, 0);
-                    Gumps.AddLabel(ref welcome, 65, 475, 0, "Load Starter Rules for New Players");
-
-
-                    welcome.gumpId = 546165464;
-                    welcome.serial = (uint)Player.Serial;
-                    Gumps.CloseGump(546165464);
-                    Gumps.SendGump(welcome, 700, 500);
+                    ShowWelcomeGump();
                 }
                 
                 _config.ItemLookup[3821] = "Gold Coin";
@@ -254,8 +221,18 @@ namespace RazorEnhanced
                 {
                     return;
                 }
-                
-                Handler.SendMessage(MessageType.Debug, e.ToString());
+
+                if (!Debug)
+                {
+                    Handler.SendMessage(MessageType.Error, "Lootmaster encountered an error, and was forced to shut down");
+                    var logFile = Path.Combine(Engine.RootPath, "Lootmaster.log");
+                    File.AppendAllText(logFile, e.ToString());
+                }
+                else
+                {
+                    Handler.SendMessage(MessageType.Debug, e.ToString());
+                }
+               
                 throw;
             }
         }
@@ -434,6 +411,44 @@ namespace RazorEnhanced
             }
         }
 
+        private void ShowWelcomeGump()
+        {
+            var welcome = Gumps.CreateGump();
+                    Gumps.AddBackground(ref welcome, 0, 0, 500, 800, -1);
+                    Gumps.AddPage(ref welcome, 0);
+                    Gumps.AddImage(ref welcome, 0, 0, 1596);
+                    Gumps.AddImage(ref welcome, 0, 142, 1597);
+                    Gumps.AddImage(ref welcome, 0, 283, 1598);
+                    Gumps.AddImage(ref welcome, 0, 425, 1599);
+                    Gumps.AddHtml(ref welcome, 0, 60, 400, 20, "<center><h1>Welcome to Lootmaster</h1></center>", false, false);
+                    Gumps.AddLabel(ref welcome, 30, 90, 0, "It seems this is your first time starting lootmaster.");
+                    Gumps.AddLabel(ref welcome, 30, 105, 0, "First off, let me say THANK YOU");
+                    Gumps.AddLabel(ref welcome, 30, 120, 0, "for deciding to use my script.");
+                    Gumps.AddLabel(ref welcome, 30, 150, 0, "Lootmaster is an Autolooter designed to simplify");
+                    Gumps.AddLabel(ref welcome, 30, 165, 0, "the looting process in Ultima Online.");
+                    Gumps.AddLabel(ref welcome, 30, 195, 0, "It does so by using a set of User Defined Rules");
+                    Gumps.AddLabel(ref welcome, 30, 210, 0, "That you can access from the Configurator");
+                    Gumps.AddLabel(ref welcome, 30, 240, 0, "In order to access the Options of Lootmaster");
+                    Gumps.AddLabel(ref welcome, 30, 255, 0, "press the blue gem in the Lootmaster status window");
+                    Gumps.AddLabel(ref welcome, 30, 270, 0, "This will open the Options Menu");
+                    Gumps.AddLabel(ref welcome, 30, 300, 0, "Since this is your first time using Lootmaster");
+                    Gumps.AddLabel(ref welcome, 30, 315, 0, "I recommend that you start by setting up some of the");
+                    Gumps.AddLabel(ref welcome, 30, 330, 0, "Preset rules found in Configurator");
+                    Gumps.AddLabel(ref welcome, 30, 360, 0, "This will give you a good starting point to learn");
+                    Gumps.AddLabel(ref welcome, 30, 375, 0, "How Lootmaster works and how to use it");
+                    Gumps.AddLabel(ref welcome, 30, 405, 0, "If you are new to Ultima Online or do not know");
+                    Gumps.AddLabel(ref welcome, 30, 420, 0, "What items to look for, I suggest you start with");
+                    Gumps.AddLabel(ref welcome, 30, 435, 0, "our Preset Starter Rules for New Players");
+                    Gumps.AddButton(ref welcome, 25, 470, 2152, 2151, 1, 1, 0);
+                    Gumps.AddLabel(ref welcome, 65, 475, 0, "Load Starter Rules for New Players");
+
+
+                    welcome.gumpId = 546165464;
+                    welcome.serial = (uint)Player.Serial;
+                    Gumps.CloseGump(546165464);
+                    Gumps.SendGump(welcome, 700, 500);
+        }
+
         private void ShowOptions()
         {
             var options = Gumps.CreateGump();
@@ -542,13 +557,20 @@ namespace RazorEnhanced
             while (sum != 0)
             {
                 sum = Loot(container, rule);
-                Misc.Pause(100);
+                
 
                 if (sum == int.MinValue)
                 {
                     return;
                 }
-
+                if (sum == int.MaxValue)
+                {
+                    Misc.Pause(2000);
+                    return;
+                }
+                
+                Misc.Pause(100);
+                
                 if (DateTimeOffset.Now - timeValidator > TimeSpan.FromSeconds(10))
                 {
                     Handler.SendMessage(MessageType.Error, "Something seems to have locked up, aborting loot cycle");
@@ -643,13 +665,29 @@ namespace RazorEnhanced
                 }
             }
 
+            var overLimit = false;
+            
             foreach (var li in lootItems)
             {
                 var checkItem = Items.FindBySerial(li.Item.Serial);
                 if (checkItem?.Container == container.Serial)
                 {
-                    sum += GrabItem(li.Item, li.Rule);
+                    if (li.Item.Weight + Player.Weight > Player.MaxWeight)
+                    {
+                        overLimit = true;
+                    }
+                    else
+                    {
+                        sum += GrabItem(li.Item, li.Rule);
+                    }
+                    
                 }
+            }
+
+            if (overLimit)
+            {
+                Handler.SendMessage(MessageType.Info, "Maximum weight reached, one or more items were left ont he corpse");
+                return int.MaxValue;
             }
 
             return sum;
