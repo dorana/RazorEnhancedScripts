@@ -74,7 +74,7 @@ namespace Razorscripts
             //Todo, check LRC Value in order to validate if the player might have died and won't have regs, if so check for Spirit Speak Skill to heal
             if (GetRealSkillValue("Magery") > 30)
             {
-                if (GetRealSkillValue("Magery") > 60 && HitsMax - Hits > 30)
+                if (GetRealSkillValue("Magery") > 60 && HitsMax - Hits > 20)
                 {
                     Spells.CastMagery("Greater Heal", USerial);
                 }
