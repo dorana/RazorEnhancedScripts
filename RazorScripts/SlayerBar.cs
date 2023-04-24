@@ -30,6 +30,7 @@ namespace RazorScripts
             SlayerType.EarthElementalSlayer,
             SlayerType.BloodElementalSlayer,
             SlayerType.DemonSlayer,
+            SlayerType.FeySlayer,
         };
         
         private TextInfo _tinfo;
@@ -356,6 +357,7 @@ namespace RazorScripts
             BloodElementalSlayer = 20993,
             DemonSlayer = 2300,
             DragonSlayer = 21010,
+            FeySlayer = 23006,
             UnKnown = 24015
         }
         

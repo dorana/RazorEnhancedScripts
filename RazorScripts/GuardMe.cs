@@ -21,7 +21,7 @@ namespace Razorscripts
                 Mobiles.WaitForProps(mob,1000);
                 var sumProp = mob.Properties.FirstOrDefault(p => p.Number == 1049646);
                 if (sumProp == null || !sumProp.ToString().Contains("summoned")) continue;
-                Misc.WaitForContext(mob, 200);
+                Misc.WaitForContext(mob, 500);
                 Misc.ContextReply(mob, 2);
             }
         }
