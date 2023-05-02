@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
@@ -155,7 +156,7 @@ namespace RazorEnhanced
                         LootRule rule = null;
                         if (Misc.ReadSharedValue("Lootmaster:DirectContainerRule") is string directContainerRule && !string.IsNullOrEmpty(directContainerRule))
                         {
-                            rule = _config.GetCurrentCharacter().Rules.FirstOrDefault(r => r.RuleName == directContainerRule);
+                            rule = _config.GetCharacter().Rules.FirstOrDefault(r => r.RuleName == directContainerRule);
                         }
 
                         LootDirectContainer(directContainerSerial, rule);
@@ -353,7 +354,7 @@ namespace RazorEnhanced
 
         private void ReconfigureBags()
         {
-            foreach (var rule in _config.GetCurrentCharacter().Rules)
+            foreach (var rule in _config.GetCharacter().Rules)
             {
                 var tempBag = rule.GetTargetBag();
                 rule.TargetBag = (tempBag?.Serial == Player.Backpack.Serial || tempBag?.RootContainer == Player.Backpack.Serial) ? tempBag?.Serial : null;
@@ -629,7 +630,7 @@ namespace RazorEnhanced
                     }
                 }
 
-                foreach (var rule in _config.GetCurrentCharacter().Rules.Where(r => !r.Disabled))
+                foreach (var rule in _config.GetCharacter().Rules.Where(r => !r.Disabled))
                 {
                     Handler.SendMessage(MessageType.Debug, $"Checking Rule {rule.RuleName}");
                     if (container.IsCorpse && container.DistanceTo(_player) > 2)
@@ -695,7 +696,7 @@ namespace RazorEnhanced
 
         private bool Setup()
         {
-            var character = _config.GetCurrentCharacter();
+            var character = _config.GetCharacter();
 
             if (character.Rules.Any(r => string.IsNullOrEmpty(r.RuleName)))
             {
@@ -1283,18 +1284,19 @@ namespace RazorEnhanced
         {
             WriteConfig();
         }
-        public LootMasterCharacter GetCurrentCharacter()
+        public LootMasterCharacter GetCharacter(string characterName = null)
         {
-            var character = Characters.FirstOrDefault(c => c.PlayerName.Equals(Player.Name, StringComparison.OrdinalIgnoreCase));
+            var checkname = characterName ?? Player.Name;
+            var character = Characters.FirstOrDefault(c => c.PlayerName.Equals(checkname, StringComparison.OrdinalIgnoreCase));
             if (character == null)
             {
-                Handler.SendMessage(MessageType.Log, $"Creating new character config for {Player.Name}");
+                Handler.SendMessage(MessageType.Log, $"Creating new character config for {checkname}");
                 Characters.Add(new LootMasterCharacter()
                 {
                     PlayerName = Player.Name
                 });
                 
-                character = Characters.FirstOrDefault(c => c.PlayerName.Equals(Player.Name, StringComparison.OrdinalIgnoreCase));
+                character = Characters.FirstOrDefault(c => c.PlayerName.Equals(checkname, StringComparison.OrdinalIgnoreCase));
             }
 
             return character;
@@ -1302,7 +1304,7 @@ namespace RazorEnhanced
 
         public void CreateRule(LootRule rule)
         {
-            var character = GetCurrentCharacter();
+            var character = GetCharacter();
             if (character.Rules.Any(r => r.RuleName.Equals(rule.RuleName, StringComparison.OrdinalIgnoreCase)))
             {
                 return;
@@ -2305,8 +2307,8 @@ namespace RazorEnhanced
                 else
                 {
                     rulesList.Items.Add(rule);
-                    Config.GetCurrentCharacter().Rules.Clear();
-                    Config.GetCurrentCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
+                    Config.GetCharacter().Rules.Clear();
+                    Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
                 }
 
                 _lastSelectedRuleIndex = -1;
@@ -2346,6 +2348,16 @@ namespace RazorEnhanced
             
             LootRule rule = presetDropDown.SelectedItem as LootRule;
             LoadRule(rule);
+        }
+        
+        private void characterDropdown_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var name = characterDropdown.SelectedItem as string;
+            if (!string.IsNullOrEmpty(name))
+            {
+                rulesList.Items.Clear();
+                rulesList.Items.AddRange(Config.GetCharacter(name).Rules.ToArray());
+            }
         }
 
         private void propertiesList_DoubleClick(object sender, EventArgs e)
@@ -2435,8 +2447,8 @@ namespace RazorEnhanced
                 rulesList.Items.Remove(selected);
             }
 
-            Config.GetCurrentCharacter().Rules.Clear();
-            Config.GetCurrentCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
+            Config.GetCharacter().Rules.Clear();
+            Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
             ClearConfig();
         }
 
@@ -2449,9 +2461,60 @@ namespace RazorEnhanced
             }
             
             
-            Config.GetCurrentCharacter().Rules.Clear();
-            Config.GetCurrentCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
+            Config.GetCharacter().Rules.Clear();
+            Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
             Config.Save();
+        }
+
+        private void exportCharacterButton_Click(object sender, EventArgs e)
+        {
+            var name = characterDropdown.SelectedItem as string;
+            if (!string.IsNullOrEmpty(name))
+            {
+                var character = Config.GetCharacter(name);
+                var ns = Assembly.LoadFile(Path.Combine(Engine.RootPath, "Newtonsoft.Json.dll"));
+                string data = "";
+                foreach(Type type in ns.GetExportedTypes())
+                {
+                    if (type.Name == "JsonConvert")
+                    {
+                        data = type.InvokeMember("SerializeObject", BindingFlags.InvokeMethod, null, null, new object[] { character }) as string;
+                    }
+                    
+                }
+                var plainTextBytes = Encoding.UTF8.GetBytes(data);
+                var enc = Convert.ToBase64String(plainTextBytes);
+                var impexp = new ImpExp();
+                impexp.textField.ReadOnly = true;
+                impexp.importButton.Enabled = false;
+                impexp.textField.Text = enc;
+                impexp.ShowDialog();
+            }
+        }
+        
+        private void importCharacterButton_Click(object sender, EventArgs e)
+        {
+            var name = characterDropdown.SelectedItem as string;
+            if (!string.IsNullOrEmpty(name))
+            {
+                
+                var impexp = new ImpExp();
+                impexp.textField.ReadOnly = false;
+                impexp.importButton.Enabled = true;
+                impexp.ShowDialog();
+
+                if (impexp.DecodedCharacter != null)
+                {
+                    Misc.SendMessage("Replacing Character");
+                    impexp.DecodedCharacter.PlayerName = name;
+                    //Delete the selected character
+                    Config.Characters.Remove(Config.Characters.First(c => c.PlayerName == name));
+                    Config.Characters.Add(impexp.DecodedCharacter);
+                    Config.Save();
+                    rulesList.Items.Clear();
+                    rulesList.Items.AddRange(Config.GetCharacter(name).Rules.ToArray());
+                }
+            }
         }
 
         private void moveUpSelectedRuleMenuItem_Click(object sender, EventArgs e)
@@ -2473,8 +2536,8 @@ namespace RazorEnhanced
                     rulesList.SelectedIndex = index - 1;
                 
                     _lastSelectedRuleIndex = index - 1;
-                    Config.GetCurrentCharacter().Rules.Clear();
-                    Config.GetCurrentCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
+                    Config.GetCharacter().Rules.Clear();
+                    Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
                     Config.Save();
                 }
             }
@@ -2495,8 +2558,8 @@ namespace RazorEnhanced
                 rulesList.Items.Insert(index + 1, rule);
                 rulesList.SelectedIndex = index + 1;
                 _lastSelectedRuleIndex = index + 1;
-                Config.GetCurrentCharacter().Rules.Clear();
-                Config.GetCurrentCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
+                Config.GetCharacter().Rules.Clear();
+                Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
                 Config.Save();
             }
         }
@@ -2505,8 +2568,14 @@ namespace RazorEnhanced
         {
             
             Config = config;
+            
+            characterDropdown.Items.Clear();
+            characterDropdown.Items.AddRange(Config.Characters.Select(c => c.PlayerName).OrderBy(n => n).ToArray());
+            characterDropdown.SelectedIndex = characterDropdown.Items.IndexOf(Player.Name);
+            
+            
             rulesList.Items.Clear();
-            rulesList.Items.AddRange(Config.GetCurrentCharacter().Rules.ToArray());
+            rulesList.Items.AddRange(Config.GetCharacter((string)characterDropdown.SelectedValue).Rules.ToArray());
             colorCorpseCheckbox.Checked = Config.ColorCorpses;
             
             Rarities.Add(new DropDownItem
@@ -2646,7 +2715,6 @@ namespace RazorEnhanced
             propertyDropDown.SelectedIndex = 0;
             presetDropDown.SelectedIndex = 0;
             
-            nameLabel.Text = Player.Name;
             enabledCheckbox.Checked = true;
             
             ShowDialog();
@@ -2655,50 +2723,52 @@ namespace RazorEnhanced
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            colorCorpseCheckbox = new System.Windows.Forms.CheckBox();
-            this.nameLabel = new Label();
+            colorCorpseCheckbox = new CheckBox();
+            characterDropdown = new ComboBox();
+            exportCharacterButton = new Button();
+            importCharacterButton = new Button();
             this.listContainer = new GroupBox();
-            this.rulesList = new System.Windows.Forms.ListBox();
-            this.ruleUpButton = new System.Windows.Forms.Button();
-            this.ruleDownButton = new System.Windows.Forms.Button();
-            this.addButton = new System.Windows.Forms.Button();
-            this.deleteButton = new System.Windows.Forms.Button();
-            this.clearTargetBagButton = new System.Windows.Forms.Button();
-            this.saveButton = new System.Windows.Forms.Button();
-            this.ruleContainer = new System.Windows.Forms.GroupBox();
-            this.presetDropDown = new System.Windows.Forms.ComboBox();
-            this.label1 = new System.Windows.Forms.Label();
-            this.label2 = new System.Windows.Forms.Label();
-            this.ruleNameTextBox = new System.Windows.Forms.TextBox();
-            this.rarityDropDown = new System.Windows.Forms.ComboBox();
-            this.label3 = new System.Windows.Forms.Label();
-            this.slotDropDown = new System.Windows.Forms.ComboBox();
-            this.weightCurseCheckbox = new System.Windows.Forms.CheckBox();
-            this.alertCheckbox = new System.Windows.Forms.CheckBox();
-            this.enabledCheckbox = new System.Windows.Forms.CheckBox();
-            this.settingContainer = new System.Windows.Forms.GroupBox();
-            this.itemNameContainer = new System.Windows.Forms.GroupBox();
-            this.slotContainer = new System.Windows.Forms.GroupBox();
-            this.propertiesContainer = new System.Windows.Forms.GroupBox();
-            this.idAddButton = new System.Windows.Forms.Button();
-            this.itemIdAddTextBox = new System.Windows.Forms.TextBox();
-            this.itemNamesList = new System.Windows.Forms.ListBox();
-            this.eqipmentSlotList = new System.Windows.Forms.ListBox();
-            this.propertiesList = new System.Windows.Forms.ListBox();
-            this.propertyDropDown = new System.Windows.Forms.ComboBox();
-            this.addPropButton = new System.Windows.Forms.Button();
-            this.propertyValueTextBox = new System.Windows.Forms.TextBox();
-            this.label5 = new System.Windows.Forms.Label();
-            this.nameDropDownMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.slotDropDownMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.propertyDropDownMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.ruleDropDownMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.deleteSelectedNameMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.deleteSelectedSlotMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.deleteSelectedPropertyMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.deleteSelectedRuleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.moveUpSelectedRuleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.moveDownSelectedRuleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.rulesList = new ListBox();
+            this.ruleUpButton = new Button();
+            this.ruleDownButton = new Button();
+            this.addButton = new Button();
+            this.deleteButton = new Button();
+            this.clearTargetBagButton = new Button();
+            this.saveButton = new Button();
+            this.ruleContainer = new GroupBox();
+            this.presetDropDown = new ComboBox();
+            this.label1 = new Label();
+            this.label2 = new Label();
+            this.ruleNameTextBox = new TextBox();
+            this.rarityDropDown = new ComboBox();
+            this.label3 = new Label();
+            this.slotDropDown = new ComboBox();
+            this.weightCurseCheckbox = new CheckBox();
+            this.alertCheckbox = new CheckBox();
+            this.enabledCheckbox = new CheckBox();
+            this.settingContainer = new GroupBox();
+            this.itemNameContainer = new GroupBox();
+            this.slotContainer = new GroupBox();
+            this.propertiesContainer = new GroupBox();
+            this.idAddButton = new Button();
+            this.itemIdAddTextBox = new TextBox();
+            this.itemNamesList = new ListBox();
+            this.eqipmentSlotList = new ListBox();
+            this.propertiesList = new ListBox();
+            this.propertyDropDown = new ComboBox();
+            this.addPropButton = new Button();
+            this.propertyValueTextBox = new TextBox();
+            this.label5 = new Label();
+            this.nameDropDownMenu = new ContextMenuStrip(this.components);
+            this.slotDropDownMenu = new ContextMenuStrip(this.components);
+            this.propertyDropDownMenu = new ContextMenuStrip(this.components);
+            this.ruleDropDownMenu = new ContextMenuStrip(this.components);
+            this.deleteSelectedNameMenuItem = new ToolStripMenuItem();
+            this.deleteSelectedSlotMenuItem = new ToolStripMenuItem();
+            this.deleteSelectedPropertyMenuItem = new ToolStripMenuItem();
+            this.deleteSelectedRuleMenuItem = new ToolStripMenuItem();
+            this.moveUpSelectedRuleMenuItem = new ToolStripMenuItem();
+            this.moveDownSelectedRuleMenuItem = new ToolStripMenuItem();
             slotDropDown = new ComboBox();
             slotAddButton = new Button();
             
@@ -2711,19 +2781,19 @@ namespace RazorEnhanced
             this.propertiesContainer.SuspendLayout();
             this.SuspendLayout();
             // 
-            // nameLabel
+            // characterDropDown
             // 
-            this.nameLabel.AutoSize = true;
-            this.nameLabel.Location = new System.Drawing.Point(12, 9);
-            this.nameLabel.Name = "nameLabel";
-            this.nameLabel.Size = new System.Drawing.Size(68, 15);
-            this.nameLabel.TabIndex = 0;
-            this.nameLabel.Text = "Player Name";
+            this.characterDropdown.FormattingEnabled = true;
+            this.characterDropdown.Location = new System.Drawing.Point(20, 9);
+            this.characterDropdown.Name = "characterDropdown";
+            this.characterDropdown.Size = new System.Drawing.Size(160, 24);
+            this.characterDropdown.TabIndex = 0;
+            this.characterDropdown.SelectedIndexChanged += new System.EventHandler(this.characterDropdown_SelectedIndexChanged);
             // 
             // colorCorpseCheckbox
             // 
             this.colorCorpseCheckbox.AutoSize = true;
-            this.colorCorpseCheckbox.Location = new System.Drawing.Point(250, 9);
+            this.colorCorpseCheckbox.Location = new System.Drawing.Point(550, 9);
             this.colorCorpseCheckbox.Name = "colorCorpseCheckbox";
             this.colorCorpseCheckbox.Size = new System.Drawing.Size(150, 18);
             this.colorCorpseCheckbox.TabIndex = 0;
@@ -2755,6 +2825,26 @@ namespace RazorEnhanced
             this.rulesList.TabIndex = 0;
             this.rulesList.SelectedIndexChanged += new System.EventHandler(this.rulesList_SelectedIndexChanged);
             rulesList.DisplayMember = "RuleName";
+            // 
+            // ruleUpButton
+            // 
+            this.exportCharacterButton.Location = new System.Drawing.Point(200, 9);
+            this.exportCharacterButton.Name = "exportCharacterButton";
+            this.exportCharacterButton.Size = new System.Drawing.Size(85, 25);
+            this.exportCharacterButton.TabIndex = 0;
+            this.exportCharacterButton.Text = "Export";
+            this.exportCharacterButton.UseVisualStyleBackColor = true;
+            this.exportCharacterButton.Click += new System.EventHandler(exportCharacterButton_Click);
+            // 
+            // ruleUpButton
+            // 
+            this.importCharacterButton.Location = new System.Drawing.Point(315, 9);
+            this.importCharacterButton.Name = "importCharacterButton";
+            this.importCharacterButton.Size = new System.Drawing.Size(85, 25);
+            this.importCharacterButton.TabIndex = 0;
+            this.importCharacterButton.Text = "Import";
+            this.importCharacterButton.UseVisualStyleBackColor = true;
+            this.importCharacterButton.Click += new System.EventHandler(importCharacterButton_Click);
             // 
             // ruleUpButton
             // 
@@ -3059,28 +3149,28 @@ namespace RazorEnhanced
             // 
             // nameDropDownMenu
             // 
-            this.nameDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.nameDropDownMenu.Items.AddRange(new ToolStripItem[] {
             this.deleteSelectedNameMenuItem});
             this.nameDropDownMenu.Name = "nameDropDownMenu";
             this.nameDropDownMenu.Size = new System.Drawing.Size(181, 48);
             // 
             // idDropDownMenu
             // 
-            this.slotDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.slotDropDownMenu.Items.AddRange(new ToolStripItem[] {
             this.deleteSelectedSlotMenuItem});
             this.slotDropDownMenu.Name = "slotDropDownMenu";
             this.slotDropDownMenu.Size = new System.Drawing.Size(155, 26);
             // 
             // propertyDropDownMenu
             // 
-            this.propertyDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.propertyDropDownMenu.Items.AddRange(new ToolStripItem[] {
             this.deleteSelectedPropertyMenuItem});
             this.propertyDropDownMenu.Name = "propertyDropDownMenu";
             this.propertyDropDownMenu.Size = new System.Drawing.Size(155, 26);
             // 
             // propertyDropDownMenu
             // 
-            this.ruleDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {moveUpSelectedRuleMenuItem,
+            this.ruleDropDownMenu.Items.AddRange(new ToolStripItem[] {moveUpSelectedRuleMenuItem,
                 moveDownSelectedRuleMenuItem,
                 deleteSelectedRuleMenuItem});
             this.ruleDropDownMenu.Name = "propertyDropDownMenu";
@@ -3155,7 +3245,9 @@ namespace RazorEnhanced
             this.ClientSize = new System.Drawing.Size(855, 605);
             this.Controls.Add(this.ruleContainer);
             this.Controls.Add(this.listContainer);
-            this.Controls.Add(this.nameLabel);
+            this.Controls.Add(this.characterDropdown);
+            this.Controls.Add(this.exportCharacterButton);
+            this.Controls.Add(this.importCharacterButton);
             this.Controls.Add(this.colorCorpseCheckbox);
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -3180,7 +3272,9 @@ namespace RazorEnhanced
         }
 
         private CheckBox colorCorpseCheckbox;
-        private Label nameLabel;
+        private ComboBox characterDropdown;
+        private Button exportCharacterButton;
+        private Button importCharacterButton;
         private GroupBox listContainer;
         private ListBox rulesList;
         private Button ruleUpButton;
@@ -3236,6 +3330,81 @@ namespace RazorEnhanced
                 components.Dispose();
             }
             base.Dispose(disposing);
+        }
+    }
+
+    public class ImpExp : Form
+    {
+        public TextBox textField;
+        public Button importButton;
+        public LootMasterCharacter DecodedCharacter;
+
+        public ImpExp()
+        {
+            InitializeComponent();
+        }
+        
+        void InitializeComponent()
+        {
+            this.SuspendLayout();
+            
+            textField = new TextBox();
+            importButton = new Button();
+
+
+            this.Size = new System.Drawing.Size(400, 400);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            
+            textField.Multiline = true;
+            textField.Location = new System.Drawing.Point(0, 0);
+            textField.Size = new System.Drawing.Size(380, 300);
+            
+            importButton.Location = new System.Drawing.Point(0, 310);
+            importButton.Size = new System.Drawing.Size(380, 45);
+            importButton.Text = "Import Character Config";
+            importButton.Click += new System.EventHandler(Decode);
+            
+            this.Controls.Add(this.textField);
+            this.Controls.Add(this.importButton);
+            this.Text = "Import Export";
+            
+            this.ResumeLayout(false);
+            this.PerformLayout();
+            
+        }
+
+        private void Decode(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(textField.Text))
+                {
+                    var plainTextBytes = Convert.FromBase64String(textField.Text);
+                    var plainText = Encoding.UTF8.GetString(plainTextBytes);
+                    
+                    LootMasterCharacter readConfig = null;
+                    var ns = Assembly.LoadFile(Path.Combine(Engine.RootPath, "Newtonsoft.Json.dll"));
+                    foreach (Type type in ns.GetExportedTypes())
+                    {
+                        if (type.Name == "JsonConvert")
+                        {
+                            var funcs = type.GetMethods(BindingFlags.InvokeMethod | BindingFlags.Static | BindingFlags.Public).Where(f => f.Name == "DeserializeObject" && f.IsGenericMethodDefinition);
+                            var func = funcs.FirstOrDefault(f => f.Name == "DeserializeObject" && f.GetParameters().Length == 1 && f.GetParameters()[0].ParameterType == typeof(string))
+                                .MakeGenericMethod(typeof(LootMasterCharacter));
+                            readConfig = func.Invoke(type, BindingFlags.InvokeMethod, null, new object[] { plainText }, null) as LootMasterCharacter;
+                        }
+                    }
+                    
+                    DecodedCharacter = readConfig;
+                }
+                
+                this.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Invalid Config String");
+            }
+            
         }
     }
 
