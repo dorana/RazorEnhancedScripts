@@ -803,6 +803,8 @@ namespace RazorEnhanced
 
         public int? TargetBag { get; set; }
         
+        public int? PropertyMatchRequirement { get; set; }
+        
         public Item GetTargetBag() => Items.FindBySerial(TargetBag ?? -1);
 
         public static LootRule Gold =>
@@ -1250,7 +1252,8 @@ namespace RazorEnhanced
                 Handler.SendMessage(MessageType.Debug, $"{keyValuePair.Key} = {keyValuePair.Value}");
             }
 
-            return ruleDict.All(p => p.Value);
+            //atleast PropertyMatchRequirement properties must match if PropertyMatchRequirement is null assume All must match
+            return PropertyMatchRequirement == null ? ruleDict.All(p => p.Value) : ruleDict.Count(p => p.Value) >= PropertyMatchRequirement;
         }
     }
 
