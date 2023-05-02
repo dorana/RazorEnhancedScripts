@@ -1460,8 +1460,8 @@ namespace RazorEnhanced
         ReactiveCurse = 9,
         ReactiveLightning = 10,
         ReactiveManaDrain = 11,
-        LowerAttackChance = 12,
-        LowerDefendChance = 13,
+        HitLowerAttack = 12,
+        HitLowerDefense = 13,
         ReflectPhysicalDamage = 14,
         EnhanceDamage = 15,
         EnhanceDefense = 16,
@@ -1485,7 +1485,7 @@ namespace RazorEnhanced
         FireDamage = 34,
         PoisonDamage = 35,
         EnergyDamage = 36,
-        CasterFocus = 37,
+        CastingFocus = 37,
         HitMagicArrow = 38,
         HitHarm = 39,
         HitFireball = 40,
@@ -1545,11 +1545,11 @@ namespace RazorEnhanced
         EvalInt = 116,
         Healing = 117,
         Fishing = 118,
-        Forensics = 119,
+        ForensicEvaluation = 119,
         Herding = 120,
         Hiding = 121,
         Provocation = 122,
-        Inscribe = 123,
+        Inscription = 123,
         Lockpicking = 124,
         Magery = 125,
         MagicResist = 126,
@@ -1669,10 +1669,10 @@ namespace RazorEnhanced
                     return "Reactive Lightning";
                 case ItemProperty.ReactiveManaDrain:
                     return "Reactive Mana Drain";
-                case ItemProperty.LowerAttackChance:
-                    return "Lower Attack Chance";
-                case ItemProperty.LowerDefendChance:
-                    return "Lower Defend Chance";
+                case ItemProperty.HitLowerAttack:
+                    return "Hit Lower Attack";
+                case ItemProperty.HitLowerDefense:
+                    return "Hit Lower Defense";
                 case ItemProperty.ReflectPhysicalDamage:
                     return "Reflect Physical Damage";
                 case ItemProperty.EnhanceDamage:
@@ -1719,8 +1719,8 @@ namespace RazorEnhanced
                     return "Poison Damage";
                 case ItemProperty.EnergyDamage:
                     return "Energy Damage";
-                case ItemProperty.CasterFocus:
-                    return "Caster Focus";
+                case ItemProperty.CastingFocus:
+                    return "Casting Focus";
                 case ItemProperty.HitColdArea:
                     return "Hit Cold Area";
                 case ItemProperty.HitFireArea:
@@ -1844,16 +1844,16 @@ namespace RazorEnhanced
                     return "Healing";
                 case ItemProperty.Fishing:
                     return "Fishing";
-                case ItemProperty.Forensics:
-                    return "Forensics";
+                case ItemProperty.ForensicEvaluation:
+                    return "Forensic Evaluation";
                 case ItemProperty.Herding:
                     return "Herding";
                 case ItemProperty.Hiding:
                     return "Hiding";
                 case ItemProperty.Provocation:
                     return "Provocation";
-                case ItemProperty.Inscribe:
-                    return "Inscribe";
+                case ItemProperty.Inscription:
+                    return "Inscription";
                 case ItemProperty.Lockpicking:
                     return "Lockpicking";
                 case ItemProperty.Magery:
@@ -2637,7 +2637,7 @@ namespace RazorEnhanced
                                                  || x == ItemProperty.LowerReagentCost
                                                  || x == ItemProperty.FasterCasting
                                                  || x == ItemProperty.FasterCastRecovery
-                                                 || x == ItemProperty.CasterFocus
+                                                 || x == ItemProperty.CastingFocus
                                                  ).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
