@@ -3400,7 +3400,7 @@ namespace RazorEnhanced
                 
                 this.Close();
             }
-            catch (Exception ex)
+            catch
             {
                 MessageBox.Show("Invalid Config String");
             }
