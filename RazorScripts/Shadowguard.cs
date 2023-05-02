@@ -95,9 +95,10 @@ namespace RazorScripts
             {ShadowGuardRoom.Bar, false},
             {ShadowGuardRoom.Orchard, false},
             {ShadowGuardRoom.Armory, false},
-            {ShadowGuardRoom.Bellfry, false},
+            {ShadowGuardRoom.Belfry, false},
             {ShadowGuardRoom.Fountain, false},
             {ShadowGuardRoom.Lobby, false},
+            {ShadowGuardRoom.Roof, false},
         };
         public void Run()
         {
@@ -125,7 +126,6 @@ namespace RazorScripts
             //Building Path
             var currentPos = new TriPoint(start.X, start.Y, start.Z);
             var currentEntrypoint = originalEnterypoint;
-
             while (currentPos.X != end.X || currentPos.Y != end.Y)
             {
                 //Build a diagonal ZigZag until we hit X or Y of end, then Build straight till you hit end
@@ -227,6 +227,9 @@ namespace RazorScripts
                     }
                 }
             }
+            
+            //Check if we have duplicate blocks with the main (_puzzlePathLocations)
+
         }
 
         private void BuildBlock(int pathId, int itemId, TriPoint currentPos)
@@ -247,19 +250,28 @@ namespace RazorScripts
                 case ShadowGuardRoom.Armory:
                     HandleArmory();
                     break;
-                case ShadowGuardRoom.Bellfry:
-                    HandleBellfry();
+                case ShadowGuardRoom.Belfry:
+                    HandleBelfry();
                     break;
                 case ShadowGuardRoom.Fountain:
                     HandleFountain();
                     break;
                 case ShadowGuardRoom.Lobby:
-                    return;
+                    HandleLobby();
+                    break;
+                default:
+                    
+                    break;
             }
         }
 
         private bool IsInRightPos(Item check)
         {
+            if (!_canalPieces.Contains(check.ItemID))
+            {
+                return true;
+            }
+            
             foreach (var pair in _puzzlePathLocations)
             {
                 var points = pair.Value[check.ItemID];
@@ -282,7 +294,7 @@ namespace RazorScripts
                 _puzzlePathLocations.Add(i, GetTemplate());
             }
             
-            Misc.SendMessage("Entering Fountain");
+            Player.HeadMessage(180, "Entering Fountain");
             var running = true;
             //Find the 4 spiggots
             var spigots = new List<Item>();
@@ -384,9 +396,6 @@ namespace RazorScripts
             Player.HeadMessage(150, "Path Plotted");
             UpdateFountainGump(positions);
 
-            
-            
-            
             while (running)
             {
                 if (!ProcessFountain)
@@ -514,9 +523,12 @@ namespace RazorScripts
                 }
 
                 UpdateFountainGump(positions, true);
-                running = GetCurrentRoom() == ShadowGuardRoom.Fountain;
+                if (!StillInRoom(ShadowGuardRoom.Fountain))
+                {
+                    break;
+                }
             }
-            
+            Misc.Pause(1000);
             Gumps.CloseGump(456426886);
         }
 
@@ -561,12 +573,29 @@ namespace RazorScripts
             Gumps.SendGump(fg, 15,30);
         }
 
-        private void HandleBellfry()
+        private void HandleLobby()
         {
+            Player.HeadMessage(180, "Entering Lobby");
+            while (true)
+            {
+                Misc.Pause(5000);
+                if (!StillInRoom(ShadowGuardRoom.Lobby))
+                {
+                    break;
+                }
+            }
+        }
+
+        private void HandleBelfry()
+        {
+            Player.HeadMessage(180, "Entering Belfry");
             var running = true;
             while (running)
             {
-                running = GetCurrentRoom() == ShadowGuardRoom.Bellfry;
+                if (!StillInRoom(ShadowGuardRoom.Belfry))
+                {
+                    break;
+                }
                 Misc.Pause(5000);
             }
         }
@@ -665,11 +694,25 @@ namespace RazorScripts
                     }
                 }
 
-                running = GetCurrentRoom() == ShadowGuardRoom.Armory;
+                if (!StillInRoom(ShadowGuardRoom.Armory))
+                {
+                    break;
+                }
 
                 Items.WaitForProps(Player.Backpack.Serial, 1000);
                 Misc.Pause(50);
             }
+        }
+
+        private bool StillInRoom(ShadowGuardRoom room)
+        {
+            var found = GetCurrentRoom();
+            if (found == ShadowGuardRoom.Unknown)
+            {
+                return true;
+            }
+
+            return found == room;
         }
         
         private TriPoint GetCords(string value)
@@ -681,7 +724,7 @@ namespace RazorScripts
         {
             var trees = new Dictionary<string, Item>();  
             var checkedTrees = new List<int>();
-            Misc.SendMessage("Entering Orchard");
+            Player.HeadMessage(180, "Entering Orchard");
             var running = true;
             while (running)
             {
@@ -737,12 +780,11 @@ namespace RazorScripts
                         Player.HeadMessage(1100, "Failed to find apple!");
                     }
                 }
-                else
-                {
-                    Player.HeadMessage(1100, "...");
-                }
                 
-                running = GetCurrentRoom() == ShadowGuardRoom.Orchard;
+                if (!StillInRoom(ShadowGuardRoom.Orchard))
+                {
+                    break;
+                }
                 Misc.Pause(50);
             }
         }
@@ -751,7 +793,7 @@ namespace RazorScripts
 
         private void HandleBar()
         {
-            //Find Bottles
+            Player.HeadMessage(180, "Entering Bar");
             var running = true;
             while (running)
             {
@@ -828,7 +870,10 @@ namespace RazorScripts
 
                 Misc.Pause(200);
 
-                running = GetCurrentRoom() == ShadowGuardRoom.Bar;
+                if (!StillInRoom(ShadowGuardRoom.Bar))
+                {
+                    break;
+                }
             }
             
             
@@ -917,10 +962,10 @@ namespace RazorScripts
                             return ShadowGuardRoom.Armory;
                         }
                         break;
-                    case ShadowGuardRoom.Bellfry:
-                        if (IsBellfry())
+                    case ShadowGuardRoom.Belfry:
+                        if (IsBelfry())
                         {
-                            return ShadowGuardRoom.Bellfry;
+                            return ShadowGuardRoom.Belfry;
                         }
                         break;
                     case ShadowGuardRoom.Lobby:
@@ -930,18 +975,23 @@ namespace RazorScripts
                         }
                         break;
                     case ShadowGuardRoom.Fountain:
-                        //Check if we're at the fountain
+                        if (IsFountain())
+                        {
+                            return ShadowGuardRoom.Fountain;
+                        }
                         break;
                 }
             }
 
-            return ShadowGuardRoom.Fountain;
+            return ShadowGuardRoom.Unknown;
         }
         
         private bool IsOrchard()
         {
             var itemsInRoom = Items.ApplyFilter(new Items.Filter
             {
+                RangeMax = 20,
+                RangeMin = 0,
                 Graphics = new List<int>
                 {
                     0x0D01,
@@ -958,7 +1008,7 @@ namespace RazorScripts
             return itemsInRoom.Any(i => i.Name.Equals("Purifying Flames", System.StringComparison.InvariantCultureIgnoreCase));
         }
         
-        private bool IsBellfry()
+        private bool IsBelfry()
         {
             var items = Items.ApplyFilter(new Items.Filter
             {
@@ -971,7 +1021,12 @@ namespace RazorScripts
         
         private bool IsFountain()
         {
-            return false;
+            return Items.ApplyFilter(new Items.Filter
+            {
+                RangeMin = 0,
+                RangeMax = 12,
+                OnGround = 1
+            }).Where(i => i.Name.ToLower().Contains("spigot")).ToList().Any();
         }
 
         private bool IsLobby()
@@ -991,9 +1046,11 @@ namespace RazorScripts
         Bar = 0,
         Orchard = 1,
         Armory = 2,
-        Bellfry = 3,
+        Belfry = 3,
         Fountain = 4,
-        Lobby = 5 
+        Lobby = 5, 
+        Roof = 6,
+        Unknown = 7
     }
 
     internal class TriPoint
