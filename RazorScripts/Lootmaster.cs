@@ -14,7 +14,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static bool Debug = false;
-        private string _version = "v1.0.4";
+        private string _version = "v1.0.5";
         
         private Target _tar = new Target();
         private readonly List<int> _gems = new List<int>();
