@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -8,99 +7,91 @@ using RazorEnhanced;
 
 namespace RazorScripts
 {
-    [SuppressMessage("ReSharper", "ConditionIsAlwaysTrueOrFalse")]
-    public class SlayerBar
+    public class WeaponMaster
     {
-        private Item _SlayerBag { get; set; }
-        private readonly List<SlayerItem> _slayerItems = new List<SlayerItem>();
+        private Item _weaponContainer { get; set; }
+        private readonly List<Weapon> _slayerWeapons = new List<Weapon>();
+        private readonly List<Weapon> _areaWeapons = new List<Weapon>();
+        private readonly List<Weapon> _extras = new List<Weapon>();
         private BaseSkill _skill;
         private static string _version = "1.0.1";
-        private int _nonSlayerSerial = -1;
 
-        private Func<Item, bool> _searchFilter;
-        private readonly List<SlayerType> _slayerList = new List<SlayerType>
+        private Func<Item, bool> _slayerSearchFilter;
+        private Func<Item, bool> _areaSearchFilter;
+        private readonly List<WeaponIcon> _slayerList = new List<WeaponIcon>
         {
-            SlayerType.None,
-            SlayerType.RepondSlayer,
-            SlayerType.UndeadSlayer,
-            SlayerType.ReptileSlayer,
-            SlayerType.DragonSlayer,
-            SlayerType.ArachnidSlayer,
-            SlayerType.ElementalSlayer,
-            SlayerType.AirElementalSlayer,
-            SlayerType.FireElementalSlayer,
-            SlayerType.WaterElementalSlayer,
-            SlayerType.EarthElementalSlayer,
-            SlayerType.BloodElementalSlayer,
-            SlayerType.DemonSlayer,
-            SlayerType.FeySlayer,
+            WeaponIcon.None,
+            WeaponIcon.RepondSlayer,
+            WeaponIcon.UndeadSlayer,
+            WeaponIcon.ReptileSlayer,
+            WeaponIcon.DragonSlayer,
+            WeaponIcon.ArachnidSlayer,
+            WeaponIcon.ElementalSlayer,
+            WeaponIcon.AirElementalSlayer,
+            WeaponIcon.FireElementalSlayer,
+            WeaponIcon.WaterElementalSlayer,
+            WeaponIcon.EarthElementalSlayer,
+            WeaponIcon.BloodElementalSlayer,
+            WeaponIcon.DemonSlayer,
+            WeaponIcon.FeySlayer,
         };
         
         private TextInfo _tinfo;
 
         public void Run()
         {
-            try
+            _tinfo = CultureInfo.CurrentCulture.TextInfo;
+            _skill = TryFindSkill();
+            
+            if (_skill == BaseSkill.Magery)
             {
-                _tinfo = CultureInfo.CurrentCulture.TextInfo;
-                _skill = TryFindSkill();
-
-                if (_skill == BaseSkill.Magery)
-                {
-                    _searchFilter = i => IsSpellBook(i)
-                                         && (i.Properties.Any(p => p.ToString().ToLower().Contains("slayer"))
-                                             || i.Properties.Any(p => p.ToString().ToLower().Contains("silver")));
-                }
-                else
-                {
-                    _searchFilter = i => (i.Properties.Any(p => p.ToString().ToLower().Contains("slayer"))
-                                          || i.Properties.Any(p => p.ToString().ToLower().Contains("silver")))
-                                         && i.Properties.Any(p => p.ToString().ToLower().Contains(_tinfo.ToTitleCase(_skill.ToString()).ToLower()));
-                }
-
-
-                if (TryFindSlayerBag(Player.Backpack))
-                {
-                    SetSlayers(_SlayerBag);
-                }
-                else
-                {
-                    Misc.SendMessage("Unable to find Slayer weapon container, please open the container and try again");
-                    return;
-                }
-
-                UpdateBar();
-
-                while (true)
-                {
-                    var bar = Gumps.GetGumpData(788435749);
-                    if (bar.buttonid != -1 && bar.buttonid != 0)
-                    {
-                        UpdateBar();
-
-                        EquipSlayer(_slayerItems.FirstOrDefault(i => i.Slayer == (SlayerType)bar.buttonid));
-
-                        UpdateBar();
-                    }
-
-
-
-                    Misc.Pause(100);
-                }
+                _slayerSearchFilter = i => IsSpellBook(i)
+                                      && (i.Properties.Any(p => p.ToString().ToLower().Contains("slayer"))
+                                      || i.Properties.Any(p => p.ToString().ToLower().Contains("silver")));
             }
-            catch (Exception e)
+            else
             {
-                Misc.SendMessage(e.ToString());
-                throw;
+                _slayerSearchFilter = i => (i.Properties.Any(p => p.ToString().ToLower().Contains("slayer"))
+                                      || i.Properties.Any(p => p.ToString().ToLower().Contains("silver")))
+                                      && i.Properties.Any(p => p.ToString().ToLower().Contains(_tinfo.ToTitleCase(_skill.ToString()).ToLower()));
             }
+            
+            
+            if (TryFindWeaponBag(Player.Backpack))
+            {
+                SetWeapons(_weaponContainer);
+            }
+            else
+            {
+                Misc.SendMessage("Unable to find Slayer weapon container, please open the container and try again");
+                return;
+            }
+            
+            UpdateBar();
+            
+            while (true)
+            {
+                var bar = Gumps.GetGumpData(788435749);
+                if (bar.buttonid != -1 && bar.buttonid != 0)
+                {
+                    UpdateBar(); 
+                    
+                    EquipSlayer(_slayerWeapons.FirstOrDefault(i => i.Slayer == (WeaponIcon)bar.buttonid));
+                    
+                    UpdateBar(); 
+                }
+                    
+                
 
+                Misc.Pause(100);
+            }
         }
-
-        private void EquipSlayer(SlayerItem book)
+        
+        private void EquipSlayer(Weapon book)
         {
             var held = GetEquippedWeapon();
-            var resolved = _slayerItems.FirstOrDefault(b => b.Serial == held?.Serial);
-            if (_SlayerBag == null)
+            var resolved = _slayerWeapons.FirstOrDefault(b => b.Serial == held?.Serial);
+            if (_weaponContainer == null)
             {
                 Misc.SendMessage("Unable to find book binder");
             }
@@ -115,7 +106,7 @@ namespace RazorScripts
                 var gameEquipped = Items.FindBySerial(resolved.Serial);
                 var index = _slayerList.IndexOf(resolved.Slayer);
                 var offset = index > 5 ? 6 : 0;
-                Items.Move(gameEquipped, _SlayerBag, 1,(index-offset)*20+45, offset == 0 ? 95 : 125);
+                Items.Move(gameEquipped, _weaponContainer, 1,(index-offset)*20+45, offset == 0 ? 95 : 125);
                 Misc.Pause(600);
             }
             else
@@ -135,8 +126,8 @@ namespace RazorScripts
         private int GetActiveBookIndex()
         {
             var held = GetEquippedWeapon();
-            var booksSorted = _slayerItems.OrderBy(b => _slayerList.IndexOf(b.Slayer)).ToList();
-            var resolved = _slayerItems.FirstOrDefault(b => b.Serial == held?.Serial);
+            var booksSorted = _slayerWeapons.OrderBy(b => _slayerList.IndexOf(b.Slayer)).ToList();
+            var resolved = _slayerWeapons.FirstOrDefault(b => b.Serial == held?.Serial);
             if (resolved != null)
             {
                 return booksSorted.IndexOf(resolved);
@@ -154,8 +145,8 @@ namespace RazorScripts
             bar.serial = (uint)Player.Serial;
             bar.x = 500;
             bar.y = 500;
-            Gumps.AddBackground(ref bar, 0, 0, (_slayerItems.Count*60-5), 55, 1755);
-            var slayersSorted = _slayerItems.OrderBy(b => _slayerList.IndexOf(b.Slayer)).ToList();
+            Gumps.AddBackground(ref bar, 0, 0, (_slayerWeapons.Count*60-5), 55, 1755);
+            var slayersSorted = _slayerWeapons.OrderBy(b => _slayerList.IndexOf(b.Slayer)).ToList();
             foreach (var slayerItem in slayersSorted)
             {
                 var index = slayersSorted.IndexOf(slayerItem);
@@ -207,9 +198,9 @@ namespace RazorScripts
             return null;
         }
 
-        private bool TryFindSlayerBag(Item container)
+        private bool TryFindWeaponBag(Item container)
         {
-            if (_SlayerBag != null)
+            if (_weaponContainer != null)
             {
                 return true;
             }
@@ -228,7 +219,7 @@ namespace RazorScripts
             {
                 Items.WaitForProps(item, 1000);
                 
-                if (_searchFilter(item))
+                if (_slayerSearchFilter(item))
                 {
                     potentials.Add(item);
                 }
@@ -239,13 +230,13 @@ namespace RazorScripts
 
             if (slayersFound > 1)
             {
-                _SlayerBag = container;
+                _weaponContainer = container;
                 return true;
             }
 
             foreach (var subContainer in container.Contains.Where(c => c.IsContainer && !c.IsBagOfSending))
             {
-                var found = TryFindSlayerBag(subContainer);
+                var found = TryFindWeaponBag(subContainer);
                 if (found)
                 {
                     return true;
@@ -260,9 +251,9 @@ namespace RazorScripts
             return item.Name.ToLower().Contains("spellbook") || item.Name.Equals("Scrapper's Compendium", StringComparison.InvariantCultureIgnoreCase);
         }
 
-        private void SetSlayers(Item container)
+        private void SetWeapons(Item container)
         {
-            _slayerItems.Clear();
+            _slayerWeapons.Clear();
             var compoundList = container.Contains.ToList();
             var held = GetEquippedWeapon();
             if (held != null)
@@ -270,55 +261,22 @@ namespace RazorScripts
                 compoundList.Add(held);
             }
             
-            if (_skill == BaseSkill.Magery)
+            foreach (var extra in _extras)
             {
-                if (_nonSlayerSerial != -1)
+                var exAdd = Items.FindBySerial(extra.Serial);
+                if (exAdd != null)
                 {
-                    var nonSlayer = Items.FindBySerial(_nonSlayerSerial);
-                    if (nonSlayer != null)
+                    _slayerWeapons.Add( new Weapon
                     {
-                        _slayerItems.Add( new SlayerItem
-                        {
-                            Name = _tinfo.ToTitleCase(nonSlayer.Name),
-                            Serial = nonSlayer.Serial,
-                            Slayer = SlayerType.None
-                        });
-                    }
-                }
-                else
-                {
-                    var nonSlayer = compoundList.FirstOrDefault(i => i.Name.Equals("Scrapper's Compendium", StringComparison.InvariantCultureIgnoreCase));
-                    if (nonSlayer != null)
-                    {
-                        _slayerItems.Add( new SlayerItem
-                        {
-                            Name = _tinfo.ToTitleCase(nonSlayer.Name),
-                            Serial = nonSlayer.Serial,
-                            Slayer = SlayerType.None
-                        });
-                    }
-                }
-            }
-            else
-            {
-                if (_nonSlayerSerial != -1)
-                {
-                    var nonSlayer = Items.FindBySerial(_nonSlayerSerial);
-                    if (nonSlayer != null)
-                    {
-                        _slayerItems.Add( new SlayerItem
-                        {
-                            Name = _tinfo.ToTitleCase(nonSlayer.Name),
-                            Serial = nonSlayer.Serial,
-                            Slayer = SlayerType.None
-                        });
-                    }
+                        Name = _tinfo.ToTitleCase(exAdd.Name),
+                        Serial = exAdd.Serial,
+                        Slayer = WeaponIcon.None
+                    });
                 }
             }
             
-            foreach (var item in compoundList.Where(_searchFilter))
+            foreach (var item in compoundList.Where(_slayerSearchFilter))
             {
-                Items.WaitForProps(item,1000);
                 var prop = item.Properties.FirstOrDefault(p => p.ToString().Contains("slayer")) ?? item.Properties.FirstOrDefault(p => p.Number == 1071451);
                 var slayerString = prop.ToString().ToLower();
                 if (slayerString == "silver")
@@ -328,11 +286,11 @@ namespace RazorScripts
                 
                 
                 
-                _slayerItems.Add( new SlayerItem
+                _slayerWeapons.Add( new Weapon
                 {
                     Name = _tinfo.ToTitleCase(prop.ToString()),
                     Serial = item.Serial,
-                    Slayer = _slayerList.Any(s => _tinfo.ToTitleCase(slayerString).Equals(SplitCamelCase(s.ToString()))) ? _slayerList.First(s => _tinfo.ToTitleCase(slayerString).Equals(SplitCamelCase(s.ToString()))) : SlayerType.UnKnown
+                    Slayer = _slayerList.Any(s => _tinfo.ToTitleCase(slayerString).Equals(SplitCamelCase(s.ToString()))) ? _slayerList.First(s => _tinfo.ToTitleCase(slayerString).Equals(SplitCamelCase(s.ToString()))) : WeaponIcon.UnKnown
                 });
                 
             }
@@ -348,14 +306,15 @@ namespace RazorScripts
             Magery = 5,
         }
         
-        public class SlayerItem
+        public class Weapon
         {
             public int Serial { get; set; }
             public string Name { get; set; }
-            public SlayerType Slayer { get; set; }
+            public WeaponIcon Slayer { get; set; }
         }
         
-        public enum SlayerType
+        
+        public enum WeaponIcon
         {
             None = 20744,
             RepondSlayer = 2277,
@@ -371,7 +330,50 @@ namespace RazorScripts
             DemonSlayer = 2300,
             DragonSlayer = 21010,
             FeySlayer = 23006,
-            UnKnown = 24015
+            UnKnown = 24015,
+            
+            //Hit Area
+            HitAreaFire = 2267,
+            HitAreaLightning = 2288,
+            HitAreaEnergy = 2289,
+            HitAreaCold = 23010,
+            HitAreaPoison = 2285,
+            
+            //Selectable
+            SwordFlame = 21015,
+            SwordSerpent = 21019,
+            SwordQuick = 21004,
+            SwordHeart = 21000,
+            SwordSpin = 21006,
+            SwordDouble = 20998,
+            SwordDrop = 20996,
+            SwordPierce = 20992,
+            Sword5Point = 20741,
+            SwordMagic = 20483,
+            PoisonStrike = 20489,
+            LighteningArrow = 21017,
+            BowQuick = 21001,
+            Crossbow = 21013,
+            
+            Shuriken = 21021,
+            JumpKill = 21293,
+            
+            BrokenSword = 2305,
+            BrokenShield = 2304,
+            BloodSkull = 2237,
+            
+            Swirl = 2297,
+            FlameStrike = 2290,
+            BladeSpirit = 2272,
+            FireBall = 2257,
+            Poison = 2259,
+            Needles = 2251,
+            MagicArrow = 2244,
+            Heal = 2243,
+            GreaterHeal = 2268,
+            
+            
+            
         }
         
         public string SplitCamelCase(string str)

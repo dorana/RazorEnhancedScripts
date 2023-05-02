@@ -63,9 +63,12 @@
         <Compile Include="ReleaseAll.cs" />
         <Compile Include="Reloader.cs" />
         <Compile Include="Repeater.cs" />
+        <Compile Include="Shadowguard.cs" />
         <Compile Include="SlayerBar.cs" />
+        <Compile Include="SummonMaster.cs" />
         <Compile Include="TargetAllOfType.cs" />
         <Compile Include="LootmasterDirectContainer.cs" />
+        <Compile Include="WeaponMaster.cs" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\..\RazorEnhanced\Razor\Razor.csproj">
