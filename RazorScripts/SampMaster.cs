@@ -28,7 +28,7 @@ namespace RazorScripts
         {
             var defensives = new List<string>
             {
-                //"Evasion",
+                "Evasion",
                 "Counter Attack",
                 //"Confidence"
             };
