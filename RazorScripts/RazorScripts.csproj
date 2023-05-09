@@ -47,6 +47,7 @@
         <Compile Include="Butcher.cs" />
         <Compile Include="ChestBreaker.cs" />
         <Compile Include="CottonPicker.cs" />
+        <Compile Include="SampMaster.cs" />
         <Compile Include="Debugger.cs" />
         <Compile Include="GuardMe.cs" />
         <Compile Include="HealSelf.cs" />
