@@ -10,7 +10,24 @@ namespace RazorScripts
 {
     public class Shadowguard
     {
-
+        private List<int> philactories = new List<int>
+        {
+            0x4686,
+            0x42B4
+        };
+        
+        private List<int> philHuesCorrupted = new List<int>
+        {
+            0x081B,
+            0x0ac0
+        };
+        
+        private List<int> philHuesPure = new List<int>
+        {
+            0x048e,
+            0x0000
+        };
+        
         private bool ProcessFountain = false;
         
         private List<string> _virtues = new List<string>
@@ -613,10 +630,7 @@ namespace RazorScripts
                     OnGround = 1,
                     RangeMin = 0,
                     RangeMax = 2,
-                    Graphics = new List<int>
-                    {
-                        0x4686,
-                    }
+                    Graphics = philactories
                 };
 
                 var phil = Items.ApplyFilter(philactoryFilter).FirstOrDefault();
@@ -637,7 +651,7 @@ namespace RazorScripts
                 var flame = Items.ApplyFilter(flameFilter).FirstOrDefault();
                 if (flame != null)
                 {
-                    var ptc = Player.Backpack.Contains.Where(p => p.ItemID == 0x4686 && p.Hue == 0x081B).ToList();
+                    var ptc = Player.Backpack.Contains.Where(p => philactories.Contains(p.ItemID) && philHuesCorrupted.Contains(p.Hue)).ToList();
                     foreach (var philactory in ptc)
                     {
                         Items.UseItem(philactory);
@@ -667,7 +681,7 @@ namespace RazorScripts
                     continue;
                 }
 
-                var pps = Player.Backpack.Contains.Where(i => i.ItemID == 0x4686 && i.Hue == 0x0000).ToList();
+                var pps = Player.Backpack.Contains.Where(i => philactories.Contains(i.ItemID) && philHuesPure.Contains(i.Hue)).ToList();
                 if (pps.Any())
                 {
                     var armourFilter = new Items.Filter
