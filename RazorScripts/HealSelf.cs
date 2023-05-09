@@ -60,6 +60,10 @@ namespace Razorscripts
             {
                 Spells.CastMagery("Cure", USerial);
             }
+            else if (GetRealSkillValue("Chivalry") >= 40)
+            {
+                Spells.CastChivalry("Cleanse By Fire", USerial);
+            }
             else
             {
                 Items.UseItemByID(3617);
@@ -78,11 +82,16 @@ namespace Razorscripts
                 {
                     Spells.CastMagery("Greater Heal", USerial);
                 }
+                
                 else
                 {
                     Spells.CastMagery("Heal", USerial);
                 }
                 
+            }
+            else if (GetRealSkillValue("Chivalry") > 60 && HitsMax - Hits > 20)
+            {
+                Spells.CastChivalry("Close Wounds", USerial);
             }
             else
             {
