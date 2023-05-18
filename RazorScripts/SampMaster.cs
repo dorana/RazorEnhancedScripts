@@ -17,6 +17,7 @@ namespace RazorScripts
     {
         private static uint GumppId = 126542315;
         private bool Multi = false;
+        private bool UseDoubleStrike = false;
 
         private List<uint> AoeSpecials = new List<uint>
         {
@@ -37,7 +38,7 @@ namespace RazorScripts
             {
                 "Lightning Strike",
                 "Honorable Execution",
-                "Stagger",
+                "Stagger"
             };
             
             var offensivesMulti = new List<string>
@@ -64,7 +65,7 @@ namespace RazorScripts
                     {
                         if (!Player.Buffs.Any(b => defensives.Contains(b)))
                         {
-
+                            
                             Spells.CastBushido("Counter Attack");
                             Misc.Pause(200);
                         }
@@ -102,8 +103,15 @@ namespace RazorScripts
                             {
                                 if (!offensivesSingle.Any(Player.SpellIsEnabled))
                                 {
-                                
-                                    Spells.CastBushido("Lightning Strike");
+                                    if (UseDoubleStrike && Player.PrimarySpecial == 20998)
+                                    {
+                                        Player.WeaponPrimarySA();
+                                    }
+                                    else
+                                    {
+                                        Spells.CastBushido("Lightning Strike");
+                                    }
+                                    
                                     Misc.Pause(200);
                                 }
                             } 
