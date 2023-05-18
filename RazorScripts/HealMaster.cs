@@ -3,7 +3,7 @@ using System.Linq;
 using RazorEnhanced;
 namespace Razorscripts
 {
-    public class HealSelf
+    public class HealMaster
     {
         public void Run()
         {
