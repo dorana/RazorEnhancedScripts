@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -13,8 +14,9 @@ namespace RazorEnhanced
 {
     public class Lootmaster
     {
-        public static bool Debug = false;
-        private string _version = "v1.0.5";
+        public static readonly bool Debug = false;
+        private readonly string _version = "v1.0.6";
+        public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
         private readonly List<int> _gems = new List<int>();
@@ -23,13 +25,19 @@ namespace RazorEnhanced
         private Journal.JournalEntry _lastEntry = null;
 
         private Mobile _player;
-        private int _lootDelay = 200;
-        Journal _journal = new Journal();
+        private int _lootDelay =  IsOSI ? 800 : 200;
+        private DateTime? DeathClock = null;
+        readonly Journal _journal = new Journal();
         
         public void Run()
         {
             try
             {
+                if (_player.IsGhost)
+                {
+                    Handler.SendMessage(MessageType.Error, "You are a ghost, please ressurrect before running Lootmaster");
+                    return;
+                }
                 var firstRun = false;
                 //Remove existing debug log file
                 var logFile = Path.Combine(Engine.RootPath, "Lootmaster.log");
@@ -133,6 +141,13 @@ namespace RazorEnhanced
                     if (Player.IsGhost)
                     {
                         Misc.Pause(500);
+                        DeathClock = DeathClock ?? DateTime.Now;
+                        continue;
+                    }
+                    
+                    if (JustRessed())
+                    {
+                        Misc.Pause(2000);
                         continue;
                     }
 
@@ -174,17 +189,17 @@ namespace RazorEnhanced
                         RangeMax = 2,
                         RangeMin = 0,
                     });
-                    if (corpses.Any())
+                    if (corpses.Any(c => !ignoreList.Contains(c.Serial)))
                     {
                         UpdateLootMasterGump(Hue.Looting);
-                        foreach (var corpse in corpses)
+                        foreach (var corpse in corpses.Where(c => !ignoreList.Contains(c.Serial)))
                         {
                             if (corpse.DistanceTo(_player) > 2)
                             {
                                 break;
                             }
 
-                            if (Target.HasTarget() || ignoreList.Contains(corpse.Serial))
+                            if (Target.HasTarget())
                             {
                                 continue;
                             }
@@ -236,6 +251,17 @@ namespace RazorEnhanced
                
                 throw;
             }
+        }
+
+        private bool JustRessed()
+        {
+            var bagRules = _config.GetCharacter().Rules.Where(r => !r.Disabled && r.TargetBag != null && r.TargetBag != Player.Backpack.Serial).ToList();
+            if (!bagRules.Any())
+            {
+                return false;
+            }
+
+            return bagRules.All(br => Items.FindBySerial(br.TargetBag ?? int.MinValue) == null);
         }
 
         private void SetStarterRules()
@@ -533,7 +559,7 @@ namespace RazorEnhanced
         private void LootContainer(Item container, LootRule rule)
         {
             Handler.SendMessage(MessageType.Debug, $"Waiting for contents of {container.Name}");
-            Items.WaitForContents(container, 3000);
+            Items.WaitForContents(container, 10000);
             var stamp = DateTime.Now;
             Handler.SendMessage(MessageType.Debug, $"Looting {container.Name}");
             var timeValidator = DateTimeOffset.Now;
@@ -542,8 +568,11 @@ namespace RazorEnhanced
             {
                 return;
             }
-            
-            
+
+            if (IsOSI)
+            {
+                Misc.Pause(1000);
+            }
             Misc.Pause(_lootDelay);
 
             var entries = _journal.GetJournalEntry(_lastEntry);
@@ -572,7 +601,7 @@ namespace RazorEnhanced
                 
                 Misc.Pause(100);
                 
-                if (DateTimeOffset.Now - timeValidator > TimeSpan.FromSeconds(10))
+                if (DateTimeOffset.Now - timeValidator > TimeSpan.FromSeconds(IsOSI ? 20 : 10))
                 {
                     Handler.SendMessage(MessageType.Error, "Something seems to have locked up, aborting loot cycle");
                     return;
@@ -584,7 +613,7 @@ namespace RazorEnhanced
                 return;
             }
 
-            Misc.Pause(100);
+            Misc.Pause(IsOSI ? 200 : 100);
             IgnoreCorpse(container);
         }
 
@@ -616,7 +645,7 @@ namespace RazorEnhanced
                     return int.MinValue;
                 }
 
-                Items.WaitForProps(item, 1000);
+                Items.WaitForProps(item, 3000);
 
                 if (singleRule != null)
                 {
@@ -975,8 +1004,9 @@ namespace RazorEnhanced
 
             match = match && CheckSpecialProps(item);
             Handler.SendMessage(MessageType.Debug,$"CheckSpecialProps : {match}");
-
+                
             return match;
+
         }
 
         private bool CheckName(Item item)
@@ -1105,8 +1135,16 @@ namespace RazorEnhanced
             {
                 return true;
             }
-
-            var rarityProp = item.Properties.FirstOrDefault(p => p.Number == 1042971);
+            Property rarityProp = null;
+            if (Lootmaster.IsOSI)
+            {
+                rarityProp = item.Properties.FirstOrDefault(p => p.ToString().ToLower().Contains("magic item") || p.ToString().ToLower().Contains("artifact"));
+            }
+            else
+            {
+                rarityProp = item.Properties.FirstOrDefault(p => p.Number == 1042971);
+            }
+            
 
             if (rarityProp == null)
             {
@@ -1117,23 +1155,30 @@ namespace RazorEnhanced
             var checkRarities = Enum.GetValues(typeof(ItemRarity)).Cast<ItemRarity>().ToList().Where(r => (int)r >= (int)MinimumRarity).ToList();
 
             var matched = false;
-
+            
+            var rarityString = "";
+            string cleaned = String.Empty;
+            if (Lootmaster.IsOSI)
+            {
+                cleaned = rarityProp.ToString().Substring(rarityProp.Args.IndexOf(">", StringComparison.Ordinal) + 1).Replace(" ", "");
+            }
+            else
+            {
+                cleaned = rarityProp.Args.Substring(rarityProp.Args.IndexOf(">", StringComparison.Ordinal) + 1).Replace(" ", "");
+            }
+            
+            var length = cleaned.IndexOf("<", StringComparison.Ordinal);
+            if (length == -1)
+            {
+                rarityString = cleaned.Substring(0);
+            }
+            else
+            {
+                rarityString = cleaned.Substring(0, cleaned.IndexOf("<", StringComparison.Ordinal));
+            }
+            
             foreach (var rarity in checkRarities)
             {
-                //Find text between > and < and remove spaces
-                var rarityString = "";
-                var cleaned = rarityProp.Args.Substring(rarityProp.Args.IndexOf(">", StringComparison.Ordinal) + 1).Replace(" ", "");
-                var length = cleaned.IndexOf("<", StringComparison.Ordinal);
-                if (length == -1)
-                {
-                    rarityString = cleaned.Substring(0);
-                }
-                else
-                {
-                    rarityString = cleaned.Substring(0, cleaned.IndexOf("<", StringComparison.Ordinal));
-                }
-                
-
                 matched = rarityString.Equals(rarity.ToString(), StringComparison.OrdinalIgnoreCase);
                 if (matched)
                 {
@@ -1505,6 +1550,8 @@ namespace RazorEnhanced
         FireResist = 54,
         PoisonResist = 55,
         EnergyResist = 56,
+        ElvesOnly = 57,
+        GargoylesOnly = 58,
         
         //Slayers
         DemonSlayer = 200,
@@ -1759,7 +1806,11 @@ namespace RazorEnhanced
                     return "Poison Resist";
                 case ItemProperty.EnergyResist:
                     return "Energy Resist";
-                
+                case ItemProperty.ElvesOnly:
+                    return "Elves Only";
+                case ItemProperty.GargoylesOnly:
+                    return "Gargoyles Only";
+
                 //Eaters
                 case ItemProperty.FireEater:
                     return "Fire Eater";
