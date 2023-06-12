@@ -14,7 +14,7 @@ namespace RazorEnhanced
 {
     public class Lootmaster
     {
-        public static readonly bool Debug = false;
+        public static readonly bool Debug = true;
         private readonly string _version = "v1.0.6";
         public static readonly bool IsOSI = false;
         
@@ -33,7 +33,7 @@ namespace RazorEnhanced
         {
             try
             {
-                if (_player.IsGhost)
+                if (Player.IsGhost)
                 {
                     Handler.SendMessage(MessageType.Error, "You are a ghost, please ressurrect before running Lootmaster");
                     return;
@@ -62,7 +62,6 @@ namespace RazorEnhanced
                 {
                     ShowWelcomeGump();
                 }
-                
                 _config.ItemLookup[3821] = "Gold Coin";
                 _config.ItemLookup[41777] =  "Coin Purse";
                 _config.ItemLookup[41779] = "Gem Purse";
