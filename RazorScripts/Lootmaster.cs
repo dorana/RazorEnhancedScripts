@@ -14,7 +14,7 @@ namespace RazorEnhanced
 {
     public class Lootmaster
     {
-        public static readonly bool Debug = true;
+        public static readonly bool Debug = false;
         private readonly string _version = "v1.0.6";
         public static readonly bool IsOSI = false;
         
