@@ -254,6 +254,10 @@ namespace RazorEnhanced
 
         private bool JustRessed()
         {
+            if (DeathClock == null)
+            {
+                return true;
+            }
             var bagRules = _config.GetCharacter().Rules.Where(r => !r.Disabled && r.TargetBag != null && r.TargetBag != Player.Backpack.Serial).ToList();
             if (!bagRules.Any())
             {
