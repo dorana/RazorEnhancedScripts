@@ -636,7 +636,7 @@ namespace RazorEnhanced
             
             var sum = 0;
 
-            foreach (var item in container.Contains.Where(c => c.IsLootable))
+            foreach (var item in container.Contains.Where(c => c.IsLootable && !(c.Name.Trim().StartsWith("(") && c.Name.Trim().EndsWith(")"))))
             {
                 Handler.SendMessage(MessageType.Debug,$"Checking Item {item.Name}");
                 if (container.IsCorpse && container.DistanceTo(_player) > 2)
