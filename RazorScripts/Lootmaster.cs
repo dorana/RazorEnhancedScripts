@@ -146,6 +146,7 @@ namespace RazorEnhanced
                     
                     if (JustRessed())
                     {
+                        Handler.SendMessage(MessageType.Info,"Just Ressed");
                         Misc.Pause(2000);
                         continue;
                     }
@@ -256,7 +257,7 @@ namespace RazorEnhanced
         {
             if (DeathClock == null)
             {
-                return true;
+                return false;
             }
             var bagRules = _config.GetCharacter().Rules.Where(r => !r.Disabled && r.TargetBag != null && r.TargetBag != Player.Backpack.Serial).ToList();
             if (!bagRules.Any())
