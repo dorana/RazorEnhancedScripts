@@ -7,29 +7,33 @@ namespace Razorscripts
 {
     public class Butcher
     {
-        private readonly bool TakeLeather = true; //should we keep leather
-        private readonly bool TakeMeat = true; //should we keep meats
+        private readonly bool TakeLeather = false; //should we keep leather
+        private readonly bool TakeMeat = false; //should we keep meats
         private readonly bool TakeFeathers = false; //should we keep feathers
         private readonly bool TakeWool = false; //should we keep feathers
+        private readonly bool TakeScales = true; //should we keep scales
+        private readonly bool TakeBlood = true; //should we keep scales
 
-        private int _leather = Convert.ToInt32("0x1081", 16);
-        private int _hide = Convert.ToInt32("0x1079", 16);
-        private int _meat = Convert.ToInt32("0x09F1", 16);
-        private int _rotwormMeat = Convert.ToInt32("0x2DB9", 16);
-        private int _pultry = Convert.ToInt32("0x09B9", 16);
-        private int _feathers = Convert.ToInt32("0x1BD1", 16);
-        private int _wool = Convert.ToInt32("0x0DF8", 16);
-        private int _lambLeg = Convert.ToInt32("0x1609", 16);
+        private int _leather = 0x1081;
+        private int _hide = 0x1079;
+        private int _meat = 0x09F1;
+        private int _rotwormMeat = 0x2DB9;
+        private int _pultry = 0x09B9;
+        private int _feathers = 0x1BD1;
+        private int _wool = 0x0DF8;
+        private int _lambLeg = 0x1609;
+        private int _dragonscale = 0x26B4;
+        private int _dragonblood = 0x4077;
 
         private readonly List<int> _daggers =
             new[]
             {
-                Convert.ToInt32("0x2D20", 16), //Harvesters Blade
-                Convert.ToInt32("0x0F52", 16), //Dagger
-                Convert.ToInt32("0x0EC4", 16), //Skinning Knife
-                Convert.ToInt32("0x0EC3", 16), //Butchers Cleaver
-                Convert.ToInt32("0x13F6", 16), //Butchers Knife
-                Convert.ToInt32("0x13B6", 16), //Butchers Knife
+                0x2D20, //Harvesters Blade
+                0x0F52, //Dagger
+                0x0EC4, //Skinning Knife
+                0x0EC3, //Butchers Cleaver
+                0x13F6, //Butchers Knife
+                0x13B6, //Butchers Knife
             }.ToList();
 
         public void Run()
@@ -44,13 +48,13 @@ namespace Razorscripts
                     break;
                 }
             }
-            
+
 
             if (dagger == null || dagger.ItemID != _daggers.First()) //we didn't find dagger in pack, or the dagger was not Harvester
             {
                 var rHand = Player.GetItemOnLayer("RightHand");
                 var lHand = Player.GetItemOnLayer("LeftHand");
-                
+
                 foreach (var dag in _daggers)
                 {
                     if (rHand?.ItemID == dag)
@@ -66,7 +70,7 @@ namespace Razorscripts
                     }
                 }
             }
-            
+
             if (dagger == null)
             {
                 Misc.SendMessage("Unable to locate preset dagger", 201);
@@ -117,6 +121,16 @@ namespace Razorscripts
                 {
                     LootItems(corpse, _wool);
                 }
+
+                if (TakeScales)
+                {
+                    LootItems(corpse, _dragonscale);
+                }
+
+                if (TakeBlood)
+                {
+                    LootItems(corpse, _dragonblood, "Dragon's Blood");
+                }
             }
 
             if (isHarvestersBlade)
@@ -152,6 +166,18 @@ namespace Razorscripts
                     DumpItem(dumperCorpse, _wool);
                     Misc.Pause(200);
                 }
+
+                if (!TakeScales)
+                {
+                    DumpItem(dumperCorpse, _dragonscale);
+                    Misc.Pause(200);
+                }
+
+                if (!TakeBlood)
+                {
+                    DumpItem(dumperCorpse, _dragonblood, "Dragon's Blood");
+                    Misc.Pause(200);
+                }
             }
         }
 
@@ -162,7 +188,7 @@ namespace Razorscripts
             {
                 return found;
             }
-            
+
             var subContainers = container.Contains.Where(c => c.IsContainer && c.Contains.Any() && c.Contains.First().Name != " (0000)").ToList();
             foreach (var subcont in subContainers)
             {
@@ -172,9 +198,9 @@ namespace Razorscripts
             return null;
         }
 
-        private void LootItems(Item corpse, int itemId)
+        private void LootItems(Item corpse, int itemId, string name = null)
         {
-            var stack = corpse.Contains.Where(i => i.ItemID == itemId).ToList();
+            var stack = corpse.Contains.Where(i => i.ItemID == itemId && (string.IsNullOrEmpty(name) || i.Name.Contains(name))).ToList();
             foreach (var feather in stack)
             {
                 Items.Move(feather, Player.Backpack.Serial, feather?.Amount ?? int.MaxValue);
@@ -182,11 +208,13 @@ namespace Razorscripts
             }
         }
 
-        private void DumpItem(Item corpse, int itemId)
+        private void DumpItem(Item corpse, int itemId, string name = null)
         {
-            var dumpThese = Player.Backpack.Contains.Where(i => i.ItemID == itemId).ToList();
+
+            var dumpThese = Player.Backpack.Contains.Where(i => i.ItemID == itemId && (string.IsNullOrEmpty(name) || i.Name.Contains(name))).ToList();
             foreach (var dump in dumpThese)
             {
+
                 Items.Move(dump, corpse, dump?.Amount ?? int.MaxValue);
             }
         }

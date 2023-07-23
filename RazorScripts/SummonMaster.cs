@@ -274,14 +274,7 @@ namespace RazorScripts
             {
                 Gumps.AddImage(ref sumGump,451,row*2+11,9405);
             }
-
-            for (var column = 1; column <= 28; column++)
-            {
-                for (var row = 1; row <= 38; row++)
-                {
-                    Gumps.AddImage(ref sumGump,column*16-5,row*2+11,9404);
-                }
-            }
+            Gumps.AddImageTiled(ref sumGump,11,11,450,80, 9404);
 
             foreach (var sum in Summons)
             {
