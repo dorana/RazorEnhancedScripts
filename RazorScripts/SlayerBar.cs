@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
@@ -16,6 +17,9 @@ namespace RazorScripts
         private BaseSkill _skill;
         private static string _version = "1.0.1";
         private int _nonSlayerSerial = -1;
+        //Set to true if you want to open containers to find slayers
+        //(note that this will open any and all containers in your backpack untill a slayer container is found)
+        private bool _allowOpeningContainers = false; 
 
         private Func<Item, bool> _searchFilter;
         private readonly List<SlayerType> _slayerList = new List<SlayerType>
@@ -179,13 +183,34 @@ namespace RazorScripts
             var dict = new Dictionary<BaseSkill, double>();
             foreach (var baseSkill in Enum.GetValues(typeof(BaseSkill)).Cast<BaseSkill>())
             {
-                var skillString = _tinfo.ToTitleCase(baseSkill.ToString());
-                var value = Player.GetSkillValue(skillString);
+                // var skillString = _tinfo.ToTitleCase(baseSkill.ToString());
+                var value = Player.GetSkillValue(GetSkillName(baseSkill));
                 dict.Add(baseSkill, value);
             }
 
             //Return key of highest value
             return dict.Aggregate((l, r) => l.Value > r.Value ? l : r).Key;
+        }
+
+        private string GetSkillName(BaseSkill skill)
+        {
+            switch (skill)
+            {
+                case BaseSkill.Swordsmanship:
+                    return "Swords";
+                case BaseSkill.MaceFighting:
+                    return "Macing";
+                case BaseSkill.Fencing:
+                    return "Fencing";
+                case BaseSkill.Archery:
+                    return "Archery";
+                case BaseSkill.Throwing:
+                    return "Throwing";
+                case BaseSkill.Magery:
+                    return "Magery";
+            }
+
+            return "";
         }
 
         private Item GetEquippedWeapon()
@@ -221,7 +246,10 @@ namespace RazorScripts
                 slayersFound++;
             }
 
-
+            if (_allowOpeningContainers)
+            {
+                Items.WaitForContents(container, 1000);
+            }
 
             List<Item> potentials = new List<Item>();
             foreach (var item in container.Contains)
