@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
@@ -15,7 +15,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.0.6";
+        private readonly string _version = "v1.0.6.2";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -143,6 +143,8 @@ namespace RazorEnhanced
                         DeathClock = DeathClock ?? DateTime.Now;
                         continue;
                     }
+
+                    HandlePause();
                     
                     if (JustRessed())
                     {
@@ -194,6 +196,7 @@ namespace RazorEnhanced
                         UpdateLootMasterGump(Hue.Looting);
                         foreach (var corpse in corpses.Where(c => !ignoreList.Contains(c.Serial)))
                         {
+                            HandlePause();
                             if (corpse.DistanceTo(_player) > 2)
                             {
                                 break;
@@ -251,6 +254,13 @@ namespace RazorEnhanced
                
                 throw;
             }
+        }
+
+        private void HandlePause()
+        {
+            var pauseTimer = (int)Misc.ReadSharedValue("Lootmaster:Pause");
+            Misc.Pause(pauseTimer);
+            Misc.SetSharedValue("Lootmaster:Pause", 0);
         }
 
         private bool JustRessed()
@@ -563,7 +573,8 @@ namespace RazorEnhanced
         private void LootContainer(Item container, LootRule rule)
         {
             Handler.SendMessage(MessageType.Debug, $"Waiting for contents of {container.Name}");
-            Items.WaitForContents(container, 10000);
+            Items.WaitForContents(container, 20000);
+            
             var stamp = DateTime.Now;
             Handler.SendMessage(MessageType.Debug, $"Looting {container.Name}");
             var timeValidator = DateTimeOffset.Now;
@@ -636,6 +647,11 @@ namespace RazorEnhanced
             
             var sum = 0;
 
+            foreach (var item in container.Contains)
+            {
+                Handler.SendMessage(MessageType.Debug, $"Item {item.Name} is lootable:{item.IsLootable}");
+            }
+
             foreach (var item in container.Contains.Where(c => c.IsLootable && !(c.Name.Trim().StartsWith("(") && c.Name.Trim().EndsWith(")"))))
             {
                 Handler.SendMessage(MessageType.Debug,$"Checking Item {item.Name}");
@@ -668,11 +684,13 @@ namespace RazorEnhanced
                     Handler.SendMessage(MessageType.Debug, $"Checking Rule {rule.RuleName}");
                     if (container.IsCorpse && container.DistanceTo(_player) > 2)
                     {
+                        Handler.SendMessage(MessageType.Debug, $"Container is too far away");
                         return int.MinValue;
                     }
                     
                     if (rule.TargetBag == null)
                     {
+                        Handler.SendMessage(MessageType.Debug, $"Target bag is null");
                         continue;
                     }
                     
@@ -688,7 +706,7 @@ namespace RazorEnhanced
                             // Don't loot into itself
                             continue;
                         }
-                        
+                        Handler.SendMessage(MessageType.Debug, $"Adding {item.Name} to loot list");
                         lootItems.Add(new GrabTarget
                         {
                             Item = item,
@@ -697,12 +715,23 @@ namespace RazorEnhanced
                         break;
                     }
                 }
+                
+                Handler.SendMessage(MessageType.Debug,"All rules checked");
             }
-
+            
+            Handler.SendMessage(MessageType.Debug,"Items collected, starting loot");
+            Misc.Pause(_lootDelay);
             var overLimit = false;
             
             foreach (var li in lootItems)
             {
+                HandlePause();
+                
+                while (Target.HasTarget())
+                {
+                    Misc.Pause(100);
+                }
+                
                 var checkItem = Items.FindBySerial(li.Item.Serial);
                 if (checkItem?.Container == container.Serial)
                 {
@@ -765,7 +794,7 @@ namespace RazorEnhanced
         private int GrabItem(Item item,LootRule rule)
         {
             MoveToBag(item, rule.GetTargetBag());
-            Misc.Pause(200);
+            // Misc.Pause(200);
             
             if (rule.Alert)
             {

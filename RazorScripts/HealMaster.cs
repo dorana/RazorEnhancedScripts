@@ -1,72 +1,79 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using RazorEnhanced;
+
 namespace Razorscripts
 {
     public class HealMaster
     {
         public void Run()
         {
-            var journal = new Journal();
-            var counter = 0;
-            bool retry =false;
-            do
+            try
             {
-                var lastJournal = journal.GetJournalEntry(null).OrderBy(j => j.Timestamp).LastOrDefault();
-
-               
-
-                if (Player.Poisoned)
+                var journal = new Journal();
+                var counter = 0;
+                bool retry = false;
+                do
                 {
-                    if (Player.Hits < 15 && Player.GetRealSkillValue("SpiritSpeak") >= 100)
+                    var lastJournal = journal.GetJournalEntry(null).OrderBy(j => j.Timestamp).LastOrDefault();
+                    if (Player.Poisoned)
                     {
-                        var lastNecro = Misc.ReadSharedValue("HealSelf:LastSS");
-                        //Check if value is not null and is dateTime
-                        if (lastNecro != null && lastNecro is DateTime)
+                        if (Player.Hits < 15 && Player.GetRealSkillValue("SpiritSpeak") >= 100)
                         {
-                            var lastNecroTime = (DateTime) lastNecro;
-                            if (lastNecroTime.AddSeconds(5) <= DateTime.Now)
+                            var lastNecro = Misc.ReadSharedValue("HealSelf:LastSS").ToString();
+                            //Check if value is not null and is dateTime
+                            if (lastNecro != null && lastNecro != "0")
                             {
-                                Misc.SetSharedValue("HealSelf:LastSS", DateTime.Now);
+                                var lastNecroTime = DateTime.Parse(lastNecro, CultureInfo.InvariantCulture);
+                                if (lastNecroTime.AddSeconds(5) <= DateTime.Now)
+                                {
+                                    Misc.SetSharedValue("HealSelf:LastSS", DateTime.Now.ToString(CultureInfo.InvariantCulture));
+                                    Player.UseSkill("SpiritSpeak");
+                                }
+                            }
+                            else
+                            {
+                                Misc.SetSharedValue("HealSelf:LastSS", DateTime.Now.ToString(CultureInfo.InvariantCulture));
                                 Player.UseSkill("SpiritSpeak");
                             }
                         }
-                        else
-                        {
-                            Misc.SetSharedValue("HealSelf:LastSS", DateTime.Now);
-                            Player.UseSkill("SpiritSpeak");
-                        }
-                    }
-                    
-                    Self.Cure();
-                }
-                else
-                {
-                    if (Self.NeedHealing)
-                    {
-                        Self.Heal();
+
+                        Self.Cure();
                     }
                     else
                     {
-                        Helper.Log("You are already at full health");
-                        break;
+                        if (Self.NeedHealing)
+                        {
+                            Self.Heal();
+                        }
+                        else
+                        {
+                            Helper.Log("You are already at full health");
+                            break;
+                        }
                     }
-                }
 
-                if (journal.GetJournalEntry(lastJournal).Any(j => j.Text.ToLower().Contains("you must wait")))
-                {
-                    retry = true;
-                    Misc.Pause(100);
-                }
-            } while (retry && counter++ < 5);
-            
-            Misc.Pause(300);
-            Misc.RemoveSharedValue("Lootmaster:Pause");
+                    if (journal.GetJournalEntry(lastJournal).Any(j => j.Text.ToLower().Contains("you must wait")))
+                    {
+                        retry = true;
+                        Misc.Pause(100);
+                    }
+                } while (retry && counter++ < 5);
+
+                Misc.Pause(300);
+                Misc.RemoveSharedValue("Lootmaster:Pause");
+            }
+            catch (Exception e)
+            {
+                Misc.SendMessage(e);
+            }
         }
     }
+}
 
 
-    internal static class Helper
+internal static class Helper
     {
         public static void Log(object messageString)
         {
@@ -81,10 +88,19 @@ namespace Razorscripts
         public static readonly bool ForceBands = GetRealSkillValue("Healing") >= 80;
         public static void Cure()
         {
-            
             Misc.SetSharedValue("Lootmaster:Pause", true);
+            var lastpotstring = Misc.ReadSharedValue("Healmaster:LastPotion").ToString();
+            DateTime? lastpot = lastpotstring != "0" ? DateTime.Parse(lastpotstring, CultureInfo.InvariantCulture) : null as DateTime?;
+            var curepot = Items.FindByID(3847, 0, Backpack.Serial);
+            var bands = Items.FindByID(3617, 0, Backpack.Serial);
+            var blockQuickpot = lastpot != null && (DateTime.UtcNow - lastpot).Value.TotalSeconds < 5;
             
-            if (!ForceBands && GetRealSkillValue("Magery") >= 40)
+            if(!blockQuickpot && curepot != null && Hits < 20)
+            {
+                Items.UseItem(curepot);
+                Misc.SetSharedValue("Healmaster:LastPotion", DateTime.Now.ToString(CultureInfo.InvariantCulture));
+            }
+            else if (!ForceBands && GetRealSkillValue("Magery") >= 40)
             {
                 Spells.CastMagery("Cure", USerial);
             }
@@ -92,19 +108,43 @@ namespace Razorscripts
             {
                 Spells.CastChivalry("Cleanse By Fire", USerial);
             }
-            else
+            else if(bands != null)
             {
                 Items.UseItemByID(3617);
                 Target.WaitForTarget(2000);
                 Target.Self();
             }
+            else if (curepot != null)
+            {
+                Items.UseItem(curepot);
+            }
             
         }
         public static void Heal()
         {
-            Misc.SetSharedValue("Lootmaster:Pause", true);
+            Misc.SetSharedValue("Lootmaster:Pause", 2000);
+            var healpot = Items.FindByID(3852, 0, Backpack.Serial);
+            var barrabPot = Items.FindByID(3846, 1272, Backpack.Serial);
+            var bands = Items.FindByID(3617, 0, Backpack.Serial);
+            var lastpotString = Misc.ReadSharedValue("Healmaster:LastPotion").ToString();
+            DateTime? lastPot = lastpotString != "0" ? DateTime.Parse(lastpotString) : null as DateTime?;
+            var lastBarabPotString = Misc.ReadSharedValue("Healmaster:LastBarrabPotion").ToString();
+            DateTime? lastBarabPot = lastpotString != "0" ? DateTime.Parse(lastpotString) : null as DateTime?;
+            var blockQuickpot = lastPot != null && (DateTime.UtcNow - lastPot).Value.TotalSeconds < 5;
+            var blockBarrabPot = lastPot != null && (DateTime.UtcNow - lastPot).Value.TotalSeconds < 1200;
+            
             //Todo, check LRC Value in order to validate if the player might have died and won't have regs, if so check for Spirit Speak Skill to heal
-            if (!ForceBands && GetRealSkillValue("Magery") > 30)
+            if(!blockBarrabPot && barrabPot != null && Hits < 40)
+            {
+                Items.UseItem(healpot);
+                Misc.SetSharedValue("Healmaster:LastPotion", DateTime.UtcNow);
+            }
+            if(!blockBarrabPot && healpot != null && Hits < 20)
+            {
+                Items.UseItem(healpot);
+                Misc.SetSharedValue("Healmaster:LastPotion", DateTime.UtcNow);
+            }
+            else if (!ForceBands && GetRealSkillValue("Magery") > 30)
             {
                 if (GetRealSkillValue("Magery") > 60 && HitsMax - Hits > 20)
                 {
@@ -121,13 +161,16 @@ namespace Razorscripts
             {
                 Spells.CastChivalry("Close Wounds", USerial);
             }
-            else
+            else if(bands != null)
             {
-                var bands = Items.FindByID(3617, 0, Backpack.Serial);
-                Items.UseItemByID(3617);
+                Items.UseItem(bands);
                 Target.WaitForTarget(2000);
                 Target.Self();
             }
+            else if (healpot != null)
+            {
+                Items.UseItem(healpot);
+                Misc.SetSharedValue("Healmaster:LastPotion", DateTime.UtcNow);
+            }
         }
     }
-}
