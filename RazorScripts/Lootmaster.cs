@@ -66,10 +66,9 @@ namespace RazorEnhanced
                 {
                     ShowWelcomeGump();
                 }
-                _config.ItemLookup[3821] = "Gold Coin";
-                _config.ItemLookup[41777] =  "Coin Purse";
-                _config.ItemLookup[41779] = "Gem Purse";
-
+                _config.ItemColorLookup.Add(new ItemColorIdentifier(3821,0, "Gold Coin"));
+                _config.ItemColorLookup.Add(new ItemColorIdentifier(41777,0, "Coin Purse"));
+                _config.ItemColorLookup.Add(new ItemColorIdentifier(41779,0, "Gem Purse"));
                 while (true)
                 {
                     var lm = Gumps.GetGumpData(13659823);
@@ -872,6 +871,7 @@ namespace RazorEnhanced
         public ItemRarity? MinimumRarity { get; set; }
         public int? MaxWeight { get; set; }
         public bool IgnoreWeightCurse { get; set; }
+        public List<ItemColorIdentifier> ItemColorIds { get; set; }
         public List<int> ItemIds { get; set; }
         public List<PropertyMatch> BlackListedProperties { get; set; }
 
@@ -890,7 +890,11 @@ namespace RazorEnhanced
             new LootRule
             {
                 RuleName = "Gold",
-                ItemIds = new List<int> { 3821, 41777 }, //GoldStacks and GoldBags
+                ItemColorIds = new List<ItemColorIdentifier> {
+                    new ItemColorIdentifier(3821,0, "Gold Coin"),
+                    new ItemColorIdentifier(41777,0, "Coin Purse")
+                }, //GoldStacks and GoldBags
+                
                 MaxWeight = 100
             };
 
@@ -898,7 +902,8 @@ namespace RazorEnhanced
             new LootRule
             {
                 RuleName = "Gems",
-                ItemIds = Enum.GetValues(typeof(Gem)).Cast<Gem>().Select(g => (int)g).ToList().Union(new List<int> { 41779 }).ToList(),
+                ItemColorIds = Enum.GetValues(typeof(Gem)).Cast<Gem>().Select(g =>
+                    new ItemColorIdentifier((int)g,0, Handler.SplitCamelCase(g.ToString()))).ToList().Union(new List<ItemColorIdentifier> { new ItemColorIdentifier(41779,0, "Gem Bag") }).ToList(),
                 MaxWeight = 100
             };
         
@@ -906,7 +911,7 @@ namespace RazorEnhanced
             new LootRule
             {
                 RuleName = "Imbue Materials",
-                ItemIds = Enum.GetValues(typeof(Materials)).Cast<Materials>().Select(g => (int)g).ToList(),
+                ItemColorIds = Enum.GetValues(typeof(Materials)).Cast<Materials>().Select(g => new ItemColorIdentifier((int)g,0,Handler.SplitCamelCase(g.ToString()))).ToList(),
                 MaxWeight = 100
             };
         
@@ -914,7 +919,7 @@ namespace RazorEnhanced
             new LootRule
             {
                 RuleName = "Reagents Magery",
-                ItemIds = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().Select(g => (int)g).ToList(),
+                ItemColorIds = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().Select(g => new ItemColorIdentifier((int)g,0,Handler.SplitCamelCase(g.ToString()))).ToList(),
                 MaxWeight = 100
             };
         
@@ -922,7 +927,7 @@ namespace RazorEnhanced
             new LootRule
             {
                 RuleName = "Reagents Necromancy",
-                ItemIds = Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().Select(g => (int)g).ToList(),
+                ItemColorIds = Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().Select(g => new ItemColorIdentifier((int)g, 0, Handler.SplitCamelCase(g.ToString()))).ToList(),
                 MaxWeight = 100
             };
         
@@ -930,7 +935,7 @@ namespace RazorEnhanced
             new LootRule
             {
                 RuleName = "Reagents Mysticism",
-                ItemIds = Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().Select(g => (int)g).ToList(),
+                ItemColorIds = Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().Select(g => new ItemColorIdentifier((int)g, 0, Handler.SplitCamelCase(g.ToString()))).ToList(),
                 MaxWeight = 100
             };
         
@@ -938,9 +943,9 @@ namespace RazorEnhanced
             new LootRule
             {
                 RuleName = "Reagents",
-                ItemIds = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().Select(g => (int)g)
-                    .Union(Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().Select(g => (int)g))
-                    .Union(Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().Select(g => (int)g))
+                ItemColorIds = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().Select(g => new ItemColorIdentifier((int)g, 0, Handler.SplitCamelCase(g.ToString())))
+                    .Union(Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().Select(g => new ItemColorIdentifier((int)g, 0, Handler.SplitCamelCase(g.ToString())))
+                    .Union(Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().Select(g => new ItemColorIdentifier((int)g, 0, Handler.SplitCamelCase(g.ToString())))))
                     .ToList(),
                 MaxWeight = 100
             };
@@ -950,7 +955,11 @@ namespace RazorEnhanced
             new LootRule
             {
                 RuleName = "Bolts and Arrows",
-                ItemIds = new List<int> { 3903, 7163 } //Arrows and Bolts
+                ItemColorIds = new List<ItemColorIdentifier>
+                {
+                    new ItemColorIdentifier(3903,0, "Bolt"),
+                    new ItemColorIdentifier(7163,0, "Arrow")
+                } //Arrows and Bolts
             };
 
         public static LootRule PureColdWeapon =>
@@ -1157,12 +1166,12 @@ namespace RazorEnhanced
 
         private bool CheckItemIdOrName(Item item)
         {
-            if ((ItemIds == null || !ItemIds.Any()) && (ItemNames == null || !ItemNames.Any()))
+            if ((ItemColorIds == null || !ItemColorIds.Any()) && (ItemNames == null || !ItemNames.Any()))
             {
                 return true;
             }
             
-            if (ItemIds == null || !ItemIds.Any())
+            if (ItemColorIds == null || !ItemColorIds.Any())
             {
                 return CheckName(item);
             }
@@ -1178,12 +1187,12 @@ namespace RazorEnhanced
         
         private bool CheckItemId(Item item)
         {
-            if (ItemIds == null || !ItemIds.Any())
+            if (ItemColorIds == null || !ItemColorIds.Any())
             {
                 return true;
             }
-
-            return ItemIds.Contains(item.ItemID);
+            
+            return ItemColorIds.Any(i => i.ItemId == item.ItemID && (i.Color == null || i.Color == item.Hue));
         }
 
         private bool CheckBlackListProperties(Item item)
@@ -1405,6 +1414,7 @@ namespace RazorEnhanced
         public bool ColorCorpses { get; set; }
         public int? ColorCorpsesColor { get; set; }
         
+        public List<ItemColorIdentifier> ItemColorLookup { get; set; }
         public Dictionary<int, string> ItemLookup { get; set; }
 
 
@@ -1412,6 +1422,7 @@ namespace RazorEnhanced
         {
             Characters = new List<LootMasterCharacter>();
             ColorCorpses = true;
+            ItemColorLookup = new List<ItemColorIdentifier>();
             ItemLookup = new Dictionary<int, string>();
         }
         
@@ -1482,7 +1493,7 @@ namespace RazorEnhanced
                                 Rules = rcc.Rules.Select(r => new LootRule
                                 {
                                     RuleName = r.RuleName,
-                                    ItemIds = r.ItemIds ?? new List<int>(),
+                                    ItemColorIds = r.ItemColorIds ?? r.ItemIds?.Select(i => new ItemColorIdentifier(i,null,null)).ToList() ?? new List<ItemColorIdentifier>(),
                                     ItemNames = r.ItemNames ?? new List<string>(),
                                     Properties = r.Properties ?? new List<PropertyMatch>(),
                                     EquipmentSlots = r.EquipmentSlots ?? new List<EquipmentSlot>(),
@@ -1501,13 +1512,23 @@ namespace RazorEnhanced
                         ColorCorpsesColor = readConfig?.ColorCorpsesColor ?? 0x3F6;
                         
                         ItemLookup = readConfig?.ItemLookup ?? new Dictionary<int, string>();
+                        ItemColorLookup = readConfig?.ItemColorLookup ?? new List<ItemColorIdentifier>();
+                        
+                        if(ItemColorLookup == null)
+                        {
+                            ItemColorLookup = new List<ItemColorIdentifier>();
+                            foreach (var il in ItemLookup)
+                            {
+                                ItemColorLookup.Add(new ItemColorIdentifier(il.Key, null, il.Value));
+                            }
+                        }
                         break;
                     }
                 }
             }
-            catch
+            catch(Exception ex)
             {
-                // ignored
+                Misc.SendMessage(ex);
             }
 
         }
@@ -1652,6 +1673,20 @@ namespace RazorEnhanced
         public int? Value { get; set; }
 
         public string DisplayName => $"{Property.ToString()} : {Value}";
+    }
+    
+    public class ItemColorIdentifier
+    {
+        public ItemColorIdentifier(int itemId, int? color, string name)
+        {
+            ItemId = itemId;
+            Color = color;
+            Name = name;
+        }
+           
+        public int ItemId { get; set; }
+        public int? Color { get; set; }
+        public string Name { get; set; }
     }
 
     public enum ItemProperty
@@ -2179,6 +2214,19 @@ namespace RazorEnhanced
                     break;
             }
         }
+        
+        public static string SplitCamelCase(string str)
+        {
+            return Regex.Replace(
+                Regex.Replace(
+                    str,
+                    @"(\P{Ll})(\P{Ll}\p{Ll})",
+                    "$1 $2"
+                ),
+                @"(\p{Ll})(\P{Ll})",
+                "$1 $2"
+            );
+        }
     }
 
     public class Configurator : Form
@@ -2232,14 +2280,21 @@ namespace RazorEnhanced
             if (_lastSelectedRuleIndex != -1)
             {
                 var nameList = new List<string>();
-                var idList = new List<int>();
+                var idList = new List<ItemColorIdentifier>();
                 foreach (var val in itemNamesList.Items.Cast<string>())
                 {
                     if (val.StartsWith("0x"))
                     {
                         var idString = val.Split('|').First().Trim();
+                        var colorString = val.Split('|')[1].Trim();
+                        var name = val.Split('|')[2].Trim();
                         var parseVal = Convert.ToInt32(idString, 16);
-                        idList.Add(parseVal);
+                        int? colorId = null;
+                        if(int.TryParse(colorString, out int ci))
+                        {
+                            colorId = ci;
+                        }
+                        idList.Add(new ItemColorIdentifier(parseVal, colorId, name));
                     }
                     else
                     {
@@ -2253,7 +2308,7 @@ namespace RazorEnhanced
                     EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value).ToList(),
                     MinimumRarity = rarityDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityDropDown.SelectedItem as DropDownItem).Value,
                     ItemNames = nameList,
-                    ItemIds = idList,
+                    ItemColorIds = idList,
                     Properties = propertiesList.Items.Cast<PropertyMatch>().ToList(),
                     MaxWeight = weightCurseTextBox.Text == string.Empty ? (int?)null : int.Parse(weightCurseTextBox.Text),
                     Alert = alertCheckbox.Checked,
@@ -2268,8 +2323,8 @@ namespace RazorEnhanced
                        currentValues.MinimumRarity != originalRule.MinimumRarity ||
                        currentValues.ItemNames.Count != originalRule.ItemNames.Count ||
                        currentValues.ItemNames.Except(originalRule.ItemNames).Any() ||
-                       currentValues.ItemIds.Count != originalRule.ItemIds.Count ||
-                       currentValues.ItemIds.Except(originalRule.ItemIds).Any() ||
+                       currentValues.ItemColorIds.Count != originalRule.ItemColorIds.Count ||
+                       currentValues.ItemColorIds.Except(originalRule.ItemColorIds).Any() ||
                        currentValues.Properties.Count != originalRule.Properties.Count ||
                        currentValues.Properties.Except(originalRule.Properties).Any() ||
                        currentValues.MaxWeight != originalRule.MaxWeight ||
@@ -2338,23 +2393,22 @@ namespace RazorEnhanced
             
             itemNamesList.Items.Clear();
             
-            var idList = rule.ItemIds?.OrderBy(x => x).ToList() ?? new List<int>();
-            if (rule.ItemIds != null)
+            if (rule.ItemColorIds != null)
             {
-                foreach (var itemId in rule.ItemIds)
+                foreach (var itemId in rule.ItemColorIds)
                 {
-                    if (!Config.ItemLookup.ContainsKey(itemId))
+                    if (string.IsNullOrEmpty(Config.ItemColorLookup.GetNameFromItem(itemId)))
                     {
-                        var item = Items.FindByID(itemId, -1, -1, false, false);
+                        var item = Items.FindByID(itemId.ItemId, itemId.Color ?? -1, -1, false, false);
                         if (item != null)
                         {
-                            Config.ItemLookup.Add(itemId, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim());    
+                            Config.ItemColorLookup.Add(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));    
                         }
                     }
 
-                    Config.ItemLookup.TryGetValue(itemId, out var lookupName);
+                    var lookupName =  Config.ItemColorLookup.GetNameFromItem(itemId);
                     
-                    itemNamesList.Items.Add($"0x{Convert.ToString(itemId, 16)} | {lookupName ?? string.Empty}");
+                    itemNamesList.Items.Add($"0x{Convert.ToString(itemId.ItemId, 16)} | {(itemId.Color == null ? " " : $"0x{Convert.ToString(itemId.Color.Value, 16)}")} | {lookupName ?? string.Empty}");
                 }
             }
             
@@ -2401,36 +2455,36 @@ namespace RazorEnhanced
                 {
                     if (int.TryParse(itemIdAddTextBox.Text, out var intVal))
                     {
-                        if (!Config.ItemLookup.ContainsKey(intVal))
+                        if (string.IsNullOrEmpty(Config.ItemColorLookup.GetNameFromSet(intVal,0)))
                         {
-                            var item = Items.FindByID(intVal, -1, -1, false, false);
+                            var item = Items.FindByID(intVal, 0, -1, false, false);
                             if (item != null)
                             {
-                                Config.ItemLookup.Add(intVal, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim());
+                                Config.ItemColorLookup.Add(new ItemColorIdentifier(intVal,0, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
                             }
                         }
 
-                        Config.ItemLookup.TryGetValue(intVal, out var lookupName);
+                        var lookupName = Config.ItemColorLookup.GetNameFromSet(intVal, 0);
                         
-                        itemNamesList.Items.Add($"0x{Convert.ToString(intVal, 16)} | {lookupName ?? string.Empty}");
+                        itemNamesList.Items.Add($"0x{Convert.ToString(intVal, 16)} | 0x{Convert.ToString(0, 16)} | {lookupName ?? string.Empty}");
                     }
                     else
                     {
                         try
                         {
                             intVal = Convert.ToInt32(itemIdAddTextBox.Text , 16);
-                            if (!Config.ItemLookup.ContainsKey(intVal))
+                            if (string.IsNullOrEmpty(Config.ItemColorLookup.GetNameFromSet(intVal,0)))
                             {
-                                var item = Items.FindByID(intVal, -1, -1, false, false);
+                                var item = Items.FindByID(intVal, 0, -1, false, false);
                                 if (item != null)
                                 {
-                                    Config.ItemLookup.Add(intVal, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim());
+                                    Config.ItemColorLookup.Add(new ItemColorIdentifier(intVal,0, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
                                 }
                             }
 
-                            Config.ItemLookup.TryGetValue(intVal, out var lookupName);
+                            var lookupName = Config.ItemColorLookup.GetNameFromSet(intVal,0);
                         
-                            itemNamesList.Items.Add($"0x{Convert.ToString(intVal, 16)} | {lookupName ?? string.Empty}");
+                            itemNamesList.Items.Add($"0x{Convert.ToString(intVal, 16)} | 0x{Convert.ToString(0, 16)} | {lookupName ?? string.Empty}");
                         }
                         catch
                         {
@@ -2447,14 +2501,15 @@ namespace RazorEnhanced
                     var item = Items.FindBySerial(tarSerial);
                     if (item != null)
                     {
-                        if (!Config.ItemLookup.ContainsKey(item.ItemID))
+                        if (string.IsNullOrEmpty(Config.ItemColorLookup.GetNameFromSet(item.ItemID, item.Hue)))
                         {
-                            Config.ItemLookup.Add(item.ItemID, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim());
+                            Config.ItemColorLookup.Add(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
                         }
 
-                        Config.ItemLookup.TryGetValue(item.ItemID, out var lookupName);
+                        var lookupName = Config.ItemColorLookup.GetNameFromSet(item.ItemID, item.Hue);
                     
-                        itemNamesList.Items.Add($"0x{Convert.ToString(item.ItemID, 16)} | {lookupName ?? string.Empty}");
+                        itemNamesList.Items.Add($"0x{Convert.ToString(item.ItemID, 16)} |  | {lookupName ?? string.Empty}");
+                        itemNamesList.Items.Add($"0x{Convert.ToString(item.ItemID, 16)} | 0x{Convert.ToString(item.Hue, 16)} | {lookupName ?? string.Empty}");
                     }
                 }
             }
@@ -2467,14 +2522,21 @@ namespace RazorEnhanced
         private int SaveRule()
         {
             var nameList = new List<string>();
-                var idList = new List<int>();
+                var idList = new List<ItemColorIdentifier>();
                 foreach (var val in itemNamesList.Items.Cast<string>())
                 {
                     if (val.StartsWith("0x"))
                     {
                         var idString = val.Split('|').First().Trim();
+                        var colorString = val.Split('|')[1].Trim();
+                        var name = val.Split('|')[2].Trim();
                         var parseVal = Convert.ToInt32(idString, 16);
-                        idList.Add(parseVal);
+                        int? colorId = null;
+                        if(int.TryParse(colorString, out int ci))
+                        {
+                            colorId = ci;
+                        }
+                        idList.Add(new ItemColorIdentifier(parseVal, colorId, name));
                     }
                     else
                     {
@@ -2495,7 +2557,7 @@ namespace RazorEnhanced
                     EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value).ToList(),
                     MinimumRarity = rarityDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityDropDown.SelectedItem as DropDownItem).Value,
                     ItemNames = nameList,
-                    ItemIds = idList,
+                    ItemColorIds = idList,
                     Properties = propertiesList.Items.Cast<PropertyMatch>().ToList(),
                     MaxWeight = weightCurseTextBox.Text == string.Empty ? (int?)null : int.Parse(weightCurseTextBox.Text),
                     Alert = alertCheckbox.Checked,
@@ -2510,7 +2572,7 @@ namespace RazorEnhanced
                     return -1;
                 }
                 
-                var blockSave = rule.EquipmentSlots.Count == 0 && rule.MinimumRarity == null && rule.ItemNames.Count == 0 && rule.ItemIds.Count == 0 && rule.Properties.Count == 0;
+                var blockSave = rule.EquipmentSlots.Count == 0 && rule.MinimumRarity == null && rule.ItemNames.Count == 0 && rule.ItemColorIds.Count == 0 && rule.Properties.Count == 0;
                 if (blockSave)
                 {
                     MessageBox.Show("This rule will match all items. Please adjust the rule to be more specific.");
@@ -2523,7 +2585,7 @@ namespace RazorEnhanced
                     existing.EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value).ToList();
                     existing.MinimumRarity = rarityDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityDropDown.SelectedItem as DropDownItem).Value;
                     existing.ItemNames = nameList;
-                    existing.ItemIds = idList;
+                    existing.ItemColorIds = idList;
                     existing.Properties = propertiesList.Items.Cast<PropertyMatch>().ToList();
                     existing.MaxWeight = weightCurseTextBox.Text == string.Empty ? (int?)null : int.Parse(weightCurseTextBox.Text);
                     existing.Alert = alertCheckbox.Checked;
@@ -3924,4 +3986,17 @@ namespace RazorEnhanced
         Idle = 591,
         Looting = 72
     }
+    
+    public static class ListExtension
+    {
+        public static string GetNameFromSet(this List<ItemColorIdentifier> items, int itemId, int? color)
+        {
+            return items.FirstOrDefault(k => k.ItemId == itemId && k.Color == color)?.Name;
+        }
+        public static string GetNameFromItem(this List<ItemColorIdentifier> items, ItemColorIdentifier item)
+        {
+            return items.FirstOrDefault(k => k.ItemId == item.ItemId && k.Color == item.Color)?.Name;
+        }
+    }
+    
 }
