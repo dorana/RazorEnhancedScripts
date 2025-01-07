@@ -637,7 +637,7 @@ namespace RazorEnhanced
             ignoreList.Add(container.Serial);
             if (container.IsCorpse && _config.ColorCorpses)
             {
-                Items.SetColor(container.Serial,0x3F6);
+                Items.SetColor(container.Serial,_config.ColorCorpsesColor ?? 0x3F6);
             }
         }
 
@@ -1343,6 +1343,7 @@ namespace RazorEnhanced
 
         public List<LootMasterCharacter> Characters { get; set; }
         public bool ColorCorpses { get; set; }
+        public int? ColorCorpsesColor { get; set; }
         
         public Dictionary<int, string> ItemLookup { get; set; }
 
@@ -1411,6 +1412,7 @@ namespace RazorEnhanced
                         var func = funcs.FirstOrDefault(f => f.Name == "DeserializeObject" && f.GetParameters().Length == 1 && f.GetParameters()[0].ParameterType == typeof(string)).MakeGenericMethod(typeof(LootMasterConfig));
                         var readConfig = func.Invoke(type, BindingFlags.InvokeMethod, null, new object[] { data },null) as LootMasterConfig;
                         
+                        
                         Characters = new List<LootMasterCharacter>();
                         foreach (var rcc in readConfig?.Characters ?? new List<LootMasterCharacter>())
                         {
@@ -1430,10 +1432,14 @@ namespace RazorEnhanced
                                     BlackListedProperties = r.BlackListedProperties ?? new List<PropertyMatch>(),
                                     MaxWeight = r.MaxWeight ?? (r.IgnoreWeightCurse ? (int?)null : 49),
                                     Disabled = r.Disabled,
-                                    PropertyMatchRequirement = r.PropertyMatchRequirement
+                                    PropertyMatchRequirement = r.PropertyMatchRequirement,
                                 }).ToList()
                             });
                         }
+                        
+                        ColorCorpses = readConfig?.ColorCorpses ?? true;
+                        ColorCorpsesColor = readConfig?.ColorCorpsesColor ?? 0x3F6;
+                        
                         ItemLookup = readConfig?.ItemLookup ?? new Dictionary<int, string>();
                         break;
                     }
@@ -2436,6 +2442,12 @@ namespace RazorEnhanced
                 MessageBox.Show(ex.ToString());
             }
         }
+
+        internal class Hue
+        {
+            public string Name { get; set; }
+            public int Value { get; set; }
+        }
         
         
 
@@ -2457,6 +2469,29 @@ namespace RazorEnhanced
             {
                 rulesList.Items.Clear();
                 rulesList.Items.AddRange(Config.GetCharacter(name).Rules.ToArray());
+            }
+        }
+        
+        private void huePicker_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (huePicker.SelectedIndex != 0)
+            {
+                var hue = huePicker.SelectedItem as Hue;
+                hueTextBox.Text = hue.Value.ToString();
+                Config.ColorCorpsesColor = hue.Value;
+                Config.Save();
+            }
+        }
+        
+        private void hueTextBox_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (e.KeyChar == (char)Keys.Enter)
+            {
+                if (int.TryParse(hueTextBox.Text, out var hueVal))
+                {
+                    Config.ColorCorpsesColor = hueVal;
+                    Config.Save();;
+                }
             }
         }
 
@@ -2847,9 +2882,93 @@ namespace RazorEnhanced
             slotDropDown.Items.AddRange(EquipmentSlots.ToArray());
             propertyDropDown.Items.AddRange(Properties.ToArray());
             propertyIgnoreDropDown.Items.AddRange(Properties.ToArray());
+            huePicker.Items.Clear();
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Custom",
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Default Brown",
+                Value = 0x3F6
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Frostwood",
+                Value = 0x047F
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Glossy Blue",
+                Value = 0x077C
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Ocean Blue",
+                Value = 0x04AB
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Vivid Blue",
+                Value = 0x0502
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Dryad Green",
+                Value = 0x048F
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Mossy Green",
+                Value = 0x0A7C
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Heartwood",
+                Value = 0x04A9
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Ice Yellow",
+                Value = 0x0038
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Paragon Gold",
+                Value = 0x0501
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Rare Fire Red",
+                Value = 0x054E
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Crimson",
+                Value = 0x00E8
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Phoenix Red",
+                Value = 0x07AC
+            });
+            huePicker.Items.Add(new Hue
+            {
+                Name = "Darkness",
+                Value = 0x0497
+            });
             
             
-            
+            hueTextBox.Text = Config.ColorCorpsesColor?.ToString() ?? String.Empty;
+            var foundColorMatch = huePicker.Items.Cast<Hue>().FirstOrDefault(h => h.Value == Config.ColorCorpsesColor);
+            if(foundColorMatch != null)
+            {
+                huePicker.SelectedItem = foundColorMatch;
+            }
+            else
+            {
+                huePicker.SelectedIndex = 0;
+            }
             
             rarityDropDown.SelectedIndex = 0;
             slotDropDown.SelectedIndex = 0;
@@ -2919,6 +3038,9 @@ namespace RazorEnhanced
             addPropIgnoreButton = new Button();
             propertyIgnoreDropDown = new ComboBox();
             propertiesIgnoreList = new ListBox();
+            label4 = new Label();
+            hueTextBox = new TextBox();
+            huePicker = new ComboBox();
             
             this.listContainer.SuspendLayout();
             this.ruleContainer.SuspendLayout();
@@ -2935,7 +3057,34 @@ namespace RazorEnhanced
             this.colorCorpseCheckbox.Name = "colorCorpseCheckbox";
             this.colorCorpseCheckbox.Size = new System.Drawing.Size(149, 17);
             this.colorCorpseCheckbox.TabIndex = 0;
-            this.colorCorpseCheckbox.Text = "Color Corpses after looting";
+            this.colorCorpseCheckbox.Text = "Color Corpses after looting";// 
+            this.colorCorpseCheckbox.CheckedChanged += this.colorCorpseCheckbox_CheckedChanged;
+            // label4
+            // 
+            this.label4.Location = new System.Drawing.Point(626, 9);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(35, 23);
+            this.label4.TabIndex = 4;
+            this.label4.Text = "Hue";
+            // 
+            // hueTextBox
+            // 
+            this.hueTextBox.Location = new System.Drawing.Point(659, 6);
+            this.hueTextBox.Name = "hueTextBox";
+            this.hueTextBox.Size = new System.Drawing.Size(56, 20);
+            this.hueTextBox.TabIndex = 5;
+            this.hueTextBox.KeyPress += this.hueTextBox_KeyPress;
+            // 
+            // huePicker
+            // 
+            this.huePicker.FormattingEnabled = true;
+            this.huePicker.Location = new System.Drawing.Point(726, 6);
+            this.huePicker.Name = "huePicker";
+            this.huePicker.Size = new System.Drawing.Size(100, 21);
+            this.huePicker.TabIndex = 6;
+            this.huePicker.SelectedIndexChanged += this.huePicker_SelectedIndexChanged;
+            this.huePicker.ValueMember = "Value";
+            this.huePicker.DisplayMember = "Name";
             // 
             // characterDropdown
             // 
@@ -3440,6 +3589,9 @@ namespace RazorEnhanced
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(971, 524);
+            this.Controls.Add(this.huePicker);
+            this.Controls.Add(this.hueTextBox);
+            this.Controls.Add(this.label4);
             this.Controls.Add(this.ruleContainer);
             this.Controls.Add(this.listContainer);
             this.Controls.Add(this.characterDropdown);
@@ -3528,6 +3680,9 @@ namespace RazorEnhanced
         private Button addPropIgnoreButton;
         private ComboBox propertyIgnoreDropDown;
         private ListBox propertiesIgnoreList;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.TextBox hueTextBox;
+        private System.Windows.Forms.ComboBox huePicker;
 
         private System.ComponentModel.IContainer components = null;
         
