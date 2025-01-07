@@ -19,11 +19,6 @@ namespace RazorEnhanced
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
-        // private readonly List<int> _gems = new List<int>();
-        // private readonly List<int> _reagentsMagery = new List<int>();
-        // private readonly List<int> _reagentsNecro = new List<int>();
-        // private readonly List<int> _reagentsMysticism = new List<int>();
-        // private readonly List<int> _imbueMaterials = new List<int>();
         private readonly List<int> ignoreList = new List<int>();
         private LootMasterConfig _config = new LootMasterConfig();
         private Journal.JournalEntry _lastEntry = null;
@@ -66,9 +61,30 @@ namespace RazorEnhanced
                 {
                     ShowWelcomeGump();
                 }
-                _config.ItemColorLookup.Add(new ItemColorIdentifier(3821,0, "Gold Coin"));
-                _config.ItemColorLookup.Add(new ItemColorIdentifier(41777,0, "Coin Purse"));
-                _config.ItemColorLookup.Add(new ItemColorIdentifier(41779,0, "Gem Purse"));
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(3821,0, "Gold Coin"));
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(3821,null, "Gold Coin"));
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(41777,0, "Coin Purse"));
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(41777,null, "Coin Purse"));
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(41779,0, "Gem Purse"));
+                
+                var gems = Enum.GetValues(typeof(Gem)).Cast<Gem>().ToList();
+                foreach (var g in gems) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)g, 0, Handler.SplitCamelCase(g.ToString())));
+                
+                var materials = Enum.GetValues(typeof(Materials)).Cast<Materials>().ToList();
+                foreach (var m in materials) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)m, 0, Handler.SplitCamelCase(m.ToString())));
+                
+                var reagensMagery = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().ToList();
+                foreach (var rm in reagensMagery) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)rm, 0, Handler.SplitCamelCase(rm.ToString())));
+                
+                var reagentsNecro = Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().ToList();
+                foreach (var rn in reagentsNecro) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)rn, 0, Handler.SplitCamelCase(rn.ToString())));
+                
+                var reagentsMysticism = Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().ToList();
+                foreach (var rmy in reagentsMysticism) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)rmy, 0, Handler.SplitCamelCase(rmy.ToString())));
+
+                
+                
+                
                 while (true)
                 {
                     var lm = Gumps.GetGumpData(13659823);
@@ -906,14 +922,34 @@ namespace RazorEnhanced
                     new ItemColorIdentifier((int)g,0, Handler.SplitCamelCase(g.ToString()))).ToList().Union(new List<ItemColorIdentifier> { new ItemColorIdentifier(41779,0, "Gem Bag") }).ToList(),
                 MaxWeight = 100
             };
-        
-        public static LootRule ImbueMaterials =>
-            new LootRule
+
+        public static LootRule ImbueMaterials
+        {
+            get
             {
-                RuleName = "Imbue Materials",
-                ItemColorIds = Enum.GetValues(typeof(Materials)).Cast<Materials>().Select(g => new ItemColorIdentifier((int)g,0,Handler.SplitCamelCase(g.ToString()))).ToList(),
-                MaxWeight = 100
-            };
+                var essancesMatch = new List<ItemColorIdentifier>
+                {
+                    new ItemColorIdentifier((int)Materials.Essence, 0x048e, "Essence of Diligence"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x04f4, "Essence of Balance"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x01c7, "Essence of Feeling"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x0025, "Essence of Persistence"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x0455, "Essence of Singularity"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x0486, "Essence of Precision"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x0486, "Essence of Direction"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x048d, "Essence of Control"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x06bc, "Essence of Achievement"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x0489, "Essence of Passion"),
+                    new ItemColorIdentifier((int)Materials.Essence, 0x0481, "Essence of Order")
+                };
+                return new LootRule
+                {
+                    RuleName = "Imbue Materials",
+                    ItemColorIds = Enum.GetValues(typeof(Materials)).Cast<Materials>().Where(e => e != Materials.Essence).Select(g => new ItemColorIdentifier((int)g,0,Handler.SplitCamelCase(g.ToString()))).Union(essancesMatch).ToList(),
+                    MaxWeight = 100
+                };
+            }
+        }
+            
         
         public static LootRule ReagentsMagery =>
             new LootRule
@@ -1493,7 +1529,7 @@ namespace RazorEnhanced
                                 Rules = rcc.Rules.Select(r => new LootRule
                                 {
                                     RuleName = r.RuleName,
-                                    ItemColorIds = r.ItemColorIds ?? r.ItemIds?.Select(i => new ItemColorIdentifier(i,null,null)).ToList() ?? new List<ItemColorIdentifier>(),
+                                    ItemColorIds = r.ItemColorIds ?? r.ItemIds?.Select(i => new ItemColorIdentifier(i,0,string.Empty)).ToList() ?? new List<ItemColorIdentifier>(),
                                     ItemNames = r.ItemNames ?? new List<string>(),
                                     Properties = r.Properties ?? new List<PropertyMatch>(),
                                     EquipmentSlots = r.EquipmentSlots ?? new List<EquipmentSlot>(),
@@ -1519,7 +1555,7 @@ namespace RazorEnhanced
                             ItemColorLookup = new List<ItemColorIdentifier>();
                             foreach (var il in ItemLookup)
                             {
-                                ItemColorLookup.Add(new ItemColorIdentifier(il.Key, null, il.Value));
+                                ItemColorLookup.AddUnique(new ItemColorIdentifier(il.Key, 0, il.Value));
                             }
                         }
                         break;
@@ -1639,7 +1675,7 @@ namespace RazorEnhanced
         ArcanicRuneStone = 22332, // 0x573C
         BlueDiamond = 12696,      // 0x3198
         BottleOfIchor = 22344,    // 0x5748
-        BouraPelt = 22338,        // 0x5742
+        BouraPelt = 22338,        // 03x5742
         ChagaMushroom = 22339,    // 0x5743
         CrushedGlass = 22331,     // 0x573B
         CrystalShards = 22328,    // 0x5738
@@ -1677,6 +1713,11 @@ namespace RazorEnhanced
     
     public class ItemColorIdentifier
     {
+        public override string ToString()
+        {
+            return $"{ItemId}|{Color}";
+        }
+
         public ItemColorIdentifier(int itemId, int? color, string name)
         {
             ItemId = itemId;
@@ -2287,6 +2328,10 @@ namespace RazorEnhanced
                     {
                         var idString = val.Split('|').First().Trim();
                         var colorString = val.Split('|')[1].Trim();
+                        if (colorString.StartsWith("0x"))
+                        {
+                            colorString = colorString.Substring(2);
+                        }
                         var name = val.Split('|')[2].Trim();
                         var parseVal = Convert.ToInt32(idString, 16);
                         int? colorId = null;
@@ -2315,8 +2360,10 @@ namespace RazorEnhanced
                     Disabled = !enabledCheckbox.Checked
                 };
 
-                var originalRule = rulesList.Items[_lastSelectedRuleIndex] as LootRule;
+                
 
+                var originalRule = rulesList.Items[_lastSelectedRuleIndex] as LootRule;
+                
                 // check if currentRule and originalRule differ on any property
                 return currentValues.EquipmentSlots.Count != originalRule.EquipmentSlots.Count ||
                        currentValues.EquipmentSlots.Except(originalRule.EquipmentSlots).Any() ||
@@ -2324,7 +2371,7 @@ namespace RazorEnhanced
                        currentValues.ItemNames.Count != originalRule.ItemNames.Count ||
                        currentValues.ItemNames.Except(originalRule.ItemNames).Any() ||
                        currentValues.ItemColorIds.Count != originalRule.ItemColorIds.Count ||
-                       currentValues.ItemColorIds.Except(originalRule.ItemColorIds).Any() ||
+                       currentValues.ItemColorIds.Select(l1 => l1.ToString()).Except(originalRule.ItemColorIds.Select(l2 => l2.ToString())).Any() ||
                        currentValues.Properties.Count != originalRule.Properties.Count ||
                        currentValues.Properties.Except(originalRule.Properties).Any() ||
                        currentValues.MaxWeight != originalRule.MaxWeight ||
@@ -2397,18 +2444,21 @@ namespace RazorEnhanced
             {
                 foreach (var itemId in rule.ItemColorIds)
                 {
+                    int hueOfFoundItem = 0;
                     if (string.IsNullOrEmpty(Config.ItemColorLookup.GetNameFromItem(itemId)))
                     {
                         var item = Items.FindByID(itemId.ItemId, itemId.Color ?? -1, -1, false, false);
+                        
                         if (item != null)
                         {
-                            Config.ItemColorLookup.Add(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));    
+                            hueOfFoundItem = item.Hue;
+                            Config.ItemColorLookup.AddUnique(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));    
                         }
                     }
 
-                    var lookupName =  Config.ItemColorLookup.GetNameFromItem(itemId);
+                    var lookupName =  Config.ItemColorLookup.GetNameFromSet(itemId.ItemId, hueOfFoundItem);
                     
-                    itemNamesList.Items.Add($"0x{Convert.ToString(itemId.ItemId, 16)} | {(itemId.Color == null ? " " : $"0x{Convert.ToString(itemId.Color.Value, 16)}")} | {lookupName ?? string.Empty}");
+                    itemNamesList.Items.Add($"0x{Convert.ToString(itemId.ItemId, 16)} | {(itemId.Color == null ? "ANY" : $"0x{Convert.ToString(itemId.Color.Value, 16)}")} | {lookupName ?? string.Empty}");
                 }
             }
             
@@ -2460,7 +2510,7 @@ namespace RazorEnhanced
                             var item = Items.FindByID(intVal, 0, -1, false, false);
                             if (item != null)
                             {
-                                Config.ItemColorLookup.Add(new ItemColorIdentifier(intVal,0, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
+                                Config.ItemColorLookup.AddUnique(new ItemColorIdentifier(intVal,0, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
                             }
                         }
 
@@ -2478,7 +2528,7 @@ namespace RazorEnhanced
                                 var item = Items.FindByID(intVal, 0, -1, false, false);
                                 if (item != null)
                                 {
-                                    Config.ItemColorLookup.Add(new ItemColorIdentifier(intVal,0, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
+                                    Config.ItemColorLookup.AddUnique(new ItemColorIdentifier(intVal,0, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
                                 }
                             }
 
@@ -2503,7 +2553,7 @@ namespace RazorEnhanced
                     {
                         if (string.IsNullOrEmpty(Config.ItemColorLookup.GetNameFromSet(item.ItemID, item.Hue)))
                         {
-                            Config.ItemColorLookup.Add(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
+                            Config.ItemColorLookup.AddUnique(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
                         }
 
                         var lookupName = Config.ItemColorLookup.GetNameFromSet(item.ItemID, item.Hue);
@@ -2531,7 +2581,7 @@ namespace RazorEnhanced
                         var colorString = val.Split('|')[1].Trim();
                         var name = val.Split('|')[2].Trim();
                         var parseVal = Convert.ToInt32(idString, 16);
-                        int? colorId = null;
+                        int? colorId = 0;
                         if(int.TryParse(colorString, out int ci))
                         {
                             colorId = ci;
@@ -3997,6 +4047,27 @@ namespace RazorEnhanced
         {
             return items.FirstOrDefault(k => k.ItemId == item.ItemId && k.Color == item.Color)?.Name;
         }
+        
+        public static void AddUnique<T>(this List<T> list, T item)
+        {
+            if (list.Contains(item))
+            {
+                return;
+            }
+
+            if (typeof(T) == typeof(ItemColorIdentifier))
+            {
+                var ici = item as ItemColorIdentifier;
+                if (list.Cast<ItemColorIdentifier>().Any(k => k.ItemId == ici.ItemId && k.Color == ici.Color))
+                {
+                    return;
+                }
+            }
+            
+            list.Add(item);
+        }
     }
+    
+    
     
 }
