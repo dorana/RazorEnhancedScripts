@@ -15,7 +15,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.0.6.2";
+        private readonly string _version = "v1.0.7";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -48,7 +48,7 @@ namespace RazorEnhanced
                 var configFile = Path.Combine(Engine.RootPath, "Lootmaster.config");
                 firstRun = !File.Exists(configFile);
 
-                _config.Init();
+                _config.Init(_version);
                 
                 Misc.RemoveSharedValue("Lootmaster:DirectContainer");
                 Misc.RemoveSharedValue("Lootmaster:ReconfigureBags");
@@ -592,7 +592,17 @@ namespace RazorEnhanced
         private void LootContainer(Item container, LootRule rule)
         {
             Handler.SendMessage(MessageType.Debug, $"Waiting for contents of {container.Name}");
-            Items.WaitForContents(container, 20000);
+            Items.UseItem(container);
+            Misc.Pause(_lootDelay);
+            
+            var entries = _journal.GetJournalEntry(_lastEntry);
+            if (entries != null && entries.Any(e => e.Type.Equals("System", StringComparison.InvariantCultureIgnoreCase) && (e.Text.Equals("you may not loot this corpse.", StringComparison.CurrentCultureIgnoreCase) || e.Text.Equals("You did not earn the right to loot this creature!", StringComparison.InvariantCultureIgnoreCase))))
+            {
+                IgnoreCorpse(container);
+                _lastEntry = _journal.GetJournalEntry(null).OrderBy(j => j.Timestamp).LastOrDefault();
+                return;
+            }
+            Items.WaitForContents(container, 5000);
             
             var stamp = DateTime.Now;
             Handler.SendMessage(MessageType.Debug, $"Looting {container.Name}");
@@ -607,14 +617,8 @@ namespace RazorEnhanced
             {
                 Misc.Pause(1000);
             }
-            Misc.Pause(_lootDelay);
+            Misc.Pause(50);
 
-            var entries = _journal.GetJournalEntry(_lastEntry);
-            if (entries != null && entries.Any(e => e.Type == "system" && (e.Text.ToLower() == "you may not loot this corpse." || e.Text.ToLower() == "you did not earn the right to loot this creature!")))
-            {
-                IgnoreCorpse(container);
-                return;
-            }
 
             var sum = 1;
             Handler.SendMessage(MessageType.Debug, $"Starting loot cycle");
@@ -1451,7 +1455,7 @@ namespace RazorEnhanced
 
     public class LootMasterConfig
     {
-
+        public string Version { get; set; }
         public List<LootMasterCharacter> Characters { get; set; }
         public bool ColorCorpses { get; set; }
         public int? ColorCorpsesColor { get; set; }
@@ -1468,8 +1472,9 @@ namespace RazorEnhanced
             ItemLookup = new Dictionary<int, string>();
         }
         
-        public void Init()
+        public void Init(string version)
         {
+            Version = version;
             ReadConfig();
         }
 
