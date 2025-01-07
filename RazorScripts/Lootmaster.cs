@@ -1089,7 +1089,7 @@ namespace RazorEnhanced
             if (EquipmentSlots.Contains(EquipmentSlot.Jewellery))
             {
                 matchFound = matchFound || item.Layer.Equals(EquipmentSlot.Ring.ToString(), StringComparison.OrdinalIgnoreCase) ||
-                             item.Layer.Equals(EquipmentSlot.Bracelet.ToString(), StringComparison.OrdinalIgnoreCase);
+                             item.Layer.Equals(EquipmentSlot.Bracelet.ToString(), StringComparison.OrdinalIgnoreCase) |;
             }
 
             return matchFound || EquipmentSlots.Any(s => s.ToString().Equals(item.Layer, StringComparison.OrdinalIgnoreCase));
