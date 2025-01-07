@@ -885,6 +885,7 @@ namespace RazorEnhanced
         public List<EquipmentSlot> EquipmentSlots { get; set; }
         public List<PropertyMatch> Properties { get; set; }
         public ItemRarity? MinimumRarity { get; set; }
+        public ItemRarity? MaximumRarity { get; set; }
         public int? MaxWeight { get; set; }
         public bool IgnoreWeightCurse { get; set; }
         public List<ItemColorIdentifier> ItemColorIds { get; set; }
@@ -1270,7 +1271,7 @@ namespace RazorEnhanced
 
         private bool CheckRarityProps(Item item)
         {
-            if (MinimumRarity == null)
+            if (MinimumRarity == null && MaximumRarity == null)
             {
                 return true;
             }
@@ -1291,7 +1292,17 @@ namespace RazorEnhanced
             }
 
 
-            var checkRarities = Enum.GetValues(typeof(ItemRarity)).Cast<ItemRarity>().ToList().Where(r => (int)r >= (int)MinimumRarity).ToList();
+            var checkRarities = Enum.GetValues(typeof(ItemRarity)).Cast<ItemRarity>().ToList();
+            
+            if(MinimumRarity != null)
+            {
+                checkRarities = checkRarities.Where(r => (int)r >= (int)MinimumRarity).ToList();
+            }
+
+            if (MaximumRarity != null)
+            {
+                checkRarities = checkRarities.Where(r => (int)r <= (int)MaximumRarity).ToList();
+            }
 
             var matched = false;
             
@@ -1535,6 +1546,7 @@ namespace RazorEnhanced
                                     EquipmentSlots = r.EquipmentSlots ?? new List<EquipmentSlot>(),
                                     Alert = r.Alert,
                                     MinimumRarity = r.MinimumRarity,
+                                    MaximumRarity = r.MaximumRarity,
                                     TargetBag = r.TargetBag,
                                     BlackListedProperties = r.BlackListedProperties ?? new List<PropertyMatch>(),
                                     MaxWeight = r.MaxWeight ?? (r.IgnoreWeightCurse ? (int?)null : 49),
@@ -2293,7 +2305,7 @@ namespace RazorEnhanced
         {
             rulesList.ClearSelected();
             ruleNameTextBox.Text = string.Empty;
-            rarityDropDown.SelectedIndex = 0;
+            rarityMinDropDown.SelectedIndex = 0;
             slotDropDown.SelectedIndex = 0;
             propertyDropDown.SelectedIndex = 0;
             presetDropDown.SelectedIndex = 0;
@@ -2351,7 +2363,8 @@ namespace RazorEnhanced
                 {
                     RuleName = ruleNameTextBox.Text,
                     EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value).ToList(),
-                    MinimumRarity = rarityDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityDropDown.SelectedItem as DropDownItem).Value,
+                    MinimumRarity = rarityMinDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMinDropDown.SelectedItem as DropDownItem).Value,
+                    MaximumRarity = rarityMaxDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value,
                     ItemNames = nameList,
                     ItemColorIds = idList,
                     Properties = propertiesList.Items.Cast<PropertyMatch>().ToList(),
@@ -2368,6 +2381,7 @@ namespace RazorEnhanced
                 return currentValues.EquipmentSlots.Count != originalRule.EquipmentSlots.Count ||
                        currentValues.EquipmentSlots.Except(originalRule.EquipmentSlots).Any() ||
                        currentValues.MinimumRarity != originalRule.MinimumRarity ||
+                       currentValues.MaximumRarity != originalRule.MaximumRarity ||
                        currentValues.ItemNames.Count != originalRule.ItemNames.Count ||
                        currentValues.ItemNames.Except(originalRule.ItemNames).Any() ||
                        currentValues.ItemColorIds.Count != originalRule.ItemColorIds.Count ||
@@ -2427,7 +2441,8 @@ namespace RazorEnhanced
         {
             slotDropDown.SelectedIndex = 0;
             ruleNameTextBox.Text = rule.RuleName;
-            rarityDropDown.SelectedIndex = rule.MinimumRarity == null ? 0 : Rarities.IndexOf(Rarities.First(r => r.Name == rule.MinimumRarity.ToString()));
+            rarityMinDropDown.SelectedIndex = rule.MinimumRarity == null ? 0 : Rarities.IndexOf(Rarities.First(r => r.Name == rule.MinimumRarity.ToString()));
+            rarityMaxDropDown.SelectedIndex = rule.MaximumRarity == null ? 0 : Rarities.IndexOf(Rarities.First(r => r.Name == rule.MaximumRarity.ToString()));
             
             eqipmentSlotList.Items.Clear();
             var slotList = rule.EquipmentSlots?.OrderBy(x => x.ToString()).Select(x => new DropDownItem
@@ -2605,7 +2620,8 @@ namespace RazorEnhanced
                 {
                     RuleName = ruleNameTextBox.Text,
                     EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value).ToList(),
-                    MinimumRarity = rarityDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityDropDown.SelectedItem as DropDownItem).Value,
+                    MinimumRarity = rarityMinDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMinDropDown.SelectedItem as DropDownItem).Value,
+                    MaximumRarity = rarityMaxDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value,
                     ItemNames = nameList,
                     ItemColorIds = idList,
                     Properties = propertiesList.Items.Cast<PropertyMatch>().ToList(),
@@ -2622,7 +2638,7 @@ namespace RazorEnhanced
                     return -1;
                 }
                 
-                var blockSave = rule.EquipmentSlots.Count == 0 && rule.MinimumRarity == null && rule.ItemNames.Count == 0 && rule.ItemColorIds.Count == 0 && rule.Properties.Count == 0;
+                var blockSave = rule.EquipmentSlots.Count == 0 && rule.MinimumRarity == null && rule.MaximumRarity == null && rule.ItemNames.Count == 0 && rule.ItemColorIds.Count == 0 && rule.Properties.Count == 0;
                 if (blockSave)
                 {
                     MessageBox.Show("This rule will match all items. Please adjust the rule to be more specific.");
@@ -2633,7 +2649,8 @@ namespace RazorEnhanced
                 if (existing != null)
                 {
                     existing.EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value).ToList();
-                    existing.MinimumRarity = rarityDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityDropDown.SelectedItem as DropDownItem).Value;
+                    existing.MinimumRarity = rarityMinDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMinDropDown.SelectedItem as DropDownItem).Value;
+                    existing.MaximumRarity = rarityMaxDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value;
                     existing.ItemNames = nameList;
                     existing.ItemColorIds = idList;
                     existing.Properties = propertiesList.Items.Cast<PropertyMatch>().ToList();
@@ -3118,7 +3135,8 @@ namespace RazorEnhanced
             presetDropDown.Items.AddRange(presets);
             
             
-            rarityDropDown.Items.AddRange(Rarities.ToArray());
+            rarityMinDropDown.Items.AddRange(Rarities.ToArray());
+            rarityMaxDropDown.Items.AddRange(Rarities.ToArray());
             slotDropDown.Items.AddRange(EquipmentSlots.ToArray());
             propertyDropDown.Items.AddRange(Properties.ToArray());
             propertyIgnoreDropDown.Items.AddRange(Properties.ToArray());
@@ -3210,7 +3228,8 @@ namespace RazorEnhanced
                 huePicker.SelectedIndex = 0;
             }
             
-            rarityDropDown.SelectedIndex = 0;
+            rarityMinDropDown.SelectedIndex = 0;
+            rarityMaxDropDown.SelectedIndex = 0;
             slotDropDown.SelectedIndex = 0;
             propertyDropDown.SelectedIndex = 0;
             presetDropDown.SelectedIndex = 0;
@@ -3240,7 +3259,8 @@ namespace RazorEnhanced
             this.label1 = new Label();
             this.label2 = new Label();
             this.ruleNameTextBox = new TextBox();
-            this.rarityDropDown = new ComboBox();
+            this.rarityMinDropDown = new ComboBox();
+            this.rarityMaxDropDown = new ComboBox();
             this.label3 = new Label();
             this.slotDropDown = new ComboBox();
             this.alertCheckbox = new CheckBox();
@@ -3281,6 +3301,7 @@ namespace RazorEnhanced
             label4 = new Label();
             hueTextBox = new TextBox();
             huePicker = new ComboBox();
+            label8 = new Label();
             
             this.listContainer.SuspendLayout();
             this.ruleContainer.SuspendLayout();
@@ -3375,7 +3396,7 @@ namespace RazorEnhanced
             this.rulesList.Dock = System.Windows.Forms.DockStyle.Top;
             this.rulesList.Location = new System.Drawing.Point(3, 16);
             this.rulesList.Name = "rulesList";
-            this.rulesList.Size = new System.Drawing.Size(129, 381);
+            this.rulesList.Size = new System.Drawing.Size(129, 371);
             this.rulesList.TabIndex = 0;
             this.rulesList.SelectedIndexChanged += new System.EventHandler(this.rulesList_SelectedIndexChanged);
             // 
@@ -3489,8 +3510,10 @@ namespace RazorEnhanced
             this.settingContainer.Controls.Add(this.itemNameContainer);
             this.settingContainer.Controls.Add(this.ruleNameTextBox);
             this.settingContainer.Controls.Add(this.label2);
-            this.settingContainer.Controls.Add(this.rarityDropDown);
+            this.settingContainer.Controls.Add(this.rarityMinDropDown);
             this.settingContainer.Controls.Add(this.label3);
+            this.settingContainer.Controls.Add(this.label8);
+            this.settingContainer.Controls.Add(this.rarityMaxDropDown);
             this.settingContainer.Location = new System.Drawing.Point(5, 42);
             this.settingContainer.Name = "settingContainer";
             this.settingContainer.Size = new System.Drawing.Size(787, 435);
@@ -3774,7 +3797,7 @@ namespace RazorEnhanced
             // 
             this.ruleNameTextBox.Location = new System.Drawing.Point(69, 19);
             this.ruleNameTextBox.Name = "ruleNameTextBox";
-            this.ruleNameTextBox.Size = new System.Drawing.Size(295, 20);
+            this.ruleNameTextBox.Size = new System.Drawing.Size(289, 20);
             this.ruleNameTextBox.TabIndex = 3;
             // 
             // label2
@@ -3786,15 +3809,25 @@ namespace RazorEnhanced
             this.label2.TabIndex = 2;
             this.label2.Text = "Rule Name";
             // 
-            // rarityDropDown
+            // rarityMinDropDown
             // 
-            this.rarityDropDown.DisplayMember = "Name";
-            this.rarityDropDown.FormattingEnabled = true;
-            this.rarityDropDown.Location = new System.Drawing.Point(69, 44);
-            this.rarityDropDown.Name = "rarityDropDown";
-            this.rarityDropDown.Size = new System.Drawing.Size(104, 21);
-            this.rarityDropDown.TabIndex = 4;
-            this.rarityDropDown.ValueMember = "Value";
+            this.rarityMinDropDown.DisplayMember = "Name";
+            this.rarityMinDropDown.FormattingEnabled = true;
+            this.rarityMinDropDown.Location = new System.Drawing.Point(69, 44);
+            this.rarityMinDropDown.Name = "rarityMinDropDown";
+            this.rarityMinDropDown.Size = new System.Drawing.Size(104, 21);
+            this.rarityMinDropDown.TabIndex = 4;
+            this.rarityMinDropDown.ValueMember = "Value";
+            // 
+            // rarityMinDropDown
+            // 
+            this.rarityMaxDropDown.DisplayMember = "Name";
+            this.rarityMaxDropDown.FormattingEnabled = true;
+            this.rarityMaxDropDown.Location = new System.Drawing.Point(252, 44);
+            this.rarityMaxDropDown.Name = "rarityMinDropDown";
+            this.rarityMaxDropDown.Size = new System.Drawing.Size(104, 21);
+            this.rarityMaxDropDown.TabIndex = 4;
+            this.rarityMaxDropDown.ValueMember = "Value";
             // 
             // label3
             // 
@@ -3804,6 +3837,15 @@ namespace RazorEnhanced
             this.label3.Size = new System.Drawing.Size(54, 13);
             this.label3.TabIndex = 5;
             this.label3.Text = "Min Rarity";
+            // 
+            // label3
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(190, 47);
+            this.label8.Name = "label3";
+            this.label8.Size = new System.Drawing.Size(54, 13);
+            this.label8.TabIndex = 5;
+            this.label8.Text = "Max Rarity";
             // 
             // label1
             // 
@@ -3820,7 +3862,7 @@ namespace RazorEnhanced
             this.presetDropDown.FormattingEnabled = true;
             this.presetDropDown.Location = new System.Drawing.Point(44, 16);
             this.presetDropDown.Name = "presetDropDown";
-            this.presetDropDown.Size = new System.Drawing.Size(357, 21);
+            this.presetDropDown.Size = new System.Drawing.Size(319, 21);
             this.presetDropDown.TabIndex = 0;
             this.presetDropDown.SelectedIndexChanged += new System.EventHandler(this.presetDropDown_SelectedIndexChanged);
             // 
@@ -3887,8 +3929,10 @@ namespace RazorEnhanced
         private ListBox eqipmentSlotList;
         private TextBox ruleNameTextBox;
         private Label label2;
-        private ComboBox rarityDropDown;
+        private ComboBox rarityMinDropDown;
+        private ComboBox rarityMaxDropDown;
         private Label label3;
+        private Label label8;
         private ComboBox slotDropDown;
         private Label label1;
         private ComboBox presetDropDown;
