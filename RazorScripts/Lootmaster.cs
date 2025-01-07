@@ -746,11 +746,6 @@ namespace RazorEnhanced
             {
                 HandlePause();
                 
-                while (Target.HasTarget())
-                {
-                    Misc.Pause(100);
-                }
-                
                 var checkItem = Items.FindBySerial(li.Item.Serial);
                 if (checkItem?.Container == container.Serial)
                 {
@@ -1676,10 +1671,10 @@ namespace RazorEnhanced
     
     internal enum ReagentsMysticism
     {
-        DragonBlood = 3978,    // 0x0F8A
+        DragonBlood = 16503,    // 0x4077
         Bone = 3966,           // 0x0F7E
-        DaemonBone = 3966,     // 0x0F7E
-        FertileDirt = 3978     // 0x0F8A
+        DaemonBone = 3968,     // 0x0F80
+        FertileDirt = 3969     // 0x0F81
     }
 
     internal enum Materials
