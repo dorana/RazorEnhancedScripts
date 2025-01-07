@@ -19,7 +19,11 @@ namespace RazorEnhanced
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
-        private readonly List<int> _gems = new List<int>();
+        // private readonly List<int> _gems = new List<int>();
+        // private readonly List<int> _reagentsMagery = new List<int>();
+        // private readonly List<int> _reagentsNecro = new List<int>();
+        // private readonly List<int> _reagentsMysticism = new List<int>();
+        // private readonly List<int> _imbueMaterials = new List<int>();
         private readonly List<int> ignoreList = new List<int>();
         private LootMasterConfig _config = new LootMasterConfig();
         private Journal.JournalEntry _lastEntry = null;
@@ -778,9 +782,20 @@ namespace RazorEnhanced
             
             _player = Mobiles.FindBySerial(Player.Serial);
 
-            var gems = Enum.GetValues(typeof(Gem)).Cast<Gem>().ToList();
-
-            foreach (var gem in gems) _gems.Add((int)gem);
+            // var gems = Enum.GetValues(typeof(Gem)).Cast<Gem>().ToList();
+            // foreach (var gem in gems) _gems.Add((int)gem);
+            //
+            // var im = Enum.GetValues(typeof(Materials)).Cast<Materials>().ToList();
+            // foreach (var m in im) _imbueMaterials.Add((int)m);
+            //
+            // var regMagery = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().ToList();
+            // foreach (var rm in regMagery) _reagentsMagery.Add((int)rm);
+            //
+            // var regNecro = Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().ToList();
+            // foreach (var rn in regNecro) _reagentsNecro.Add((int)rn);
+            //
+            // var regMyst = Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().ToList();
+            // foreach (var rm in regMyst) _reagentsMysticism.Add((int)rm);
 
             Misc.RemoveSharedValue("Lootmaster:ReconfigureBags");
 
@@ -884,6 +899,49 @@ namespace RazorEnhanced
             {
                 RuleName = "Gems",
                 ItemIds = Enum.GetValues(typeof(Gem)).Cast<Gem>().Select(g => (int)g).ToList().Union(new List<int> { 41779 }).ToList(),
+                MaxWeight = 100
+            };
+        
+        public static LootRule ImbueMaterials =>
+            new LootRule
+            {
+                RuleName = "Imbue Materials",
+                ItemIds = Enum.GetValues(typeof(Materials)).Cast<Materials>().Select(g => (int)g).ToList(),
+                MaxWeight = 100
+            };
+        
+        public static LootRule ReagentsMagery =>
+            new LootRule
+            {
+                RuleName = "Reagents Magery",
+                ItemIds = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().Select(g => (int)g).ToList(),
+                MaxWeight = 100
+            };
+        
+        public static LootRule ReagentsNecromancy =>
+            new LootRule
+            {
+                RuleName = "Reagents Necromancy",
+                ItemIds = Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().Select(g => (int)g).ToList(),
+                MaxWeight = 100
+            };
+        
+        public static LootRule ReagentsMysticism =>
+            new LootRule
+            {
+                RuleName = "Reagents Mysticism",
+                ItemIds = Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().Select(g => (int)g).ToList(),
+                MaxWeight = 100
+            };
+        
+        public static LootRule ReagentsAll =>
+            new LootRule
+            {
+                RuleName = "Reagents",
+                ItemIds = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().Select(g => (int)g)
+                    .Union(Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().Select(g => (int)g))
+                    .Union(Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().Select(g => (int)g))
+                    .ToList(),
                 MaxWeight = 100
             };
 
@@ -1088,8 +1146,10 @@ namespace RazorEnhanced
             }
             if (EquipmentSlots.Contains(EquipmentSlot.Jewellery))
             {
-                matchFound = matchFound || item.Layer.Equals(EquipmentSlot.Ring.ToString(), StringComparison.OrdinalIgnoreCase) ||
-                             item.Layer.Equals(EquipmentSlot.Bracelet.ToString(), StringComparison.OrdinalIgnoreCase) |;
+                matchFound = matchFound ||
+                             item.Layer.Equals(EquipmentSlot.Ring.ToString(), StringComparison.OrdinalIgnoreCase) ||
+                             item.Layer.Equals(EquipmentSlot.Bracelet.ToString(), StringComparison.OrdinalIgnoreCase) ||
+                             item.Layer.Equals(EquipmentSlot.Earrings.ToString(), StringComparison.OrdinalIgnoreCase);
             }
 
             return matchFound || EquipmentSlots.Any(s => s.ToString().Equals(item.Layer, StringComparison.OrdinalIgnoreCase));
@@ -1524,6 +1584,68 @@ namespace RazorEnhanced
         Diamond = 3878
     }
 
+    internal enum ReagentsMagery
+    {
+        BlackPearl = 3962,      // 0x0F7A
+        BloodMoss = 3963,       // 0x0F7B
+        Garlic = 3972,          // 0x0F84
+        Ginseng = 3973,         // 0x0F85
+        MandrakeRoot = 3974,    // 0x0F86
+        Nightshade = 3976,      // 0x0F88
+        SpiderSilk = 3560,      // 0x0DF8
+        SulfurousAsh = 3980     // 0x0F8C
+    }
+
+    internal enum ReagentsNecro
+    {
+        BatWing = 3960,        // 0x0F78
+        GraveDust = 3981,      // 0x0F8D
+        DaemonBlood = 3965,    // 0x0F7D
+        NoxCrystal = 3982,     // 0x0F8E
+        PigIron = 3983         // 0x0F8F
+    }
+    
+    internal enum ReagentsMysticism
+    {
+        DragonBlood = 3978,    // 0x0F8A
+        Bone = 3966,           // 0x0F7E
+        DaemonBone = 3966,     // 0x0F7E
+        FertileDirt = 3978     // 0x0F8A
+    }
+
+    internal enum Materials
+    {
+        ArcanicRuneStone = 22332, // 0x573C
+        BlueDiamond = 12696,      // 0x3198
+        BottleOfIchor = 22344,    // 0x5748
+        BouraPelt = 22338,        // 0x5742
+        ChagaMushroom = 22339,    // 0x5743
+        CrushedGlass = 22331,     // 0x573B
+        CrystalShards = 22328,    // 0x5738
+        CrystallineBlackrock = 22322, // 0x5732
+        DaemonClaw = 22049,       // 0x5721
+        DelicateScales = 22330,   // 0x573A
+        ElvenFletching = 22327,   // 0x5737
+        Essence = 22044,          // 0x571C
+        FaeryDust = 22341,        // 0x5745
+        FeyWings = 22054,         // 0x5726
+        FireRuby = 12695,         // 0x3197
+        GoblinBlood = 22060,      // 0x572C
+        LavaSerpentCrust = 22061, // 0x572D
+        LuminescentFungi = 12689, // 0x3191
+        ParasiticPlant = 12688,   // 0x3190
+        RaptorTeeth = 22343,      // 0x5747
+        ReflectiveWolfEye = 22345, // 0x5749
+        SeedOfRenewal = 22326,    // 0x5736
+        SilverSnakeSkin = 22340,  // 0x5744
+        SlithTongue = 22342,      // 0x5746
+        SpiderCarapace = 22048,   // 0x5720
+        Turquoise = 12691,        // 0x3193
+        UndyingFlesh = 22321,     // 0x5731
+        VialOfVitriol = 22050,    // 0x5722
+        VoidOrb = 22334,          // 0x573E
+        WhitePearl = 12694        // 0x3196
+    }
     public class PropertyMatch
     {
         public ItemProperty Property { get; set; }
@@ -2865,13 +2987,19 @@ namespace RazorEnhanced
                 },
                 LootRule.Gold,
                 LootRule.Gems,
+                LootRule.ImbueMaterials,
                 LootRule.Ammo,
                 LootRule.PureElementalWeapons,
                 LootRule.PureColdWeapon,
                 LootRule.PureFireWeapon,
                 LootRule.PureEnergyWeapon,
                 LootRule.PurePoisonWeapon,
-                LootRule.Slayers
+                LootRule.Slayers,
+                LootRule.ReagentsMagery,
+                LootRule.ReagentsNecromancy,
+                LootRule.ReagentsMysticism,
+                LootRule.ReagentsAll,
+                
             }.ToArray();
 
             presetDropDown.Items.Clear();
