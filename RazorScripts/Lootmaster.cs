@@ -277,9 +277,12 @@ namespace RazorEnhanced
 
         private void HandlePause()
         {
-            var pauseTimer = (int)Misc.ReadSharedValue("Lootmaster:Pause");
-            Misc.Pause(pauseTimer);
-            Misc.SetSharedValue("Lootmaster:Pause", 0);
+            var pauseCheckvalue = Misc.ReadSharedValue("Lootmaster:Pause");
+            if (pauseCheckvalue is int pauseTimer && pauseTimer > 0)
+            {
+                Misc.Pause(pauseTimer);
+                Misc.SetSharedValue("Lootmaster:Pause", 0);
+            }
         }
 
         private bool JustRessed()
@@ -749,7 +752,6 @@ namespace RazorEnhanced
             foreach (var li in lootItems)
             {
                 HandlePause();
-                
                 var checkItem = Items.FindBySerial(li.Item.Serial);
                 if (checkItem?.Container == container.Serial)
                 {
@@ -899,6 +901,8 @@ namespace RazorEnhanced
         public int? TargetBag { get; set; }
         
         public int? PropertyMatchRequirement { get; set; }
+
+        public string RegExString { get; set; }
         
         public Item GetTargetBag() => Items.FindBySerial(TargetBag ?? -1);
 
@@ -1140,6 +1144,9 @@ namespace RazorEnhanced
             Handler.SendMessage(MessageType.Debug,$"CheckEquipmentSlot : {match}");
 
             match = match && CheckSpecialProps(item);
+            Handler.SendMessage(MessageType.Debug,$"CheckSpecialProps : {match}");
+
+            match = match && CheckRegEx(item);
             Handler.SendMessage(MessageType.Debug,$"CheckSpecialProps : {match}");
                 
             return match;
@@ -1450,6 +1457,27 @@ namespace RazorEnhanced
             //atleast PropertyMatchRequirement properties must match if PropertyMatchRequirement is null assume All must match
             return PropertyMatchRequirement == null ? ruleDict.All(p => p.Value) : ruleDict.Count(p => p.Value) >= PropertyMatchRequirement;
         }
+
+        private bool CheckRegEx(Item item)
+        {
+            if(string.IsNullOrEmpty(RegExString))
+            {
+                return true;
+            }
+
+            var regEx = new Regex(RegExString, RegexOptions.IgnoreCase);
+            
+            List<string> stringList = new List<string>();
+            
+            stringList.Add(item.Name);
+            foreach (var prop in item.Properties)
+            {
+                stringList.Add(prop.ToString());
+            }
+            
+            return stringList.Any(s => regEx.Match(s).Success);
+            
+        }
     }
 
 
@@ -1552,6 +1580,7 @@ namespace RazorEnhanced
                                     MaxWeight = r.MaxWeight ?? (r.IgnoreWeightCurse ? (int?)null : 49),
                                     Disabled = r.Disabled,
                                     PropertyMatchRequirement = r.PropertyMatchRequirement,
+                                    RegExString = r.RegExString
                                 }).ToList()
                             });
                         }
@@ -2454,6 +2483,7 @@ namespace RazorEnhanced
             eqipmentSlotList.Items.AddRange(slotList.ToArray());
             
             itemNamesList.Items.Clear();
+            regExTextBox.Text = rule.RegExString;
             
             if (rule.ItemColorIds != null)
             {
@@ -2630,6 +2660,7 @@ namespace RazorEnhanced
                     Disabled = !enabledCheckbox.Checked,
                     BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList(),
                     PropertyMatchRequirement = matchPropCount,
+                    RegExString = regExTextBox.Text
                 };
 
                 if (string.IsNullOrEmpty(rule.RuleName))
@@ -2638,7 +2669,15 @@ namespace RazorEnhanced
                     return -1;
                 }
                 
-                var blockSave = rule.EquipmentSlots.Count == 0 && rule.MinimumRarity == null && rule.MaximumRarity == null && rule.ItemNames.Count == 0 && rule.ItemColorIds.Count == 0 && rule.Properties.Count == 0;
+                
+                
+                var blockSave = rule.EquipmentSlots.Count == 0
+                                && rule.MinimumRarity == null
+                                && rule.MaximumRarity == null
+                                && rule.ItemNames.Count == 0
+                                && rule.ItemColorIds.Count == 0
+                                && rule.Properties.Count == 0
+                                && string.IsNullOrEmpty(rule.RegExString);
                 if (blockSave)
                 {
                     MessageBox.Show("This rule will match all items. Please adjust the rule to be more specific.");
@@ -2659,6 +2698,7 @@ namespace RazorEnhanced
                     existing.Disabled = !enabledCheckbox.Checked;
                     existing.BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList();
                     existing.PropertyMatchRequirement = matchPropCount;
+                    existing.RegExString = regExTextBox.Text;
 
                 }
                 else
@@ -2885,6 +2925,24 @@ namespace RazorEnhanced
                 selected.TargetBag = null;
                 clearTargetBagButton.Enabled = selected.TargetBag != null;
             }
+            
+            
+            Config.GetCharacter().Rules.Clear();
+            Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
+            Config.Save();
+        }
+
+        private void clearAllTargetBagsButton_Click(object sender, EventArgs e)
+        {
+            foreach (var rule in rulesList.Items)
+            {
+                if (rule is LootRule selected)
+                {
+                    selected.TargetBag = null;
+                }
+            }
+            
+            clearTargetBagButton.Enabled = false;
             
             
             Config.GetCharacter().Rules.Clear();
@@ -3293,6 +3351,8 @@ namespace RazorEnhanced
             weightCurseTextBox = new TextBox();
             label6 = new Label();
             label7 = new Label();
+            label9 = new Label();
+            regExTextBox = new TextBox();
             minimumMatchPropsTextBox = new TextBox();
             propertiesIgnoreContainer = new GroupBox();
             addPropIgnoreButton = new Button();
@@ -3474,6 +3534,7 @@ namespace RazorEnhanced
             this.clearTargetBagButton.TabIndex = 1;
             this.clearTargetBagButton.Text = "Clear Target Bag";
             this.clearTargetBagButton.UseVisualStyleBackColor = true;
+            this.clearTargetBagButton.Click += this.clearTargetBagButton_Click;
             // 
             // saveButton
             // 
@@ -3514,6 +3575,8 @@ namespace RazorEnhanced
             this.settingContainer.Controls.Add(this.label3);
             this.settingContainer.Controls.Add(this.label8);
             this.settingContainer.Controls.Add(this.rarityMaxDropDown);
+            this.settingContainer.Controls.Add(this.label9);
+            this.settingContainer.Controls.Add(this.regExTextBox);
             this.settingContainer.Location = new System.Drawing.Point(5, 42);
             this.settingContainer.Name = "settingContainer";
             this.settingContainer.Size = new System.Drawing.Size(787, 435);
@@ -3523,15 +3586,30 @@ namespace RazorEnhanced
             // 
             // label6
             // 
-            this.label6.Location = new System.Drawing.Point(544, 21);
+            this.label6.Location = new System.Drawing.Point(584, 23);
             this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(69, 23);
+            this.label6.Size = new System.Drawing.Size(69, 18);
             this.label6.TabIndex = 16;
             this.label6.Text = "Max Weight";
             // 
+            // label9
+            // 
+            this.label9.Location = new System.Drawing.Point(379, 47);
+            this.label9.Name = "label7";
+            this.label9.Size = new System.Drawing.Size(40, 23);
+            this.label9.TabIndex = 15;
+            this.label9.Text = "Regex";
+            // 
+            // regExTextBox
+            // 
+            this.regExTextBox.Location = new System.Drawing.Point(420, 45);
+            this.regExTextBox.Name = "regExTextBox";
+            this.regExTextBox.Size = new System.Drawing.Size(344, 20);
+            this.regExTextBox.TabIndex = 15;
+            // 
             // weightCurseTextBox
             // 
-            this.weightCurseTextBox.Location = new System.Drawing.Point(619, 18);
+            this.weightCurseTextBox.Location = new System.Drawing.Point(654, 18);
             this.weightCurseTextBox.Name = "weightCurseTextBox";
             this.weightCurseTextBox.Size = new System.Drawing.Size(31, 20);
             this.weightCurseTextBox.TabIndex = 15;
@@ -3604,7 +3682,7 @@ namespace RazorEnhanced
             // alertCheckbox
             // 
             this.alertCheckbox.AutoSize = true;
-            this.alertCheckbox.Location = new System.Drawing.Point(382, 38);
+            this.alertCheckbox.Location = new System.Drawing.Point(452, 21);
             this.alertCheckbox.Name = "alertCheckbox";
             this.alertCheckbox.Size = new System.Drawing.Size(123, 17);
             this.alertCheckbox.TabIndex = 13;
@@ -3957,6 +4035,8 @@ namespace RazorEnhanced
         private TextBox weightCurseTextBox;
         private Label label6;
         private Label label7;
+        private Label label9;
+        private TextBox regExTextBox;
 
         private TextBox minimumMatchPropsTextBox;
 
