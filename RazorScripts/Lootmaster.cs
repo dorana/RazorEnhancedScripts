@@ -2646,6 +2646,11 @@ namespace RazorEnhanced
                     matchPropCount = minMatch;
                 }
                 
+                if(propertiesList.Items.Count == 0)
+                {
+                    matchPropCount = null;
+                }
+                
                 var rule = new LootRule
                 {
                     RuleName = ruleNameTextBox.Text,
@@ -2888,6 +2893,10 @@ namespace RazorEnhanced
                     if (selectedProp != null)
                     {
                         propertiesList.Items.Remove(selectedProp);
+                        if(propertiesList.Items.Count == 0)
+                        {
+                            minimumMatchPropsTextBox.Text = string.Empty;
+                        }
                     }
                     break;
                 case "propertiesIgnoreList" :
