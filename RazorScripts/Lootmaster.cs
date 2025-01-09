@@ -15,7 +15,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.7.0";
+        private readonly string _version = "v1.7.0.1";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -2603,7 +2603,6 @@ namespace RazorEnhanced
 
                         var lookupName = Config.ItemColorLookup.GetNameFromSet(item.ItemID, item.Hue);
                     
-                        itemNamesList.Items.Add($"0x{Convert.ToString(item.ItemID, 16)} |  | {lookupName ?? string.Empty}");
                         itemNamesList.Items.Add($"0x{Convert.ToString(item.ItemID, 16)} | 0x{Convert.ToString(item.Hue, 16)} | {lookupName ?? string.Empty}");
                     }
                 }
@@ -3879,6 +3878,7 @@ namespace RazorEnhanced
             this.idAddButton.TabIndex = 0;
             this.idAddButton.Text = "Add";
             this.idAddButton.UseVisualStyleBackColor = true;
+            this.idAddButton.Click += new System.EventHandler(this.idAddButton_Click);
             // 
             // ruleNameTextBox
             // 
