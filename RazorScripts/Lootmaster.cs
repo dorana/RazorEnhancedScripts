@@ -15,7 +15,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.0.7";
+        private readonly string _version = "v1.7.0";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
