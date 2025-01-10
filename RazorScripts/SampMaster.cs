@@ -53,6 +53,15 @@ namespace RazorScripts
                 UpdateGump();
                 while (true)
                 {
+                    var gd = Gumps.GetGumpData(GumppId);
+                    if(gd.buttonid == 2)
+                    {
+                        Misc.SetSharedValue("SampMaster:Targets","Single");
+                    }
+                    else if(gd.buttonid == 1)
+                    {
+                        Misc.SetSharedValue("SampMaster:Targets","Multi");
+                    }
                     var oldTarg = Multi;
                     Multi = IsMulti();
                     var targChanged = oldTarg != Multi;
@@ -185,11 +194,14 @@ namespace RazorScripts
 
             if (!Multi)
             {
-                Gumps.AddImage(ref gump,5,5,21540);
+                // Gumps.AddImage(ref gump,5,5,21540);
+                Gumps.AddButton(ref gump, 5,5,21540,21540,1,1,0);
+                Gumps.AddTooltip(ref gump, "Single Target");
             }
             else
             {
-                Gumps.AddImage(ref gump,5,5,(int)GetMultiIcon());
+                Gumps.AddButton(ref gump, 5,5,(int)GetMultiIcon(),(int)GetMultiIcon(),2,1,0);
+                Gumps.AddTooltip(ref gump, "Multi Target");
             }
 
             Gumps.CloseGump(GumppId);
