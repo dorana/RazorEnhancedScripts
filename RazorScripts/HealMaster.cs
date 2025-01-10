@@ -62,7 +62,6 @@ namespace Razorscripts
                 } while (retry && counter++ < 5);
 
                 Misc.Pause(300);
-                Misc.RemoveSharedValue("Lootmaster:Pause");
             }
             catch (Exception e)
             {
@@ -88,7 +87,7 @@ internal static class Helper
         public static readonly bool ForceBands = GetRealSkillValue("Healing") >= 80;
         public static void Cure()
         {
-            Misc.SetSharedValue("Lootmaster:Pause", true);
+            Misc.SetSharedValue("Lootmaster:Pause", 2000);
             var lastpotstring = Misc.ReadSharedValue("Healmaster:LastPotion").ToString();
             DateTime? lastpot = lastpotstring != "0" ? DateTime.Parse(lastpotstring, CultureInfo.InvariantCulture) : null as DateTime?;
             var curepot = Items.FindByID(3847, 0, Backpack.Serial);
@@ -110,9 +109,7 @@ internal static class Helper
             }
             else if(bands != null)
             {
-                Items.UseItemByID(3617);
-                Target.WaitForTarget(2000);
-                Target.Self();
+                Items.UseItem(bands, (int)USerial);
             }
             else if (curepot != null)
             {
@@ -163,9 +160,7 @@ internal static class Helper
             }
             else if(bands != null)
             {
-                Items.UseItem(bands);
-                Target.WaitForTarget(2000);
-                Target.Self();
+                Items.UseItem(bands, (int)USerial);
             }
             else if (healpot != null)
             {
