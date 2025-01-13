@@ -15,7 +15,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.7.0.2";
+        private readonly string _version = "v1.7.0.3";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -3442,6 +3442,7 @@ namespace RazorEnhanced
             this.importCharacterButton.TabIndex = 0;
             this.importCharacterButton.Text = "Import";
             this.importCharacterButton.UseVisualStyleBackColor = true;
+            this.importCharacterButton.Click += new System.EventHandler(this.importCharacterButton_Click);
             // 
             // listContainer
             // 
@@ -3515,6 +3516,7 @@ namespace RazorEnhanced
             this.ruleDownButton.TabIndex = 0;
             this.ruleDownButton.Text = "Move Down";
             this.ruleDownButton.UseVisualStyleBackColor = true;
+            this.ruleDownButton.Click += this.moveDownSelectedRuleMenuItem_Click;
             // 
             // addButton
             // 
@@ -3534,6 +3536,7 @@ namespace RazorEnhanced
             this.deleteButton.TabIndex = 1;
             this.deleteButton.Text = "Delete";
             this.deleteButton.UseVisualStyleBackColor = true;
+            this.deleteButton.Click += new System.EventHandler(this.deleteSelectedRuleMenuItem_Click);
             // 
             // clearTargetBagButton
             // 
