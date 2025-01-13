@@ -15,7 +15,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.7.0.1";
+        private readonly string _version = "v1.7.0.2";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -3432,6 +3432,7 @@ namespace RazorEnhanced
             this.exportCharacterButton.TabIndex = 0;
             this.exportCharacterButton.Text = "Export";
             this.exportCharacterButton.UseVisualStyleBackColor = true;
+            this.exportCharacterButton.Click += new System.EventHandler(this.exportCharacterButton_Click);
             // 
             // importCharacterButton
             // 
