@@ -15,7 +15,7 @@ namespace RazorEnhanced
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.7.0.3";
+        private readonly string _version = "v1.7.0.4";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -2375,11 +2375,7 @@ namespace RazorEnhanced
                         }
                         var name = val.Split('|')[2].Trim();
                         var parseVal = Convert.ToInt32(idString, 16);
-                        int? colorId = null;
-                        if(int.TryParse(colorString, out int ci))
-                        {
-                            colorId = ci;
-                        }
+                        int? colorId = Convert.ToInt32(colorString, 16);
                         idList.Add(new ItemColorIdentifier(parseVal, colorId, name));
                     }
                     else
@@ -2489,19 +2485,18 @@ namespace RazorEnhanced
             {
                 foreach (var itemId in rule.ItemColorIds)
                 {
-                    int hueOfFoundItem = 0;
+                    Item item = null;
                     if (string.IsNullOrEmpty(Config.ItemColorLookup.GetNameFromItem(itemId)))
                     {
-                        var item = Items.FindByID(itemId.ItemId, itemId.Color ?? -1, -1, false, false);
+                        item = Items.FindByID(itemId.ItemId, itemId.Color ?? -1, -1, false, false);
                         
                         if (item != null)
                         {
-                            hueOfFoundItem = item.Hue;
                             Config.ItemColorLookup.AddUnique(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));    
                         }
                     }
 
-                    var lookupName =  Config.ItemColorLookup.GetNameFromSet(itemId.ItemId, hueOfFoundItem);
+                    var lookupName =  Config.ItemColorLookup.GetNameFromSet(itemId.ItemId, item == null ? itemId.Color ?? -1 : item.Hue);
                     
                     itemNamesList.Items.Add($"0x{Convert.ToString(itemId.ItemId, 16)} | {(itemId.Color == null ? "ANY" : $"0x{Convert.ToString(itemId.Color.Value, 16)}")} | {lookupName ?? string.Empty}");
                 }
@@ -2625,11 +2620,8 @@ namespace RazorEnhanced
                         var colorString = val.Split('|')[1].Trim();
                         var name = val.Split('|')[2].Trim();
                         var parseVal = Convert.ToInt32(idString, 16);
-                        int? colorId = 0;
-                        if(int.TryParse(colorString, out int ci))
-                        {
-                            colorId = ci;
-                        }
+                        int? colorId = Convert.ToInt32(colorString, 16);
+                        
                         idList.Add(new ItemColorIdentifier(parseVal, colorId, name));
                     }
                     else
