@@ -184,6 +184,10 @@ namespace RazorScripts
             {
                 AddArmoryGumpData(fg, roomData, marginTop, width);
             }
+            if (roomData.Room == ShadowGuardRoom.Bar)
+            {
+                AddBarGumpData(fg, roomData, marginTop, width);
+            }
             fg.gumpId = gid;
             fg.serial = (uint)Player.Serial;
             Gumps.CloseGump(gid);
@@ -288,8 +292,21 @@ namespace RazorScripts
                        timerIndex++;
                    }
                }
-               
-               
+            }
+        }
+
+        private void AddBarGumpData(Gumps.GumpData fg, RoomData roomData, int marginTop, int width)
+        { 
+            var lines = roomData.GetParam<List<string>>(0);
+            var warning = roomData.GetParam<bool>(1);
+            Gumps.AddBackground(ref fg, 0, marginTop, width, 80, 1755);
+            var lineIndex = 0;
+            var hue = warning ? 0x85 : 0x16a;
+            foreach (var line in lines)
+            {
+                
+                Gumps.AddLabel(ref fg, 15, 15+marginTop+25*lineIndex,hue, line);
+                lineIndex++;
             }
         }
 
@@ -935,16 +952,28 @@ namespace RazorScripts
 
         private void HandleBar()
         {
-            UpdateShadowGuardGump(ShadowGuardRoom.Bar);
             var running = true;
             while (running)
             {
+                var lines = new List<string>
+                {
+                    "Run close to bottles",
+                    "Bottles are thrown at pirate automatically"
+                };
                 if (Player.Hits < 25)
                 {
                     Misc.SendMessage("Heal thy self!");
+                    lines = new List<string>
+                    {
+                        "Low Health Detected",
+                        "Heal thy self!"
+                    };
+                    UpdateShadowGuardGump(new RoomData(ShadowGuardRoom.Bar, lines, true));
                     Misc.Pause(5000);
                     continue;
                 }
+                
+                UpdateShadowGuardGump(new RoomData(ShadowGuardRoom.Bar, lines));
 
                 Item useBottle = null;
                 //Check backpack
