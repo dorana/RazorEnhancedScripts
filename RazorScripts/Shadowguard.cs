@@ -361,8 +361,8 @@ namespace RazorScripts
             for (int i = 0; i < 8; i++)
             {
                 var hue = clearedIndexes.Contains(i) ? _gumpHueActiveInfo : _gumpHueActiveWarning;
-                Gumps.AddLabel(ref fg, 180, 15 + marginTop + 25 * i, hue, _dungeons[i]);
-                Gumps.AddLabel(ref fg, 265, 15 + marginTop + 25 * i, hue, _virtues[i]);
+                Gumps.AddLabel(ref fg, 180, 15 + marginTop + 25 * i, hue, _dungeons[i].AsName());
+                Gumps.AddLabel(ref fg, 265, 15 + marginTop + 25 * i, hue, _virtues[i].AsName());
             }
         }
 
@@ -670,19 +670,19 @@ namespace RazorScripts
                 if (_dungeons.Contains(sourcename))
                 {
                     pairIndex = _dungeons.IndexOf(sourcename);
-                    roomData.Params[2] = _virtues[pairIndex];
+                    roomData.Params[2] = _virtues[pairIndex].AsName();
                 }
                 else if (_virtues.Contains(sourcename))
                 {
                     pairIndex = _virtues.IndexOf(sourcename);
-                    roomData.Params[2] = _dungeons[pairIndex];
+                    roomData.Params[2] = _dungeons[pairIndex].AsName();
                 }
                 else if (sourcename.Equals("Sacrifice"))
                 {
                     pairIndex = _virtues.IndexOf("Sacrafice"); //handles misspelling on serverside
                     if (pairIndex > -1)
                     {
-                        roomData.Params[2] = _dungeons[pairIndex];
+                        roomData.Params[2] = _dungeons[pairIndex].AsName();
                     }
                 }
                 else
@@ -1790,6 +1790,16 @@ namespace RazorScripts
             return path;
         }
 
+    }
+
+    public static class StringExtension
+    {
+        public static string AsName(this string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+            return value.First().ToString().ToUpper() + value.Substring(1);
+        }
     }
 
     internal class RoomData
