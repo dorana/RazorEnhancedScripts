@@ -11,6 +11,9 @@ namespace RazorScripts
 {
     public class Shadowguard
     {
+        private int _gumpHueActiveInfo = 0x16a;
+        private int _gumpHueActiveWarning = 0x85;
+        private int _gumpHueInfo = 0x7b;
         private List<int> philactories = new List<int>
         {
             0x4686,
@@ -159,17 +162,20 @@ namespace RazorScripts
             
             var fg = Gumps.CreateGump();
             Gumps.AddBackground(ref fg, 0, 0, width, marginTop, 1755);
-            Gumps.AddLabel(ref fg, 15,15,0x7b, "Shadowguard by Dorana");
-            Gumps.AddLabel(ref fg, 15,40,0x7b, "Rurrent Room: " );
-            Gumps.AddLabel(ref fg, 105, 40, 0x16a, roomData.Room.ToString());
+            Gumps.AddLabel(ref fg, 15,15,_gumpHueInfo, "Shadowguard by Dorana");
+            Gumps.AddLabel(ref fg, 15,40,_gumpHueInfo, "Rurrent Room: " );
+            Gumps.AddLabel(ref fg, 105, 40, _gumpHueActiveInfo, roomData.Room.ToString());
             if (roomData.Room != ShadowGuardRoom.Lobby)
             {
                 var secondsElipsed = (int) Math.Ceiling((DateTime.UtcNow - roomData.EntryTime).TotalSeconds);
                 var timeLeft = 1800 - secondsElipsed;
                 var fraction = (decimal)timeLeft / 1800;
-                Gumps.AddLabel(ref fg, 15, 65, 0x7b, "Room Timer: ");
+                Gumps.AddLabel(ref fg, 15, 65, _gumpHueInfo, "Room Timer: ");
                 Gumps.AddBackground(ref fg, 100,69,109,11,2053);
                 Gumps.AddImageTiled(ref fg,100,69,(int)Math.Floor(fraction*109),11,2056);
+                //remaining seconds in MM:ss
+                var timeString = $"{timeLeft / 60}:{timeLeft % 60}";
+                Gumps.AddLabel(ref fg, 230, 65, _gumpHueActiveInfo, timeString);
             }
             
             if (roomData.Room == ShadowGuardRoom.Fountain)
@@ -222,7 +228,7 @@ namespace RazorScripts
             {
                 Gumps.AddItem(ref fg, marginx + partindex * 50, marginTop + 120, part.Key,
                     0);
-                Gumps.AddLabel(ref fg, marginx + partindex * 50 + 10, marginTop + 170, 0x16a,
+                Gumps.AddLabel(ref fg, marginx + partindex * 50 + 10, marginTop + 170, _gumpHueActiveInfo,
                     part.Value.ToString());
                 partindex++;
             }
@@ -255,14 +261,14 @@ namespace RazorScripts
             var target = roomData.GetParam<string>(2);
             var extraTask = roomData.GetParam<string>(3);
             Gumps.AddBackground(ref fg, 0, marginTop, width, 230, 1755);
-            Gumps.AddLabel(ref fg, 15, 15+marginTop,0x16a, task);
+            Gumps.AddLabel(ref fg, 15, 15+marginTop,_gumpHueActiveInfo, task);
             if(target != string.Empty && task.Equals("Approach Tree", StringComparison.InvariantCultureIgnoreCase))
             {
-                Gumps.AddLabel(ref fg, 15, 15+marginTop+25,0x16a, target);
+                Gumps.AddLabel(ref fg, 15, 15+marginTop+25,_gumpHueActiveInfo, target);
             }
             for(int i = 0; i < 8; i++)
             {
-                var hue = clearedIndexes.Contains(i) ? 0x16a : 0x85;
+                var hue = clearedIndexes.Contains(i) ? _gumpHueActiveInfo : _gumpHueActiveWarning;
                 Gumps.AddLabel(ref fg, 180, 15+marginTop+25*i,hue, _dungeons[i]);
                 Gumps.AddLabel(ref fg, 265, 15+marginTop+25*i,hue, _virtues[i]);
             }
@@ -274,9 +280,9 @@ namespace RazorScripts
             var philinBags = roomData.GetParam<List<Item>>(1);
             var task = roomData.GetParam<string>(2);
             Gumps.AddBackground(ref fg, 0, marginTop, width, 200, 1755);
-            Gumps.AddLabel(ref fg, 15, 15+marginTop,0x16a, task);
+            Gumps.AddLabel(ref fg, 15, 15+marginTop,_gumpHueActiveInfo, task);
             Gumps.AddItem(ref fg, 15,45+marginTop,0x151A,0);
-            Gumps.AddLabel(ref fg, 20, 115+marginTop,0x16a, remaining.ToString());
+            Gumps.AddLabel(ref fg, 20, 115+marginTop,_gumpHueActiveInfo, remaining.ToString());
             var timerIndex = 0;
             foreach (var philactory in philinBags)
             {
@@ -298,16 +304,18 @@ namespace RazorScripts
         private void AddBarGumpData(Gumps.GumpData fg, RoomData roomData, int marginTop, int width)
         { 
             var lines = roomData.GetParam<List<string>>(0);
-            var warning = roomData.GetParam<bool>(1);
+            var bottleCount = roomData.GetParam<int>(1);
+            var warning = roomData.GetParam<bool>(2);
             Gumps.AddBackground(ref fg, 0, marginTop, width, 80, 1755);
             var lineIndex = 0;
-            var hue = warning ? 0x85 : 0x16a;
+            var hue = warning ? _gumpHueActiveWarning : _gumpHueActiveInfo;
             foreach (var line in lines)
             {
-                
                 Gumps.AddLabel(ref fg, 15, 15+marginTop+25*lineIndex,hue, line);
                 lineIndex++;
             }
+            Gumps.AddItem(ref fg, 250,15+marginTop,0x099B,0);
+            Gumps.AddLabel(ref fg, 285, 15+marginTop, _gumpHueActiveInfo,bottleCount.ToString());
         }
 
         private void HandleRoom(ShadowGuardRoom room)
@@ -953,33 +961,52 @@ namespace RazorScripts
         private void HandleBar()
         {
             var running = true;
+            var lines = new List<string>
+            {
+                "Run close to bottles",
+                "Bottles are thrown at pirate automatically"
+            };
+            var roomData = new RoomData(ShadowGuardRoom.Bar, lines, 0, true);
             while (running)
             {
-                var lines = new List<string>
+                if (!StillInRoom(ShadowGuardRoom.Bar))
+                {
+                    break;
+                }
+                
+                roomData.Params[0] = new List<string>
                 {
                     "Run close to bottles",
                     "Bottles are thrown at pirate automatically"
                 };
-                if (Player.Hits < 25)
+
+                roomData.Params[2] = false;
+                
+                var bottles = Player.Backpack.Contains.Where(i =>
+                    i.ItemID == 0x099B && i.Name.Equals("a bottle of Liquor",
+                        System.StringComparison.InvariantCultureIgnoreCase)).ToList();
+                
+                roomData.Params[1] = bottles.Count;
+                
+                if (Player.Hits < 35)
                 {
                     Misc.SendMessage("Heal thy self!");
-                    lines = new List<string>
+                    roomData.Params[0] = new List<string>
                     {
                         "Low Health Detected",
                         "Heal thy self!"
                     };
-                    UpdateShadowGuardGump(new RoomData(ShadowGuardRoom.Bar, lines, true));
+                    roomData.Params[2] = true;
+                    UpdateShadowGuardGump(roomData);
                     Misc.Pause(5000);
                     continue;
                 }
                 
-                UpdateShadowGuardGump(new RoomData(ShadowGuardRoom.Bar, lines));
+                UpdateShadowGuardGump(roomData);
 
                 Item useBottle = null;
                 //Check backpack
-                var backpackBottle = Player.Backpack.Contains.FirstOrDefault(i =>
-                    i.ItemID == 0x099B && i.Name.Equals("a bottle of Liquor",
-                        System.StringComparison.InvariantCultureIgnoreCase));
+                var backpackBottle = bottles.FirstOrDefault();
 
                 //else check the tables
                 var bottleFilter = new Items.Filter
@@ -1036,17 +1063,12 @@ namespace RazorScripts
                         if (dragBottle != null && dragBottle.Container != Player.Backpack.Serial)
                         {
                             Items.Move(dragBottle, Player.Backpack.Serial, 1);
-                            Misc.Pause(200);
+                            Misc.Pause(350);
                         }
                     }
                 }
 
                 Misc.Pause(200);
-
-                if (!StillInRoom(ShadowGuardRoom.Bar))
-                {
-                    break;
-                }
             }
         }
 
