@@ -29,8 +29,6 @@ namespace RazorScripts
             0x0000
         };
 
-        private bool ProcessFountain = false;
-
         private List<string> _virtues = new List<string>
         {
             "compassion",
@@ -38,7 +36,7 @@ namespace RazorScripts
             "honor",
             "humility",
             "justice",
-            "sacrafice",
+            "sacrifice",
             "spirituality",
             "valor",
         };
@@ -163,87 +161,136 @@ namespace RazorScripts
             Gumps.AddBackground(ref fg, 0, 0, width, marginTop, 1755);
             Gumps.AddLabel(ref fg, 15,15,0x7b, "Shadowguard by Dorana");
             Gumps.AddLabel(ref fg, 15,40,0x7b, "Rurrent Room: " );
-            Gumps.AddLabel(ref fg, 105, 40, 0x3e, roomData.Room.ToString());
+            Gumps.AddLabel(ref fg, 105, 40, 0x16a, roomData.Room.ToString());
             if (roomData.Room != ShadowGuardRoom.Lobby)
             {
                 var secondsElipsed = (int) Math.Ceiling((DateTime.UtcNow - roomData.EntryTime).TotalSeconds);
-                Misc.SendMessage(secondsElipsed);
                 var timeLeft = 1800 - secondsElipsed;
                 var fraction = (decimal)timeLeft / 1800;
-                Misc.SendMessage(fraction);
                 Gumps.AddLabel(ref fg, 15, 65, 0x7b, "Room Timer: ");
                 Gumps.AddBackground(ref fg, 100,69,109,11,2053);
                 Gumps.AddImageTiled(ref fg,100,69,(int)Math.Floor(fraction*109),11,2056);
             }
-            // Gumps.AddImage(ref fg,0,15,1548,0);
             
             if (roomData.Room == ShadowGuardRoom.Fountain)
             {
-                var paths = roomData.Params[0] as Dictionary<int, Dictionary<Point, bool>>;
-                var partsRemaining = roomData.Params[1] as Dictionary<int,int>;
-                var ready = roomData.Ready;
-                var longest = 0;
-                foreach (var pathEntry in paths)
-                {
-                    var count = pathEntry.Value.Count;
-                    if (count > longest)
-                    {
-                        longest = count;
-                    }
-                }
-
-                
-                var marginx = 15;
-                var marginy = 15;
-                var rowx = 20;
-                var rowy = 25;
-                var rowIndex = 0;
-                var needed = longest * rowx + marginx * 2;
-
-                
-                Gumps.AddBackground(ref fg, 0, marginTop, width, ready ? 195 : 220, 1755);
-
-                var partindex = 0;
-                foreach (var part in partsRemaining)
-                {
-                    Gumps.AddItem(ref fg, marginx + partindex * 50, marginTop+120, part.Key,
-                        0);
-                    Gumps.AddLabel(ref fg, marginx + partindex * 50 + 10, marginTop+170, 0x3e,
-                        part.Value.ToString());
-                    partindex++;
-                }
-
-                foreach (var path in paths)
-                {
-                    var gemIndex = 0;
-                    foreach (var pointValue in path.Value)
-                    {
-                        if (pointValue.Value)
-                        {
-                            Gumps.AddImage(ref fg, marginx + rowx * gemIndex, marginTop+marginy + rowy * rowIndex, 11400);
-                        }
-                        else
-                        {
-                            Gumps.AddImage(ref fg, marginx + rowx * gemIndex, marginTop+marginy + rowy * rowIndex, 11410);
-                        }
-
-                        gemIndex++;
-                    }
-
-                    rowIndex++;
-                }
-
-                if (!ready)
-                {
-                    Gumps.AddButton(ref fg, marginx, marginTop+190, 2450, 2451, 1, 1, 0);
-                }
-
-                
+                AddFountainGumpData(fg, roomData, marginTop, width);
+            }
+            if(roomData.Room == ShadowGuardRoom.Orchard)
+            {
+                AddOrchardGumpData(fg, roomData, marginTop, width);
+            }
+            if(roomData.Room == ShadowGuardRoom.Armory)
+            {
+                AddArmoryGumpData(fg, roomData, marginTop, width);
             }
             fg.gumpId = gid;
             fg.serial = (uint)Player.Serial;
             Gumps.CloseGump(gid);
             Gumps.SendGump(fg, 15, 30);
+        }
+
+        private void AddFountainGumpData(Gumps.GumpData fg, RoomData roomData, int marginTop, int width)
+        {
+            var paths = roomData.GetParam<Dictionary<int, Dictionary<Point, bool>>>(0);
+            var partsRemaining = roomData.GetParam<Dictionary<int, int>>(1);
+            var longest = 0;
+            foreach (var pathEntry in paths)
+            {
+                var count = pathEntry.Value.Count;
+                if (count > longest)
+                {
+                    longest = count;
+                }
+            }
+            var marginx = 15;
+            var marginy = 15;
+            var rowx = 20;
+            var rowy = 25;
+            var rowIndex = 0;
+            var needed = longest * rowx + marginx * 2;
+
+
+            Gumps.AddBackground(ref fg, 0, marginTop, width, 195, 1755);
+
+            var partindex = 0;
+            foreach (var part in partsRemaining)
+            {
+                Gumps.AddItem(ref fg, marginx + partindex * 50, marginTop + 120, part.Key,
+                    0);
+                Gumps.AddLabel(ref fg, marginx + partindex * 50 + 10, marginTop + 170, 0x16a,
+                    part.Value.ToString());
+                partindex++;
+            }
+
+            foreach (var path in paths)
+            {
+                var gemIndex = 0;
+                foreach (var pointValue in path.Value)
+                {
+                    if (pointValue.Value)
+                    {
+                        Gumps.AddImage(ref fg, marginx + rowx * gemIndex, marginTop + marginy + rowy * rowIndex, 11400);
+                    }
+                    else
+                    {
+                        Gumps.AddImage(ref fg, marginx + rowx * gemIndex, marginTop + marginy + rowy * rowIndex, 11410);
+                    }
+
+                    gemIndex++;
+                }
+
+                rowIndex++;
+            }
+        }
+
+        private void AddOrchardGumpData(Gumps.GumpData fg, RoomData roomData, int marginTop, int width)
+        {
+            var clearedIndexes = roomData.GetParam<List<int>>(0);
+            var task = roomData.GetParam<string>(1);
+            var target = roomData.GetParam<string>(2);
+            var extraTask = roomData.GetParam<string>(3);
+            Gumps.AddBackground(ref fg, 0, marginTop, width, 230, 1755);
+            Gumps.AddLabel(ref fg, 15, 15+marginTop,0x16a, task);
+            if(target != string.Empty && task.Equals("Approach Tree", StringComparison.InvariantCultureIgnoreCase))
+            {
+                Gumps.AddLabel(ref fg, 15, 15+marginTop+25,0x16a, target);
+            }
+            for(int i = 0; i < 8; i++)
+            {
+                var hue = clearedIndexes.Contains(i) ? 0x16a : 0x85;
+                Gumps.AddLabel(ref fg, 180, 15+marginTop+25*i,hue, _dungeons[i]);
+                Gumps.AddLabel(ref fg, 265, 15+marginTop+25*i,hue, _virtues[i]);
+            }
+        }
+
+        private void AddArmoryGumpData(Gumps.GumpData fg, RoomData roomData, int marginTop, int width)
+        {
+            var remaining = roomData.GetParam<int>(0);
+            var philinBags = roomData.GetParam<List<Item>>(1);
+            var task = roomData.GetParam<string>(2);
+            Gumps.AddBackground(ref fg, 0, marginTop, width, 200, 1755);
+            Gumps.AddLabel(ref fg, 15, 15+marginTop,0x16a, task);
+            Gumps.AddItem(ref fg, 15,45+marginTop,0x151A,0);
+            Gumps.AddLabel(ref fg, 20, 115+marginTop,0x16a, remaining.ToString());
+            var timerIndex = 0;
+            foreach (var philactory in philinBags)
+            {
+               var lifeSpanProp = philactory.Properties.FirstOrDefault(p => p.Number == 1072517);
+               if(lifeSpanProp != null)
+               {
+                   var life = lifeSpanProp.Args;
+                   if (int.TryParse(life, out int remainingLife))
+                   {
+                       var fraction = (decimal)remainingLife / 60;
+                       Gumps.AddBackground(ref fg, 100,marginTop+15 + timerIndex*25,109,11,2053);
+                       Gumps.AddImageTiled(ref fg,100,marginTop+15 + timerIndex*25,(int)Math.Floor(fraction*109),11,2056);
+                       timerIndex++;
+                   }
+               }
+               
+               
+            }
         }
 
         private void HandleRoom(ShadowGuardRoom room)
@@ -300,7 +347,6 @@ namespace RazorScripts
 
         private void HandleFountain()
         {
-            ProcessFountain = false;
             _puzzlePathLocations.Clear();
             for (var i = 1; i <= 4; i++)
             {
@@ -335,8 +381,6 @@ namespace RazorScripts
                 }
             }
 
-            Player.HeadMessage(150, "All Spigots Found");
-
             while (true)
             {
                 var found = Items.ApplyFilter(new Items.Filter
@@ -361,8 +405,6 @@ namespace RazorScripts
                     break;
                 }
             }
-
-            Player.HeadMessage(150, "All Drains Found");
 
             var xSpigots = spigots.GroupBy(s => s.Position.X).Where(g => g.Count() > 1).SelectMany(g => g)
                 .OrderByDescending(s => s.Position.Y).ToList();
@@ -449,8 +491,7 @@ namespace RazorScripts
 
                 positions.Add(path.Key, pathDict);
             }
-
-            Player.HeadMessage(150, "Path Plotted");
+            
             var partsNeeded = new Dictionary<int, int>();
             foreach (var path in _puzzlePathLocations)
             {
@@ -471,22 +512,11 @@ namespace RazorScripts
 
             while (running)
             {
-                if (!ProcessFountain)
+                if (!StillInRoom(ShadowGuardRoom.Fountain))
                 {
-                    var fg = Gumps.GetGumpData(456426886);
-                    if (fg?.buttonid == 1)
-                    {
-                        ProcessFountain = true;
-                        Player.HeadMessage(150, "Start gathering parts");
-                    }
+                    break;
                 }
-
-                if (!ProcessFountain)
-                {
-                    Misc.Pause(500);
-                    continue;
-                }
-
+                
                 //picking up pieces
                 var partsInReach = Items.ApplyFilter(new Items.Filter
                 {
@@ -617,11 +647,7 @@ namespace RazorScripts
                     }
                 }
 
-                UpdateShadowGuardGump(new RoomData(ShadowGuardRoom.Fountain,true, positions, partsNeeded));
-                if (!StillInRoom(ShadowGuardRoom.Fountain))
-                {
-                    break;
-                }
+                UpdateShadowGuardGump(new RoomData(ShadowGuardRoom.Fountain, positions, partsNeeded));
             }
 
             Misc.Pause(1000);
@@ -672,32 +698,81 @@ namespace RazorScripts
 
         private void HandleArmory()
         {
-            UpdateShadowGuardGump(ShadowGuardRoom.Armory);
+            var brokenArmor = new List<Item>();
+            var roomData = new RoomData(ShadowGuardRoom.Armory, 28, new List<Item>(), "Enter all rooms");
+            UpdateShadowGuardGump(roomData);
+            
+            var philactoryFilter = new Items.Filter
+            {
+                Enabled = true,
+                OnGround = 1,
+                RangeMin = 0,
+                RangeMax = 2,
+                Graphics = philactories
+            };
+            
+            var flameFilter = new Items.Filter
+            {
+                Enabled = true,
+                RangeMin = 0,
+                RangeMax = 3,
+                Name = "Purifying Flames"
+            };
+            
+            var armourFilter = new Items.Filter
+            {
+                Enabled = true,
+                RangeMin = 0,
+                RangeMax = 3,
+                Name = "Cursed Suit Of Armor",
+            };
+            
+            var brokenFilter = new Items.Filter
+            {
+                Enabled = true,
+                RangeMin = 0,
+                Name = "Broken Armor",
+            };
+            
+            var allArmors = GetAllArmors(true);
+            roomData.Params[2] = "Kill guards";
+            
             while (true)
             {
-                var philactoryFilter = new Items.Filter
+                if (!StillInRoom(ShadowGuardRoom.Armory))
                 {
-                    Enabled = true,
-                    OnGround = 1,
-                    RangeMin = 0,
-                    RangeMax = 2,
-                    Graphics = philactories
-                };
+                    break;
+                }
+                
+                var newFoundArmors = GetAllArmors(false);
+                var potentialBroken = allArmors.Where(a => !newFoundArmors.Select(n => n.Serial).Contains(a.Serial)).ToList();
 
+                foreach (var pb in potentialBroken)
+                {
+                    if (pb.DistanceTo(_player) < 20)
+                    {
+                        if(!brokenArmor.Select(b => b.Serial).Contains(pb.Serial))
+                        {
+                            brokenArmor.Add(pb);
+                        }
+                    }
+                }
+                
+                var philinBags = Player.Backpack.Contains
+                    .Where(i => philactories.Contains(i.ItemID)).ToList();
+                philactories.ForEach(p => Items.WaitForProps(p, 1000));
+                
+                roomData.Params[0] = allArmors.Count - brokenArmor.Count;
+                roomData.Params[1] = philinBags;
+                
+                UpdateShadowGuardGump(roomData);;
+                
                 var phil = Items.ApplyFilter(philactoryFilter).FirstOrDefault();
                 if (phil != null)
                 {
                     Items.Move(phil, Player.Backpack.Serial, 1);
                     Misc.Pause(300);
                 }
-
-                var flameFilter = new Items.Filter
-                {
-                    Enabled = true,
-                    RangeMin = 0,
-                    RangeMax = 3,
-                    Name = "Purifying Flames"
-                };
 
                 var flame = Items.ApplyFilter(flameFilter).FirstOrDefault();
                 if (flame != null)
@@ -717,58 +792,27 @@ namespace RazorScripts
                     Misc.Pause(100);
                     continue;
                 }
-
-                var tilesPlates = Items.ApplyFilter(new Items.Filter
-                {
-                    RangeMax = 1,
-                    RangeMin = 0,
-                    Graphics = new List<int> { 0x9B39 }
-                });
-
-                var px = Player.Position.X;
-                var py = Player.Position.Y;
-                if (tilesPlates.Count < 9)
-                {
-                    Misc.Pause(500);
-                    continue;
-                }
-
+                
                 var pps = Player.Backpack.Contains
                     .Where(i => philactories.Contains(i.ItemID) && philHuesPure.Contains(i.Hue)).ToList();
                 if (pps.Any())
                 {
-                    var armourFilter = new Items.Filter
-                    {
-                        Enabled = true,
-                        RangeMin = 0,
-                        RangeMax = 3,
-                        Name = "Cursed Suit Of Armor",
-                    };
-                    var destroyed = new List<int>();
                     foreach (var pp in pps)
                     {
                         var armours = Items.ApplyFilter(armourFilter);
                         var tarArmour = armours.OrderBy(o => o.DistanceTo(_player))
-                            .FirstOrDefault(a => !destroyed.Contains(a.Serial));
+                            .FirstOrDefault();
                         if (tarArmour != null)
                         {
                             Items.UseItem(pp);
                             Target.WaitForTarget(1000);
-
                             Target.TargetExecute(tarArmour);
                             Misc.Pause(100);
                         }
-
                     }
                 }
-
-                if (!StillInRoom(ShadowGuardRoom.Armory))
-                {
-                    break;
-                }
-
-                Items.WaitForProps(Player.Backpack.Serial, 1000);
-                Misc.Pause(50);
+                
+                Misc.Pause(200);
             }
         }
 
@@ -786,83 +830,104 @@ namespace RazorScripts
 
         private void HandleOrchard()
         {
-            var trees = new Dictionary<string, Item>();
-            var checkedTrees = new List<int>();
-            UpdateShadowGuardGump(ShadowGuardRoom.Orchard);
+            var task = "Approach all corners";
             var running = true;
-            
-            //Lets try to calculate the Trees
-            var allTrees = GetTrees();
+            List<int> clearedIndexes = new List<int>();
+            var roomData = new RoomData(ShadowGuardRoom.Orchard,clearedIndexes, task, string.Empty);
+            UpdateShadowGuardGump(roomData);
+            List<Item> allTrees = GetTrees();
             var grouped = FindPairs(allTrees.Select(t => t.Serial).ToList());
             
-            
-            
-            var roomData = new RoomData(ShadowGuardRoom.Orchard,true, trees, checkedTrees);
+            roomData.Params[1] = "Pick an Apple";
+            Item heldApple = null;
+            Item nearestTree = null;
             while (running)
             {
-                UpdateShadowGuardGump(roomData);
-                var tree = GetTree(checkedTrees, 1);
-                if (tree != null)
-                {
-                    Player.HeadMessage(1100, "Picking apple...");
-                    Items.UseItem(tree);
-                    Misc.Pause(500);
-
-                    var apple = GetApple();
-                    if (apple != null)
-                    {
-                        checkedTrees.Add(tree.Serial);
-                        var virt = apple.Name.Split(' ').Last().ToLower();
-                        var opposite = GetOpposite(virt);
-                        trees[virt] = tree;
-                        Items.SetColor(tree.Serial, 0x0023);
-
-                        if (trees.ContainsKey(opposite))
-                        {
-                            Player.HeadMessage(1100, $"{virt} => {opposite}");
-                            var oppositeTree = trees[opposite];
-                            //Items.SetColor(oppositeTree.Serial, 0x0022);
-                            Player.TrackingArrow(Convert.ToUInt16(oppositeTree.Position.X),
-                                Convert.ToUInt16(oppositeTree.Position.Y), true);
-                            while (oppositeTree.DistanceTo(_player) > 8)
-                            {
-                                Misc.Pause(200);
-                            }
-
-                            Items.UseItem(apple);
-                            Target.WaitForTarget(1000);
-                            Target.TargetExecute(oppositeTree);
-                            Player.TrackingArrow(Convert.ToUInt16(oppositeTree.Position.X),
-                                Convert.ToUInt16(oppositeTree.Position.Y), false);
-                        }
-                        else
-                        {
-                            Player.HeadMessage(1100, $"GUESS {trees.Count}");
-                            var guessTree = GetTree(checkedTrees, 9);
-                            while (guessTree == null)
-                            {
-                                guessTree = GetTree(checkedTrees, 9);
-                                Misc.Pause(200);
-                            }
-
-                            Items.UseItem(apple);
-                            Target.WaitForTarget(1000);
-                            Target.TargetExecute(guessTree);
-                        }
-
-                    }
-                    else
-                    {
-                        Player.HeadMessage(1100, "Failed to find apple!");
-                    }
-                }
-
                 if (!StillInRoom(ShadowGuardRoom.Orchard))
                 {
                     break;
                 }
+                
+                UpdateShadowGuardGump(roomData);
+                if (heldApple == null)
+                {
+                    nearestTree = GetTree(2);
+                    if (nearestTree == null)
+                    {
+                        Misc.Pause(50);
+                        continue;
+                    }
 
+                    Items.UseItem(nearestTree);
+                    Misc.Pause(500);
+                }
+
+                heldApple = GetApple();
                 Misc.Pause(50);
+                
+                if(heldApple == null)
+                {
+                    Misc.Pause(50);
+                    continue;
+                }
+                
+                roomData.Params[1] = "Approach Tree";
+                var sourcename =  heldApple.Name.Split(' ').Last().ToLower();
+                var pairIndex = 0;
+                if (_dungeons.Contains(sourcename))
+                {
+                    pairIndex = _dungeons.IndexOf(sourcename);
+                    roomData.Params[2] = _virtues[pairIndex];
+                }
+                else if(_virtues.Contains(sourcename))
+                {
+                    pairIndex = _virtues.IndexOf(sourcename);
+                    roomData.Params[2] = _dungeons[pairIndex];
+                }
+                else if(sourcename.Equals("Sacrifice"))
+                {
+                    pairIndex = _virtues.IndexOf("Sacrafice");  //handles misspelling on serverside
+                    if(pairIndex > -1)
+                    {
+                        roomData.Params[2] = _dungeons[pairIndex];
+                    }
+                }
+                else
+                {
+                    roomData.Params[2] = string.Empty;
+                }
+                
+                UpdateShadowGuardGump(roomData);
+
+                if (!grouped.ContainsKey(nearestTree.Serial))
+                {
+                    UpdateShadowGuardGump(roomData);
+                    continue;
+                }
+
+                var opposite = grouped[nearestTree.Serial];
+                var targetTree = allTrees.FirstOrDefault(t => t.Serial == opposite);
+                
+                Player.TrackingArrow(Convert.ToUInt16(targetTree.Position.X),
+                    Convert.ToUInt16(targetTree.Position.Y), true);
+                
+                while (targetTree.DistanceTo(_player) > 8)
+                {
+                    Misc.Pause(200);
+                }
+                
+                Items.UseItem(heldApple);
+                Target.WaitForTarget(1000);
+                Target.TargetExecute(targetTree);
+                Player.TrackingArrow(Convert.ToUInt16(targetTree.Position.X),
+                    Convert.ToUInt16(targetTree.Position.Y), false);
+                
+                clearedIndexes.Add(pairIndex);
+                roomData.Params[1] = "Pick an Apple";
+                
+                Misc.Pause(1000);
+
+                
             }
         }
 
@@ -988,7 +1053,7 @@ namespace RazorScripts
             return hasPirates || itemsInRoom.Any(i => i.Name == "a bottle of Liquor");
         }
 
-        private Item GetTree(List<int> ignore, int maxDistance)
+        private Item GetTree(int maxDistance)
         {
             var treeFilter = new Items.Filter
             {
@@ -996,22 +1061,21 @@ namespace RazorScripts
                 Name = "Cypress Tree",
                 RangeMax = maxDistance,
             };
-            return Items.ApplyFilter(treeFilter).Where(t => !ignore.Contains(t.Serial))
-                .OrderBy(t => t.DistanceTo(_player)).FirstOrDefault();
+            return Items.ApplyFilter(treeFilter).OrderBy(t => t.DistanceTo(_player)).FirstOrDefault();
         }
 
         private List<Item> GetTrees()
         {
+            var timeStart = DateTime.UtcNow;
             List<Item> trees = new List<Item>();
-            while (trees.Count < 16)
+            while (trees.Count < 16 && (DateTime.UtcNow - timeStart).TotalSeconds < 10)
             {
                 var treeFilter = new Items.Filter
                 {
                     Enabled = true,
                     Name = "Cypress Tree",
-                    RangeMax = 40,
                 };
-                
+
                 var found = Items.ApplyFilter(treeFilter).ToList();
                 foreach (var tree in found)
                 {
@@ -1020,7 +1084,6 @@ namespace RazorScripts
                         trees.Add(tree);
                     }
                 }
-                
             }
 
             return trees;
@@ -1035,10 +1098,20 @@ namespace RazorScripts
             var cutList = orderred;
             while (cutList.Any())
             {
+                if(cutList.Count < 2)
+                {
+                    break;
+                }
+                
                 var first = cutList[0];
                 var second = cutList[1];
-                pairs[first] = second;
-                pairs[second] = first;
+                
+                if(Math.Abs(first - second) == 2)
+                {
+                    pairs[first] = second;
+                    pairs[second] = first;
+                }
+                
                 cutList = cutList.Skip(2).ToList();
             }
 
@@ -1050,19 +1123,43 @@ namespace RazorScripts
             return Items.FindByID(0x09D0, 0x0000, Player.Backpack.Serial);
         }
 
-        private string GetOpposite(string word)
+        private List<Item> GetAllArmors(bool forceGetAll = false)
         {
-            if (_virtues.Contains(word))
+            var filter = new Items.Filter
             {
-                return _dungeons[_virtues.IndexOf(word)];
+                Enabled = true,
+                RangeMin = 0,
+                Name = "Cursed Suit Of Armor",
+            };
+            List<Item> armors = new List<Item>();
+            if (forceGetAll)
+            {
+                var timeStart = DateTime.UtcNow;
+                while (armors.Count < 28 && (DateTime.UtcNow - timeStart).TotalSeconds < 10)
+                {
+                    var found = Items.ApplyFilter(filter).ToList();
+                    foreach (var armor in found)
+                    {
+                        if (!armors.Select(t => t.Serial).Contains(armor.Serial))
+                        {
+                            armors.Add(armor);
+                        }
+                    }
+                }
             }
-            else if (_dungeons.Contains(word))
+            else
             {
-                return _virtues[_dungeons.IndexOf(word)];
+                var found = Items.ApplyFilter(filter).ToList();
+                foreach (var armor in found)
+                {
+                    if (!armors.Select(t => t.Serial).Contains(armor.Serial))
+                    {
+                        armors.Add(armor);
+                    }
+                }
             }
 
-            Player.HeadMessage(1100, $"Lookup failed: {word}!");
-            return null;
+            return armors;
         }
 
         private ShadowGuardRoom GetCurrentRoom()
@@ -1381,19 +1478,25 @@ namespace RazorScripts
         public RoomData(ShadowGuardRoom room, params object[] parameters)
         {
             Room = room;
-            Ready = false;
             Params = parameters;
         }
-
-        public RoomData(ShadowGuardRoom room, bool ready, params object[] parameters)
+        
+        public T GetParam<T>(int index)
         {
-            Room = room;
-            Ready = ready;
-            Params = parameters;
+            if(Params.Length <= index)
+            {
+                return default;
+            }
+            var data = Params[index];
+            if (data is T t)
+            {
+                return t;
+            }
+
+            return default;
         }
         public ShadowGuardRoom Room { get; set; }
         public object[] Params { get; set; }
-        public bool Ready { get; set; } = false;
         public DateTime EntryTime { get; set; } = DateTime.UtcNow;
     }
 
