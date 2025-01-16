@@ -11,6 +11,8 @@ namespace RazorScripts
 {
     public class Shadowguard
     {
+        
+        private uint _gumpId = (uint)456426886;
         private int _gumpHueActiveInfo = 0x16a;
         private int _gumpHueActiveWarning = 0x85;
         private int _gumpHueInfo = 0x7b;
@@ -158,7 +160,6 @@ namespace RazorScripts
         {
             var width = 350;
             var marginTop = 100;
-            var gid = (uint)456426886;
             
             var fg = Gumps.CreateGump();
             Gumps.AddBackground(ref fg, 0, 0, width, marginTop, 1755);
@@ -194,9 +195,13 @@ namespace RazorScripts
             {
                 AddBarGumpData(fg, roomData, marginTop, width);
             }
-            fg.gumpId = gid;
+            if (roomData.Room == ShadowGuardRoom.Belfry)
+            {
+                AddBelfryGumpData(fg, roomData, marginTop, width);
+            }
+            fg.gumpId = _gumpId;
             fg.serial = (uint)Player.Serial;
-            Gumps.CloseGump(gid);
+            Gumps.CloseGump(_gumpId);
             Gumps.SendGump(fg, 15, 30);
         }
 
@@ -316,6 +321,22 @@ namespace RazorScripts
             }
             Gumps.AddItem(ref fg, 250,15+marginTop,0x099B,0);
             Gumps.AddLabel(ref fg, 285, 15+marginTop, _gumpHueActiveInfo,bottleCount.ToString());
+        }
+
+        private void AddBelfryGumpData(Gumps.GumpData fg, RoomData roomData, int marginTop, int width)
+        { 
+            var hasWing = roomData.GetParam<bool>(0);
+           
+            Gumps.AddBackground(ref fg, 0, marginTop, width, 50, 1755);
+            if (hasWing)
+            {
+                Gumps.AddLabel(ref fg, 15, 15+marginTop,_gumpHueActiveInfo, "Fly you fool!");
+                Gumps.AddButton(ref fg,100, 15+marginTop, 247,248,1,1,0);
+            }
+            else
+            {
+                Gumps.AddLabel(ref fg, 15, 15 + marginTop, _gumpHueActiveInfo, "Kill Dragons, The wing will Auto loot");
+            }
         }
 
         private void HandleRoom(ShadowGuardRoom room)
@@ -708,16 +729,76 @@ namespace RazorScripts
 
         private void HandleBelfry()
         {
-            UpdateShadowGuardGump(ShadowGuardRoom.Belfry);
+            var roomData = new RoomData(ShadowGuardRoom.Belfry, false);
             var running = true;
+            var hasWing = false;
+            var ignoreCopses = new List<int>();
             while (running)
             {
                 if (!StillInRoom(ShadowGuardRoom.Belfry))
                 {
                     break;
                 }
+                
+                var bpWing = Player.Backpack.Contains.FirstOrDefault(i => i.ItemID == 0x1E85);
+                if (bpWing != null)
+                {
+                    var gumpData = Gumps.GetGumpData(_gumpId);
+                    if (gumpData.buttonid == 1)
+                    {
+                        Items.UseItem(bpWing);
+                    }
+                    hasWing = true;
+                }
 
-                Misc.Pause(5000);
+                if (hasWing)
+                {
+                    roomData.Params[0] = true;
+                    UpdateShadowGuardGump(roomData);
+                    Misc.Pause(500);
+                    break;
+                }
+                
+                hasWing = false;
+                roomData.Params[0] = false;
+                
+                Misc.Pause(200);
+                
+                UpdateShadowGuardGump(roomData);
+                
+                var corpses = Items.ApplyFilter(new Items.Filter
+                {
+                    Enabled = true,
+                    OnGround = 1,
+                    RangeMin = 0,
+                    RangeMax = 2,
+                    IsCorpse = 1,
+                    
+                }).ToList();
+                
+                if(Target.HasTarget())
+                {
+                    Misc.Pause(500);
+                    continue;
+                }
+                
+                foreach(var corpse in corpses.Where(c => !ignoreCopses.Contains(c.Serial)))
+                {
+                    Items.WaitForContents(corpse, 1000);
+                    Misc.Pause(300);
+                    var wing = corpse.Contains.FirstOrDefault(f => f.ItemID == 0x1E85);
+                    if (wing != null)
+                    {
+                        Items.Move(wing.Serial, Player.Backpack.Serial, 1);
+                        Misc.Pause(500);
+                        ignoreCopses.Add(corpse.Serial);
+                        break;
+                    }
+                    
+                    Misc.Pause(500);
+                };
+                
+                Misc.Pause(500);
             }
         }
 
@@ -1276,7 +1357,7 @@ namespace RazorScripts
             var items = Items.ApplyFilter(new Items.Filter
             {
                 RangeMin = 0,
-                RangeMax = 10,
+                RangeMax = 20,
             });
 
             return items.Any(i => i.Name.Equals("Feeding Bell", System.StringComparison.InvariantCultureIgnoreCase));
