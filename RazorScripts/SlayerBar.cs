@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using RazorEnhanced;
 
 namespace RazorScripts
@@ -15,7 +16,7 @@ namespace RazorScripts
         private Item _SlayerBag { get; set; }
         private readonly List<SlayerItem> _slayerItems = new List<SlayerItem>();
         private BaseSkill _skill;
-        private static string _version = "1.0.1";
+        // private static string _version = "1.0.1";
         private int _nonSlayerSerial = -1;
         //Set to true if you want to open containers to find slayers
         //(note that this will open any and all containers in your backpack untill a slayer container is found)
@@ -91,6 +92,10 @@ namespace RazorScripts
 
                     Misc.Pause(100);
                 }
+            }
+            catch (ThreadAbortException)
+            {
+                //Ignore
             }
             catch (Exception e)
             {
@@ -285,7 +290,7 @@ namespace RazorScripts
         
         private bool IsSpellBook(Item item)
         {
-            return item.Name.ToLower().Contains("spellbook") || item.Name.Equals("Scrapper's Compendium", StringComparison.InvariantCultureIgnoreCase);
+            return item.Name.ToLower().Contains("spellbook") || item.Name.Equals("Scrapper's Compendium", StringComparison.InvariantCultureIgnoreCase) || item.Name.Equals("Juo'nar's Grimoire", StringComparison.InvariantCultureIgnoreCase); 
         }
 
         private void SetSlayers(Item container)
