@@ -209,14 +209,14 @@ namespace RazorScripts
             if (buttonId == (int)Buttons.About)
             {
                 ShowAbout();
-                gumpData.buttonid = -1;
+                buttonId = -1;
             }
 
             if (buttonId == (int)Buttons.ExitRoom)
             {
                 Misc.WaitForContext(_player, 500);
                 Misc.ContextReply(_player, 1);
-                gumpData.buttonid = -1;
+                buttonId = -1;
             }
 
             // if (gumpData.buttonid == (int)Buttons.ToggleRunning)
@@ -228,7 +228,7 @@ namespace RazorScripts
             if (aboutButtonId == (int)Buttons.Coffee)
             {
                 System.Diagnostics.Process.Start("https://www.buymeacoffee.com/Dorana");
-                aboutGumpData.buttonid = -1;
+                buttonId = -1;
             }
 
             var width = 350;
