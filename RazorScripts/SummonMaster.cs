@@ -25,16 +25,17 @@ namespace RazorScripts
                 while (true)
                 {
                     var entries = jurnal.GetJournalEntry(_last);
+                    var newSummons = false;
                     if (entries.Any(CheckSummons))
                     {
                         var precast = Mobiles.ApplyFilter(new Mobiles.Filter
                         {
-                            RangeMax = 1,
+                            RangeMax = 20,
                             RangeMin = 0,
-                            Notorieties = new List<byte> { 1 },
+                            Notorieties = new List<byte> { 1,2 },
                         });
 
-                        WaitForSummons(precast);
+                        newSummons = WaitForSummons(precast);
 
                         _last = entries.OrderBy(e => e.Timestamp).LastOrDefault();
                     }
@@ -43,12 +44,16 @@ namespace RazorScripts
                     {
                         RangeMax = 20,
                         RangeMin = 0,
-                        Notorieties = new List<byte> { 1 },
+                        Notorieties = new List<byte> { 1,2 },
                     }).Where(m => SummonsSerials.Contains(m.Serial)).ToList();
                     runMobs.ForEach(m => Mobiles.WaitForProps(m, 1000));
                     var runSums = runMobs.Where(m => m.Properties.Any(p => p.Number == 1049646)).ToList();
                     Summons = runSums;
                     var change = false;
+                    if (newSummons)
+                    {
+                       GuardMode();
+                    }
                     var reply = Gumps.GetGumpData(Gumpid);
                     if (reply.buttonid != -1)
                     {
@@ -165,9 +170,9 @@ namespace RazorScripts
         {
             var precast = Mobiles.ApplyFilter(new Mobiles.Filter
             {
-                RangeMax = 1,
+                RangeMax = 2,
                 RangeMin = 0,
-                Notorieties = new List<byte> { 1 },
+                Notorieties = new List<byte> { 1,2 },
             });
             Spells.CastSpellweaving("Summon Fey");
         }
@@ -190,7 +195,7 @@ namespace RazorScripts
             {
                 RangeMax = 20,
                 RangeMin = 0,
-                Notorieties = new List<byte> { 1 }
+                Notorieties = new List<byte> { 1, 2 }
             };
 
             var mobs = Mobiles.ApplyFilter(filter);
@@ -213,7 +218,7 @@ namespace RazorScripts
                 Misc.ContextReply(mob, 5);
             }
         }
-        private void WaitForSummons(List<Mobile> summons)
+        private bool WaitForSummons(List<Mobile> summons)
         {
             Misc.SendMessage("Waiting for Summons to appear");
             var rems = new List<int>();
@@ -228,9 +233,9 @@ namespace RazorScripts
             {
                 var postcast = Mobiles.ApplyFilter(new Mobiles.Filter
                 {
-                    RangeMax = 1,
+                    RangeMax = 2,
                     RangeMin = 0,
-                    Notorieties = new List<byte> { 1 },
+                    Notorieties = new List<byte> { 1,2 },
                 });
             
                 //Find Mobiles only in postcase
@@ -238,11 +243,12 @@ namespace RazorScripts
                 if (newMobs.Any())
                 {
                     newMobs.ForEach(m => SummonsSerials.Add(m.Serial));
-                    break;
+                    return true;
                 }
                 Misc.Pause(50);
             }
-            
+
+            return false;
         }
 
         private void UpdateGump()
