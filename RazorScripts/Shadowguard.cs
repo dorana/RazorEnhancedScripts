@@ -5,7 +5,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Assistant;
 using RazorEnhanced;
+using Item = RazorEnhanced.Item;
+using Mobile = RazorEnhanced.Mobile;
 using Timer = System.Timers.Timer;
 
 namespace RazorScripts
@@ -371,10 +374,16 @@ namespace RazorScripts
             var remaining = roomData.GetParam<int>(0);
             var philinBags = roomData.GetParam<List<Item>>(1);
             var task = roomData.GetParam<string>(2);
-            Gumps.AddBackground(ref fg, 0, marginTop, width, 200, 1755);
+            
+            var minHeight = 150;
+            var neededHeight = philinBags.Count * 20 + 35;
+            var useHeight = neededHeight > minHeight ? neededHeight : minHeight;
+            
+            Gumps.AddBackground(ref fg, 0, marginTop, width, useHeight, 1755);
             Gumps.AddLabel(ref fg, 15, 15 + marginTop, _gumpHueActiveInfo, task);
             Gumps.AddItem(ref fg, 15, 45 + marginTop, 0x151A, 0);
             Gumps.AddLabel(ref fg, 20, 115 + marginTop, _gumpHueActiveInfo, remaining.ToString());
+            Gumps.AddLabel(ref fg, 130, 15 + marginTop, _gumpHueActiveInfo, "Phylacteries");
             var timerIndex = 0;
             foreach (var philactory in philinBags)
             {
@@ -385,8 +394,8 @@ namespace RazorScripts
                     if (int.TryParse(life, out int remainingLife))
                     {
                         var fraction = (decimal)remainingLife / 60;
-                        Gumps.AddBackground(ref fg, 100, marginTop + 15 + timerIndex * 25, 109, 11, 2053);
-                        Gumps.AddImageTiled(ref fg, 100, marginTop + 15 + timerIndex * 25,
+                        Gumps.AddBackground(ref fg, 110, marginTop + 35 + timerIndex * 20, 109, 11, 2053);
+                        Gumps.AddImageTiled(ref fg, 110, marginTop + 35 + timerIndex * 20,
                             (int)Math.Floor(fraction * 109), 11, 2056);
                         timerIndex++;
                     }
