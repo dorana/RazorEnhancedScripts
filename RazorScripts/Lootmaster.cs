@@ -27,6 +27,7 @@ namespace RazorEnhanced
         private int _lootDelay =  IsOSI ? 800 : 200;
         private DateTime? DeathClock = null;
         readonly Journal _journal = new Journal();
+        private Hue _status = Hue.Idle;
         
         public void Run()
         {
@@ -56,7 +57,7 @@ namespace RazorEnhanced
                 Misc.RemoveSharedValue("Lootmaster:DirectContainerRule");
                 //SetSpecialRules();
                 Setup();
-                UpdateLootMasterGump(Hue.Idle);
+                UpdateLootMasterGump();
                 if (firstRun)
                 {
                     ShowWelcomeGump();
@@ -95,7 +96,23 @@ namespace RazorEnhanced
                     {
                         ShowOptions();
                         lm.buttonid = -1;
+                        
+                    }
+                    else if (lm.buttonid == (int)OptionsItem.ManualRun)
+                    {
                         Gumps.SendGump(lm, 150, 150);
+                        lm.buttonid = -1;
+                        var target = Prompt("Target Container to loot");
+                        LootDirectContainer(target);
+                    }
+                    else if (lm.buttonid == (int)OptionsItem.OpenConfig)
+                    {
+                        lm.buttonid = -1;
+                        _status = Hue.Paused;
+                        UpdateLootMasterGump();
+                        ShowConfigurator();
+                        _status = Hue.Idle;
+                        UpdateLootMasterGump();
                     }
 
                     if (we?.buttonid == 1)
@@ -212,7 +229,8 @@ namespace RazorEnhanced
                     });
                     if (corpses.Any(c => !ignoreList.Contains(c.Serial)))
                     {
-                        UpdateLootMasterGump(Hue.Looting);
+                        _status = Hue.Looting;
+                        UpdateLootMasterGump();
                         foreach (var corpse in corpses.Where(c => !ignoreList.Contains(c.Serial)))
                         {
                             HandlePause();
@@ -247,7 +265,8 @@ namespace RazorEnhanced
                             }
                         }
 
-                        UpdateLootMasterGump(Hue.Idle);
+                        _status = Hue.Idle;
+                        UpdateLootMasterGump();
                     }
 
                     Misc.Pause(100);
@@ -280,8 +299,13 @@ namespace RazorEnhanced
             var pauseCheckvalue = Misc.ReadSharedValue("Lootmaster:Pause");
             if (pauseCheckvalue is int pauseTimer && pauseTimer > 0)
             {
+                var prevHue = _status;
+                _status = Hue.Paused;
+                UpdateLootMasterGump();
                 Misc.Pause(pauseTimer);
                 Misc.SetSharedValue("Lootmaster:Pause", 0);
+                _status = prevHue;
+                UpdateLootMasterGump();
             }
         }
 
@@ -467,10 +491,12 @@ namespace RazorEnhanced
             if (directContainer != null)
             {
                 Handler.SendMessage(MessageType.Log, $"Looting direct container {directContainer.Name}");
-                UpdateLootMasterGump(Hue.Looting);
+                _status = Hue.Looting;
+                UpdateLootMasterGump();
                 LootContainer(directContainer, rule);
                 Misc.Pause(500);
-                UpdateLootMasterGump(Hue.Idle);
+                _status = Hue.Idle;
+                UpdateLootMasterGump();
             }
         }
 
@@ -576,15 +602,30 @@ namespace RazorEnhanced
         }
 
 
-        private void UpdateLootMasterGump(Hue color)
+        private void UpdateLootMasterGump()
         {
             var controller = Gumps.CreateGump();
             controller.x = 300;
             controller.y = 300;
             Gumps.AddPage(ref controller, 0);
-            Gumps.AddBackground(ref controller, 0, 0, 140, 45, 1755);
-            Gumps.AddButton(ref controller, 10, 8, 2152, 2151, 500, 1, 0);
-            Gumps.AddLabel(ref controller, 50, 12, (int)color, "Lootmaster");
+            Gumps.AddBackground(ref controller, 0, 0, 187, 47, 1755);
+            Gumps.AddBackground(ref controller, 0, 47, 140, 47, 1755);
+            Gumps.AddBackground(ref controller, 140, 47, 47, 47, 1755);
+            if(_status == Hue.Looting)
+            {
+                Gumps.AddButton(ref controller, 150, 55, 5826, 5827, 500, 1, 0);
+            }
+            else if(_status == Hue.Paused)
+            {
+                Gumps.AddButton(ref controller, 150, 55, 9721, 9722, 500, 1, 0);    
+            }
+            else
+            {
+                Gumps.AddButton(ref controller, 150, 55, 2152, 2151, 500, 1, 0);    
+            }
+            Gumps.AddLabel(ref controller, 8, 12, (int)_status, $"Lootmaster : {_status.ToString()}");
+            Gumps.AddButton(ref controller,8,58,2116,2115, (int)OptionsItem.ManualRun,1,0);
+            Gumps.AddButton(ref controller,68,58,2006,2007, (int)OptionsItem.OpenConfig,1,0);
             Gumps.CloseGump(13659823);
             controller.serial = (uint)Player.Serial;
             controller.gumpId = 13659823;
@@ -4163,7 +4204,8 @@ namespace RazorEnhanced
     public enum Hue
     {
         Idle = 591,
-        Looting = 72
+        Looting = 72,
+        Paused = 914,
     }
     
     public static class ListExtension
