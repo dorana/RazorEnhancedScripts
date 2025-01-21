@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -8,9 +7,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
+using RazorEnhanced;
 using Engine = Assistant.Engine;
 
-namespace RazorEnhanced
+namespace RazorScripts
 {
     public class Lootmaster
     {
@@ -281,6 +281,11 @@ namespace RazorEnhanced
             if (pauseCheckvalue is int pauseTimer && pauseTimer > 0)
             {
                 Misc.Pause(pauseTimer);
+                Misc.SetSharedValue("Lootmaster:Pause", 0);
+            }
+            else if (pauseCheckvalue is bool value)
+            {
+                Misc.Pause(2000);
                 Misc.SetSharedValue("Lootmaster:Pause", 0);
             }
         }
