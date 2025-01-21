@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.IO;
 using System.Linq;
@@ -922,6 +923,8 @@ namespace RazorEnhanced
 
     public class LootRule
     {
+
+        public Guid Id { get; set; }
         public string RuleName { get; set; }
         public List<string> ItemNames { get; set; }
         public List<EquipmentSlot> EquipmentSlots { get; set; }
@@ -1608,6 +1611,7 @@ namespace RazorEnhanced
                                 PlayerName = rcc.PlayerName,
                                 Rules = rcc.Rules.Select(r => new LootRule
                                 {
+                                    Id = (r.Id == default ? Guid.NewGuid() : r.Id),
                                     RuleName = r.RuleName,
                                     ItemColorIds = r.ItemColorIds ?? r.ItemIds?.Select(i => new ItemColorIdentifier(i,0,string.Empty)).ToList() ?? new List<ItemColorIdentifier>(),
                                     ItemNames = r.ItemNames ?? new List<string>(),
@@ -4181,6 +4185,183 @@ namespace RazorEnhanced
             }
             
         }
+    }
+    
+    public partial class RuleController : UserControl
+    {
+        public bool IsSelected => checkBox1.Checked;
+        public Guid RuleId => _rule.Id;
+        private LootRule _rule;
+        
+        public LootRule GetRule() => _rule;
+        private bool _isActive = false;
+        Action<Guid> _deleteAction;
+        Action<Guid> _MoveUpAction;
+        Action<Guid> _MoveDownAction;
+        Action<LootRule> _selectRule;
+
+        
+        
+        public RuleController(LootRule rule, Action<Guid> deleteAction, Action<Guid> MoveUpAction, Action<Guid> MoveDownAction)
+        {
+            _rule = rule;
+            _isActive = !rule.Disabled;
+            
+            _deleteAction = deleteAction;
+            _MoveUpAction = MoveUpAction;
+            _MoveDownAction = MoveDownAction;
+            InitializeComponent();
+        }
+        
+        public void SetEnabled(bool enabled)
+        {
+            if (enabled)
+            {
+                enabledLbl.Text = "\u2713";
+            }
+            else
+            {
+                enabledLbl.Text = "X";
+            }
+        }
+        
+        public void SetActive(bool active)
+        {
+            _isActive = active;
+        }
+        
+        private void deleteSelectedRuleMenuItem_Click(object sender, EventArgs e)
+        {
+            _deleteAction(_rule.Id);
+        }
+
+        private void panel1_Click(object sender, EventArgs e)
+        {
+            _selectRule(_rule);
+        }
+        
+        //Designer items
+        private IContainer components = null;
+
+        /// <summary> 
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        #region Component Designer generated code
+
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.components = new System.ComponentModel.Container();
+            this.panel1 = new System.Windows.Forms.Panel();
+            this.enabledLbl = new System.Windows.Forms.Label();
+            this.checkBox1 = new System.Windows.Forms.CheckBox();
+            this.ruleNameLbl = new System.Windows.Forms.Label();
+            this.ruleDropDownMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.moveUpSelectedRuleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.moveDownSelectedRuleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.deleteSelectedRuleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.panel1.SuspendLayout();
+            this.ruleDropDownMenu.SuspendLayout();
+            this.SuspendLayout();
+            // 
+            // panel1
+            // 
+            this.panel1.Controls.Add(this.enabledLbl);
+            this.panel1.Controls.Add(this.checkBox1);
+            this.panel1.Controls.Add(this.ruleNameLbl);
+            this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panel1.Location = new System.Drawing.Point(0, 0);
+            this.panel1.Name = "panel1";
+            this.panel1.Size = new System.Drawing.Size(150, 27);
+            this.panel1.TabIndex = 0;
+            this.panel1.Click += new System.EventHandler(this.panel1_Click);
+            // 
+            // enabledLbl
+            // 
+            this.enabledLbl.Location = new System.Drawing.Point(106, 6);
+            this.enabledLbl.Name = "enabledLbl";
+            this.enabledLbl.Size = new System.Drawing.Size(17, 15);
+            this.enabledLbl.TabIndex = 4;
+            // 
+            // checkBox1
+            // 
+            this.checkBox1.Location = new System.Drawing.Point(129, 6);
+            this.checkBox1.Name = "checkBox1";
+            this.checkBox1.Size = new System.Drawing.Size(18, 17);
+            this.checkBox1.TabIndex = 3;
+            this.checkBox1.UseVisualStyleBackColor = true;
+            // 
+            // ruleNameLbl
+            // 
+            this.ruleNameLbl.Location = new System.Drawing.Point(3, 6);
+            this.ruleNameLbl.Name = "ruleNameLbl";
+            this.ruleNameLbl.Size = new System.Drawing.Size(97, 16);
+            this.ruleNameLbl.TabIndex = 2;
+            this.ruleNameLbl.Text = "label1";
+            // 
+            // ruleDropDownMenu
+            // 
+            this.ruleDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.moveUpSelectedRuleMenuItem, this.moveDownSelectedRuleMenuItem, this.deleteSelectedRuleMenuItem });
+            this.ruleDropDownMenu.Name = "propertyDropDownMenu";
+            this.ruleDropDownMenu.Size = new System.Drawing.Size(155, 70);
+            // 
+            // moveUpSelectedRuleMenuItem
+            // 
+            this.moveUpSelectedRuleMenuItem.Name = "moveUpSelectedRuleMenuItem";
+            this.moveUpSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.moveUpSelectedRuleMenuItem.Text = "Move Up";
+            // 
+            // moveDownSelectedRuleMenuItem
+            // 
+            this.moveDownSelectedRuleMenuItem.Name = "moveDownSelectedRuleMenuItem";
+            this.moveDownSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.moveDownSelectedRuleMenuItem.Text = "Move Down";
+            // 
+            // deleteSelectedRuleMenuItem
+            // 
+            this.deleteSelectedRuleMenuItem.Name = "deleteSelectedRuleMenuItem";
+            this.deleteSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.deleteSelectedRuleMenuItem.Text = "Delete Selected";
+            this.deleteSelectedRuleMenuItem.Click += new System.EventHandler(this.deleteSelectedRuleMenuItem_Click);
+            // 
+            // RuleController
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.panel1);
+            this.Name = "RuleController";
+            this.Size = new System.Drawing.Size(150, 27);
+            this.panel1.ResumeLayout(false);
+            this.ruleDropDownMenu.ResumeLayout(false);
+            this.ResumeLayout(false);
+        }
+
+        private System.Windows.Forms.Label enabledLbl;
+
+        private System.Windows.Forms.ContextMenuStrip ruleDropDownMenu;
+        private System.Windows.Forms.ToolStripMenuItem moveUpSelectedRuleMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem moveDownSelectedRuleMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem deleteSelectedRuleMenuItem;
+        private System.Windows.Forms.Label ruleNameLbl;
+        private System.Windows.Forms.CheckBox checkBox1;
+
+        private System.Windows.Forms.Panel panel1;
+
+        #endregion
     }
 
     public class DropDownItem
