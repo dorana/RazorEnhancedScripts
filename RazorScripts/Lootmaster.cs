@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Management.Instrumentation;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -97,7 +99,7 @@ namespace RazorEnhanced
                     {
                         ShowOptions();
                         lm.buttonid = -1;
-                        
+                        UpdateLootMasterGump();
                     }
                     else if (lm.buttonid == (int)OptionsItem.ManualRun)
                     {
@@ -1625,7 +1627,7 @@ namespace RazorEnhanced
                                     MaxWeight = r.MaxWeight ?? (r.IgnoreWeightCurse ? (int?)null : 49),
                                     Disabled = r.Disabled,
                                     PropertyMatchRequirement = r.PropertyMatchRequirement,
-                                    RegExString = r.RegExString
+                                    RegExString = string.IsNullOrEmpty(r.RegExString) ? null : r.RegExString
                                 }).ToList()
                             });
                         }
@@ -2363,7 +2365,7 @@ namespace RazorEnhanced
         private List<DropDownItem> EquipmentSlots = new List<DropDownItem>();
         private List<DropDownItem> Properties = new List<DropDownItem>();
         private LootMasterConfig Config;
-        private int _lastSelectedRuleIndex = -1;
+        private LootRule ActiveRule { get; set; }
         
         public Configurator()
         {
@@ -2377,7 +2379,13 @@ namespace RazorEnhanced
 
         private void ClearConfig()
         {
-            rulesList.ClearSelected();
+            foreach (Control rc in rulesList.Controls)
+            {
+                if (rc is RuleController ruleController)
+                {
+                    ruleController.SetActive(false);
+                }
+            }
             ruleNameTextBox.Text = string.Empty;
             rarityMinDropDown.SelectedIndex = 0;
             slotDropDown.SelectedIndex = 0;
@@ -2404,7 +2412,7 @@ namespace RazorEnhanced
 
         private bool DetectChanges()
         {
-            if (_lastSelectedRuleIndex != -1)
+            if (ActiveRule != null)
             {
                 var nameList = new List<string>();
                 var idList = new List<ItemColorIdentifier>();
@@ -2414,10 +2422,6 @@ namespace RazorEnhanced
                     {
                         var idString = val.Split('|').First().Trim();
                         var colorString = val.Split('|')[1].Trim();
-                        if (colorString.StartsWith("0x"))
-                        {
-                            colorString = colorString.Substring(2);
-                        }
                         var name = val.Split('|')[2].Trim();
                         var parseVal = Convert.ToInt32(idString, 16);
                         int? colorId = Convert.ToInt32(colorString, 16);
@@ -2438,41 +2442,54 @@ namespace RazorEnhanced
                     ItemNames = nameList,
                     ItemColorIds = idList,
                     Properties = propertiesList.Items.Cast<PropertyMatch>().ToList(),
+                    BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList(),
                     MaxWeight = weightCurseTextBox.Text == string.Empty ? (int?)null : int.Parse(weightCurseTextBox.Text),
                     Alert = alertCheckbox.Checked,
-                    Disabled = !enabledCheckbox.Checked
+                    Disabled = !enabledCheckbox.Checked,
+                    RegExString = string.IsNullOrEmpty(regExTextBox.Text.Trim()) ? null : regExTextBox.Text
                 };
 
+                var fileName = Path.Combine(Engine.RootPath, "Lootmaster.compare");
+                var ns = Assembly.LoadFile(Path.Combine(Engine.RootPath, "Newtonsoft.Json.dll"));
+                string current = "";
+                string active = "";
+                foreach(Type type in ns.GetExportedTypes())
+                {
+                    if (type.Name == "JsonConvert")
+                    {
+                        current = type.InvokeMember("SerializeObject", BindingFlags.InvokeMethod, null, null, new object[] { currentValues }) as string;
+                        active = type.InvokeMember("SerializeObject", BindingFlags.InvokeMethod, null, null, new object[] { ActiveRule }) as string;
+                    }
+                    
+                }
                 
-
-                var originalRule = rulesList.Items[_lastSelectedRuleIndex] as LootRule;
+                File.AppendAllText(fileName, current + Environment.NewLine);
+                File.AppendAllText(fileName, active + Environment.NewLine);
+                
+                
                 
                 // check if currentRule and originalRule differ on any property
-                return currentValues.EquipmentSlots.Count != originalRule.EquipmentSlots.Count ||
-                       currentValues.EquipmentSlots.Except(originalRule.EquipmentSlots).Any() ||
-                       currentValues.MinimumRarity != originalRule.MinimumRarity ||
-                       currentValues.MaximumRarity != originalRule.MaximumRarity ||
-                       currentValues.ItemNames.Count != originalRule.ItemNames.Count ||
-                       currentValues.ItemNames.Except(originalRule.ItemNames).Any() ||
-                       currentValues.ItemColorIds.Count != originalRule.ItemColorIds.Count ||
-                       currentValues.ItemColorIds.Select(l1 => l1.ToString()).Except(originalRule.ItemColorIds.Select(l2 => l2.ToString())).Any() ||
-                       currentValues.Properties.Count != originalRule.Properties.Count ||
-                       currentValues.Properties.Except(originalRule.Properties).Any() ||
-                       currentValues.MaxWeight != originalRule.MaxWeight ||
-                       currentValues.Alert != originalRule.Alert ||
-                       currentValues.Disabled != originalRule.Disabled;
+                return currentValues.EquipmentSlots.Count != ActiveRule.EquipmentSlots.Count ||
+                       currentValues.EquipmentSlots.Except(ActiveRule.EquipmentSlots).Any() ||
+                       currentValues.MinimumRarity != ActiveRule.MinimumRarity ||
+                       currentValues.MaximumRarity != ActiveRule.MaximumRarity ||
+                       currentValues.ItemNames.Count != ActiveRule.ItemNames.Count ||
+                       currentValues.ItemNames.Except(ActiveRule.ItemNames).Any() ||
+                       currentValues.ItemColorIds.Count != ActiveRule.ItemColorIds.Count ||
+                       currentValues.ItemColorIds.Select(l1 => l1.ToString()).Except(ActiveRule.ItemColorIds.Select(l2 => l2.ToString())).Any() ||
+                       currentValues.Properties.Count != ActiveRule.Properties.Count ||
+                       currentValues.Properties.Except(ActiveRule.Properties).Any() ||
+                       currentValues.MaxWeight != ActiveRule.MaxWeight ||
+                       currentValues.Alert != ActiveRule.Alert ||
+                       currentValues.Disabled != ActiveRule.Disabled ||
+                       currentValues.RegExString != ActiveRule.RegExString;
             }
 
             return false;
         }
 
-        private bool DetectChangeAndPromptSave(bool moving)
+        private bool DetectChangeAndPromptSave()
         {
-            if (!moving && rulesList.SelectedIndex == _lastSelectedRuleIndex)
-            {
-                return false;
-            }
-
             if (DetectChanges())
             {
                 var result = MessageBox.Show("Save changes to rule?", "Save Changes", MessageBoxButtons.YesNoCancel);
@@ -2480,10 +2497,8 @@ namespace RazorEnhanced
                 {
                     case DialogResult.Yes:
                         SaveRule();
-                        break;
+                        return true;
                     case DialogResult.Cancel:
-                        // if cancel, don't change the selected index
-                        rulesList.SelectedIndex = _lastSelectedRuleIndex;
                         return false;
                 }
             }
@@ -2491,21 +2506,6 @@ namespace RazorEnhanced
             return true;
         }
 
-        private void rulesList_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (DetectChangeAndPromptSave(false))
-            {
-                var rule = (LootRule)rulesList.SelectedItem;
-                if (rule == null)
-                {
-                    return;
-                }
-
-                LoadRule(rule);
-                presetDropDown.SelectedIndex = 0;
-                _lastSelectedRuleIndex = rulesList.SelectedIndex;
-            }
-        }
 
         private void LoadRule(LootRule rule)
         {
@@ -2653,104 +2653,124 @@ namespace RazorEnhanced
             }
         }
 
-        private int SaveRule()
+        private Guid SaveRule()
         {
             var nameList = new List<string>();
-                var idList = new List<ItemColorIdentifier>();
-                foreach (var val in itemNamesList.Items.Cast<string>())
+            var idList = new List<ItemColorIdentifier>();
+            foreach (var val in itemNamesList.Items.Cast<string>())
+            {
+                if (val.StartsWith("0x"))
                 {
-                    if (val.StartsWith("0x"))
-                    {
-                        var idString = val.Split('|').First().Trim();
-                        var colorString = val.Split('|')[1].Trim();
-                        var name = val.Split('|')[2].Trim();
-                        var parseVal = Convert.ToInt32(idString, 16);
-                        int? colorId = Convert.ToInt32(colorString, 16);
-                        
-                        idList.Add(new ItemColorIdentifier(parseVal, colorId, name));
-                    }
-                    else
-                    {
-                        nameList.Add(val);
-                    }
-                }
+                    var idString = val.Split('|').First().Trim();
+                    var colorString = val.Split('|')[1].Trim();
+                    var name = val.Split('|')[2].Trim();
+                    var parseVal = Convert.ToInt32(idString, 16);
+                    int? colorId = Convert.ToInt32(colorString, 16);
 
-                int? matchPropCount = null;
-                
-                if(int.TryParse(minimumMatchPropsTextBox.Text, out var minMatch))
-                {
-                    matchPropCount = minMatch;
-                }
-                
-                if(propertiesList.Items.Count == 0)
-                {
-                    matchPropCount = null;
-                }
-                
-                var rule = new LootRule
-                {
-                    RuleName = ruleNameTextBox.Text,
-                    EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value).ToList(),
-                    MinimumRarity = rarityMinDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMinDropDown.SelectedItem as DropDownItem).Value,
-                    MaximumRarity = rarityMaxDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value,
-                    ItemNames = nameList,
-                    ItemColorIds = idList,
-                    Properties = propertiesList.Items.Cast<PropertyMatch>().ToList(),
-                    MaxWeight = weightCurseTextBox.Text == string.Empty ? (int?)null : int.Parse(weightCurseTextBox.Text),
-                    Alert = alertCheckbox.Checked,
-                    Disabled = !enabledCheckbox.Checked,
-                    BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList(),
-                    PropertyMatchRequirement = matchPropCount,
-                    RegExString = regExTextBox.Text
-                };
-
-                if (string.IsNullOrEmpty(rule.RuleName))
-                {
-                    MessageBox.Show("Please enter a rule name.");
-                    return -1;
-                }
-                
-                
-                
-                var blockSave = rule.EquipmentSlots.Count == 0
-                                && rule.MinimumRarity == null
-                                && rule.MaximumRarity == null
-                                && rule.ItemNames.Count == 0
-                                && rule.ItemColorIds.Count == 0
-                                && rule.Properties.Count == 0
-                                && string.IsNullOrEmpty(rule.RegExString);
-                if (blockSave)
-                {
-                    MessageBox.Show("This rule will match all items. Please adjust the rule to be more specific.");
-                    return -1;
-                }
-                
-                var existing =  rulesList.Items.Cast<LootRule>().FirstOrDefault(x => x.RuleName == ruleNameTextBox.Text);
-                if (existing != null)
-                {
-                    existing.EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value).ToList();
-                    existing.MinimumRarity = rarityMinDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMinDropDown.SelectedItem as DropDownItem).Value;
-                    existing.MaximumRarity = rarityMaxDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value;
-                    existing.ItemNames = nameList;
-                    existing.ItemColorIds = idList;
-                    existing.Properties = propertiesList.Items.Cast<PropertyMatch>().ToList();
-                    existing.MaxWeight = weightCurseTextBox.Text == string.Empty ? (int?)null : int.Parse(weightCurseTextBox.Text);
-                    existing.Alert = alertCheckbox.Checked;
-                    existing.Disabled = !enabledCheckbox.Checked;
-                    existing.BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList();
-                    existing.PropertyMatchRequirement = matchPropCount;
-                    existing.RegExString = regExTextBox.Text;
-
+                    idList.Add(new ItemColorIdentifier(parseVal, colorId, name));
                 }
                 else
                 {
-                    rulesList.Items.Add(rule);
-                    Config.GetCharacter().Rules.Clear();
-                    Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
+                    nameList.Add(val);
                 }
+            }
 
-                _lastSelectedRuleIndex = -1;
-                return rulesList.Items.Cast<LootRule>().ToList().IndexOf(existing ?? rule);
+            int? matchPropCount = null;
+
+            if (int.TryParse(minimumMatchPropsTextBox.Text, out var minMatch))
+            {
+                matchPropCount = minMatch;
+            }
+
+            if (propertiesList.Items.Count == 0)
+            {
+                matchPropCount = null;
+            }
+
+            var rule = new LootRule
+            {
+                RuleName = ruleNameTextBox.Text,
+                EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value)
+                    .ToList(),
+                MinimumRarity = rarityMinDropDown.SelectedIndex == 0
+                    ? null
+                    : (ItemRarity?)(rarityMinDropDown.SelectedItem as DropDownItem).Value,
+                MaximumRarity = rarityMaxDropDown.SelectedIndex == 0
+                    ? null
+                    : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value,
+                ItemNames = nameList,
+                ItemColorIds = idList,
+                Properties = propertiesList.Items.Cast<PropertyMatch>().ToList(),
+                MaxWeight = weightCurseTextBox.Text == string.Empty ? (int?)null : int.Parse(weightCurseTextBox.Text),
+                Alert = alertCheckbox.Checked,
+                Disabled = !enabledCheckbox.Checked,
+                BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList(),
+                PropertyMatchRequirement = matchPropCount,
+                RegExString = string.IsNullOrEmpty(regExTextBox.Text) ? null : regExTextBox.Text
+            };
+
+            if (string.IsNullOrEmpty(rule.RuleName))
+            {
+                MessageBox.Show("Please enter a rule name.");
+                return Guid.Empty;
+            }
+
+
+
+            var blockSave = rule.EquipmentSlots.Count == 0
+                            && rule.MinimumRarity == null
+                            && rule.MaximumRarity == null
+                            && rule.ItemNames.Count == 0
+                            && rule.ItemColorIds.Count == 0
+                            && rule.Properties.Count == 0
+                            && string.IsNullOrEmpty(rule.RegExString);
+            if (blockSave)
+            {
+                MessageBox.Show("This rule will match all items. Please adjust the rule to be more specific.");
+                return Guid.Empty;
+            }
+
+            if (ActiveRule != null)
+            {
+                ActiveRule.RuleName = rule.RuleName;
+                ActiveRule.EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>()
+                    .Select(x => (EquipmentSlot)x.Value).ToList();
+                ActiveRule.MinimumRarity = rarityMinDropDown.SelectedIndex == 0
+                    ? null
+                    : (ItemRarity?)(rarityMinDropDown.SelectedItem as DropDownItem).Value;
+                ActiveRule.MaximumRarity = rarityMaxDropDown.SelectedIndex == 0
+                    ? null
+                    : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value;
+                ActiveRule.ItemNames = nameList;
+                ActiveRule.ItemColorIds = idList;
+                ActiveRule.Properties = propertiesList.Items.Cast<PropertyMatch>().ToList();
+                ActiveRule.MaxWeight = weightCurseTextBox.Text == string.Empty
+                    ? (int?)null
+                    : int.Parse(weightCurseTextBox.Text);
+                ActiveRule.Alert = alertCheckbox.Checked;
+                ActiveRule.Disabled = !enabledCheckbox.Checked;
+                ActiveRule.BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList();
+                ActiveRule.PropertyMatchRequirement = matchPropCount;
+                ActiveRule.RegExString = string.IsNullOrEmpty(regExTextBox.Text) ? null : regExTextBox.Text;
+                
+                //Replace rule with sameID with updated activeRule
+                Config.GetCharacter().Rules.Remove(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
+                Config.GetCharacter().Rules.Add(ActiveRule);
+                
+                return ActiveRule.Id;
+            }
+
+            rulesList.Controls.Add(new RuleController(rule, DeleteRule, MoveRule, SetActiveRule));
+            Config.GetCharacter().Rules.Clear();
+            foreach (var control in rulesList.Controls)
+            {
+                if (control is RuleController ruleItem)
+                {
+                    Config.GetCharacter().Rules.Add(ruleItem.GetRule());
+                }
+            }
+
+            return rule.Id;
         }
 
         private void saveButton_Click(object sender, EventArgs e)
@@ -2758,20 +2778,42 @@ namespace RazorEnhanced
             try
             {
 
-                var index = SaveRule();
-                if (index == -1)
+                var newId = SaveRule();
+                if (newId == Guid.Empty)
                 {
                     return;
                 }
-                
-                rulesList.ClearSelected();
-                rulesList.SelectedIndex = index;
+
+                SetActiveRule(newId);
                 
                 Config.Save();
             }
             catch(Exception ex)
             {
                 MessageBox.Show(ex.ToString());
+            }
+        }
+
+        private void SetActiveRule(Guid newId)
+        {
+            if (DetectChangeAndPromptSave())
+            {
+                foreach (var control in rulesList.Controls)
+                {
+                    if (control is RuleController ruleController)
+                    {
+                        if (ruleController.RuleId == newId)
+                        {
+                            ActiveRule = ruleController.GetRule();
+                            ruleController.SetActive(true);
+                            LoadRule(ruleController.GetRule());
+                        }
+                        else
+                        {
+                            ruleController.SetActive(false);
+                        }
+                    }
+                }
             }
         }
 
@@ -2799,8 +2841,7 @@ namespace RazorEnhanced
             var name = characterDropdown.SelectedItem as string;
             if (!string.IsNullOrEmpty(name))
             {
-                rulesList.Items.Clear();
-                rulesList.Items.AddRange(Config.GetCharacter(name).Rules.ToArray());
+                LoadRules(Config.GetCharacter(name).Rules);
             }
         }
         
@@ -2949,49 +2990,18 @@ namespace RazorEnhanced
             
         }
 
-        private void deleteSelectedRuleMenuItem_Click(object sender, EventArgs e)
-        {
-            var selected = rulesList.SelectedItem;
-            if (selected != null)
-            {
-                _lastSelectedRuleIndex = -1;
-                rulesList.Items.Remove(selected);
-            }
-
-            Config.GetCharacter().Rules.Clear();
-            Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
-            ClearConfig();
-        }
 
         private void clearTargetBagButton_Click(object sender, EventArgs e)
         {
-            if (rulesList.SelectedItem is LootRule selected)
-            {
-                selected.TargetBag = null;
-                clearTargetBagButton.Enabled = selected.TargetBag != null;
-            }
-            
-            
             Config.GetCharacter().Rules.Clear();
-            Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
-            Config.Save();
-        }
-
-        private void clearAllTargetBagsButton_Click(object sender, EventArgs e)
-        {
-            foreach (var rule in rulesList.Items)
+            foreach (RuleController rulesListControl in rulesList.Controls)
             {
-                if (rule is LootRule selected)
+                if(rulesListControl.IsSelected)
                 {
-                    selected.TargetBag = null;
+                    rulesListControl.ClearTargetBag();
                 }
+                Config.GetCharacter().Rules.Add(rulesListControl.GetRule());
             }
-            
-            clearTargetBagButton.Enabled = false;
-            
-            
-            Config.GetCharacter().Rules.Clear();
-            Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
             Config.Save();
         }
 
@@ -3040,58 +3050,74 @@ namespace RazorEnhanced
                     Config.Characters.Remove(Config.Characters.First(c => c.PlayerName == name));
                     Config.Characters.Add(impexp.DecodedCharacter);
                     Config.Save();
-                    rulesList.Items.Clear();
-                    rulesList.Items.AddRange(Config.GetCharacter(name).Rules.ToArray());
+                    LoadRules(Config.GetCharacter(name).Rules);
                 }
             }
         }
-
-        private void moveUpSelectedRuleMenuItem_Click(object sender, EventArgs e)
+        
+        private void LoadRules(List<LootRule> rules)
         {
-            if (DetectChangeAndPromptSave(true))
+            rulesList.Controls.Clear();
+            rulesList.Controls.AddRange(rules.Select(r => new RuleController(r,DeleteRule,MoveRule, SetActiveRule)).ToArray());
+        }
+
+        private void MoveRule(Guid ruleId, int step)
+        {
+            var name = characterDropdown.SelectedItem as string;
+            var character = Config.GetCharacter(name);
+            var existing = character.Rules.FirstOrDefault(r => r.Id == ruleId);
+            if (existing != null)
             {
-                if (rulesList.SelectedItem is LootRule rule)
+                var index = character.Rules.IndexOf(existing);
+                if ((index + step) > 0 && (index + step) < character.Rules.Count)
                 {
-                    var index = rulesList.SelectedIndex;
-                    if (index == 0)
+                    character.Rules.RemoveAt(index);
+                    character.Rules.Insert(index + step, existing);
+                }
+            }
+        }
+        
+        private void DeleteRule(Guid ruleId)
+        {
+            var character = Config.GetCharacter();
+            var existing = character.Rules.FirstOrDefault(r => r.Id == ruleId);
+            if (existing != null)
+            {
+                character.Rules.Remove(existing);
+            }
+
+            var deleteSelected = false;
+            
+            foreach (Control control in rulesList.Controls)
+            {
+                if (control is RuleController ruleController)
+                {
+                    if (ruleController.GetRule().Id == ruleId)
                     {
-                        return;
+                        rulesList.Controls.Remove(control);
+                        deleteSelected = true;
+                        break;
                     }
-
-                    _lastSelectedRuleIndex = -1;
-
-                    rulesList.Items.Remove(rule);
-                    rulesList.Items.Insert(index - 1, rule);
-                    rulesList.SelectedIndex = index - 1;
-                
-                    _lastSelectedRuleIndex = index - 1;
-                    Config.GetCharacter().Rules.Clear();
-                    Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
-                    Config.Save();
                 }
             }
-        }
 
-        private void moveDownSelectedRuleMenuItem_Click(object sender, EventArgs e)
-        {
-            if (rulesList.SelectedItem is LootRule rule)
+            if (deleteSelected)
             {
-                var index = rulesList.SelectedIndex;
-                if (index == rulesList.Items.Count - 1)
+                if(rulesList.Controls.Count > 0)
                 {
-                    return;
+                    var lc = rulesList.Controls[0] as RuleController;
+                    lc.SetActive(true);
+                    LoadRule(lc.GetRule());
                 }
-                _lastSelectedRuleIndex = -1;
-                
-                rulesList.Items.Remove(rule);
-                rulesList.Items.Insert(index + 1, rule);
-                rulesList.SelectedIndex = index + 1;
-                _lastSelectedRuleIndex = index + 1;
-                Config.GetCharacter().Rules.Clear();
-                Config.GetCharacter().Rules.AddRange(rulesList.Items.Cast<LootRule>());
-                Config.Save();
+                else
+                {
+                    ClearConfig();
+                }
             }
+            
+            Config.Save();
         }
+
         
         public void Open(LootMasterConfig config)
         {
@@ -3102,9 +3128,7 @@ namespace RazorEnhanced
             characterDropdown.Items.AddRange(Config.Characters.Select(c => c.PlayerName).OrderBy(n => n).ToArray());
             characterDropdown.SelectedIndex = characterDropdown.Items.IndexOf(Player.Name);
             
-            
-            rulesList.Items.Clear();
-            rulesList.Items.AddRange(Config.GetCharacter((string)characterDropdown.SelectedValue).Rules.ToArray());
+            LoadRules(Config.GetCharacter((string)characterDropdown.SelectedValue).Rules);
             colorCorpseCheckbox.Checked = Config.ColorCorpses;
             
             Rarities.Add(new DropDownItem
@@ -3350,7 +3374,7 @@ namespace RazorEnhanced
             exportCharacterButton = new Button();
             importCharacterButton = new Button();
             this.listContainer = new GroupBox();
-            this.rulesList = new ListBox();
+            this.rulesList = new FlowLayoutPanel();
             this.ruleUpButton = new Button();
             this.ruleDownButton = new Button();
             this.addButton = new Button();
@@ -3388,9 +3412,6 @@ namespace RazorEnhanced
             this.deleteSelectedNameMenuItem = new ToolStripMenuItem();
             this.deleteSelectedSlotMenuItem = new ToolStripMenuItem();
             this.deleteSelectedPropertyMenuItem = new ToolStripMenuItem();
-            this.deleteSelectedRuleMenuItem = new ToolStripMenuItem();
-            this.moveUpSelectedRuleMenuItem = new ToolStripMenuItem();
-            this.moveDownSelectedRuleMenuItem = new ToolStripMenuItem();
             slotDropDown = new ComboBox();
             slotAddButton = new Button();
             weightCurseTextBox = new TextBox();
@@ -3491,7 +3512,7 @@ namespace RazorEnhanced
             this.listContainer.Controls.Add(this.clearTargetBagButton);
             this.listContainer.Location = new System.Drawing.Point(10, 31);
             this.listContainer.Name = "listContainer";
-            this.listContainer.Size = new System.Drawing.Size(135, 483);
+            this.listContainer.Size = new System.Drawing.Size(160, 483);
             this.listContainer.TabIndex = 2;
             this.listContainer.TabStop = false;
             this.listContainer.Text = "Current Rules";
@@ -3499,41 +3520,11 @@ namespace RazorEnhanced
             // rulesList
             // 
             this.rulesList.ContextMenuStrip = this.ruleDropDownMenu;
-            this.rulesList.DisplayMember = "RuleName";
             this.rulesList.Dock = System.Windows.Forms.DockStyle.Top;
             this.rulesList.Location = new System.Drawing.Point(3, 16);
             this.rulesList.Name = "rulesList";
-            this.rulesList.Size = new System.Drawing.Size(129, 371);
+            this.rulesList.Size = new System.Drawing.Size(156, 371);
             this.rulesList.TabIndex = 0;
-            this.rulesList.SelectedIndexChanged += new System.EventHandler(this.rulesList_SelectedIndexChanged);
-            // 
-            // ruleDropDownMenu
-            // 
-            this.ruleDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.moveUpSelectedRuleMenuItem, this.moveDownSelectedRuleMenuItem, this.deleteSelectedRuleMenuItem });
-            this.ruleDropDownMenu.Name = "propertyDropDownMenu";
-            this.ruleDropDownMenu.Size = new System.Drawing.Size(155, 70);
-            this.ruleDropDownMenu.Click += this.moveDownSelectedRuleMenuItem_Click;
-            // 
-            // moveUpSelectedRuleMenuItem
-            // 
-            this.moveUpSelectedRuleMenuItem.Name = "moveUpSelectedRuleMenuItem";
-            this.moveUpSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.moveUpSelectedRuleMenuItem.Text = "Move Up";
-            this.moveUpSelectedRuleMenuItem.Click += this.moveUpSelectedRuleMenuItem_Click;
-            // 
-            // moveDownSelectedRuleMenuItem
-            // 
-            this.moveDownSelectedRuleMenuItem.Name = "moveDownSelectedRuleMenuItem";
-            this.moveDownSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.moveDownSelectedRuleMenuItem.Text = "Move Down";
-            this.moveDownSelectedRuleMenuItem.Click += this.moveDownSelectedRuleMenuItem_Click;
-            // 
-            // deleteSelectedRuleMenuItem
-            // 
-            this.deleteSelectedRuleMenuItem.Name = "deleteSelectedRuleMenuItem";
-            this.deleteSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.deleteSelectedRuleMenuItem.Text = "Delete Selected";
-            this.deleteSelectedRuleMenuItem.Click += new System.EventHandler(this.deleteSelectedRuleMenuItem_Click);
             // 
             // ruleUpButton
             // 
@@ -3573,7 +3564,7 @@ namespace RazorEnhanced
             this.deleteButton.TabIndex = 1;
             this.deleteButton.Text = "Delete";
             this.deleteButton.UseVisualStyleBackColor = true;
-            this.deleteButton.Click += new System.EventHandler(this.deleteSelectedRuleMenuItem_Click);
+            this.deleteButton.Click += new System.EventHandler(this.deleteButton_Click);
             // 
             // clearTargetBagButton
             // 
@@ -3601,7 +3592,7 @@ namespace RazorEnhanced
             this.ruleContainer.Controls.Add(this.label1);
             this.ruleContainer.Controls.Add(this.presetDropDown);
             this.ruleContainer.Controls.Add(this.saveButton);
-            this.ruleContainer.Location = new System.Drawing.Point(151, 31);
+            this.ruleContainer.Location = new System.Drawing.Point(186, 31);
             this.ruleContainer.Name = "ruleContainer";
             this.ruleContainer.Size = new System.Drawing.Size(808, 483);
             this.ruleContainer.TabIndex = 3;
@@ -3998,7 +3989,7 @@ namespace RazorEnhanced
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(971, 524);
+            this.ClientSize = new System.Drawing.Size(986, 524);
             this.Controls.Add(this.huePicker);
             this.Controls.Add(this.hueTextBox);
             this.Controls.Add(this.label4);
@@ -4033,12 +4024,27 @@ namespace RazorEnhanced
 
         }
 
+        private void deleteButton_Click(object sender, EventArgs e)
+        {
+            DeleteRule(ActiveRule.Id);
+        }
+
+        private void moveDownSelectedRuleMenuItem_Click(object sender, EventArgs e)
+        {
+            MoveRule(ActiveRule.Id, 1);
+        }
+
+        private void moveUpSelectedRuleMenuItem_Click(object sender, EventArgs e)
+        {
+            MoveRule(ActiveRule.Id, -1);
+        }
+
         private CheckBox colorCorpseCheckbox;
         private ComboBox characterDropdown;
         private Button exportCharacterButton;
         private Button importCharacterButton;
         private GroupBox listContainer;
-        private ListBox rulesList;
+        private FlowLayoutPanel rulesList;
         private Button ruleUpButton;
         private Button ruleDownButton;
         private Button addButton;
@@ -4076,9 +4082,6 @@ namespace RazorEnhanced
         private ToolStripMenuItem deleteSelectedNameMenuItem;
         private ToolStripMenuItem deleteSelectedSlotMenuItem;
         private ToolStripMenuItem deleteSelectedPropertyMenuItem;
-        private ToolStripMenuItem deleteSelectedRuleMenuItem;
-        private ToolStripMenuItem moveUpSelectedRuleMenuItem;
-        private ToolStripMenuItem moveDownSelectedRuleMenuItem;
         private CheckBox alertCheckbox;
         private CheckBox enabledCheckbox;
         
@@ -4194,23 +4197,30 @@ namespace RazorEnhanced
         private LootRule _rule;
         
         public LootRule GetRule() => _rule;
-        private bool _isActive = false;
+        
+        private bool _isEnabled = false;
         Action<Guid> _deleteAction;
-        Action<Guid> _MoveUpAction;
-        Action<Guid> _MoveDownAction;
-        Action<LootRule> _selectRule;
+        Action<Guid, int> _moveAction;
+        Action<Guid> _selectRule;
 
+        public void ClearTargetBag()
+        {
+            _rule.TargetBag = null;
+        }
         
-        
-        public RuleController(LootRule rule, Action<Guid> deleteAction, Action<Guid> MoveUpAction, Action<Guid> MoveDownAction)
+        public RuleController(LootRule rule, Action<Guid> deleteAction, Action<Guid,int> moveAction, Action<Guid> selectRule)
         {
             _rule = rule;
-            _isActive = !rule.Disabled;
+            _isEnabled = !rule.Disabled;
             
             _deleteAction = deleteAction;
-            _MoveUpAction = MoveUpAction;
-            _MoveDownAction = MoveDownAction;
+            _moveAction = moveAction;
+            _selectRule = selectRule;
             InitializeComponent();
+            
+            
+            ruleNameLbl.Text = rule.RuleName;
+            SetEnabled(_isEnabled);
         }
         
         public void SetEnabled(bool enabled)
@@ -4227,7 +4237,18 @@ namespace RazorEnhanced
         
         public void SetActive(bool active)
         {
-            _isActive = active;
+            if (active)
+            {
+                panelMain.BackColor = Color.LightBlue;
+                panelMain.BorderStyle = BorderStyle.None;
+                checkBox1.Checked = true;
+            }
+            else
+            {
+                panelMain.BackColor = SystemColors.Control;
+                panelMain.BorderStyle = BorderStyle.None;
+                checkBox1.Checked = false;
+            }
         }
         
         private void deleteSelectedRuleMenuItem_Click(object sender, EventArgs e)
@@ -4235,9 +4256,10 @@ namespace RazorEnhanced
             _deleteAction(_rule.Id);
         }
 
-        private void panel1_Click(object sender, EventArgs e)
+        private void SetActiveClick(object sender, EventArgs e)
         {
-            _selectRule(_rule);
+            panelMain.BorderStyle = BorderStyle.FixedSingle;
+            _selectRule(_rule.Id);
         }
         
         //Designer items
@@ -4266,7 +4288,8 @@ namespace RazorEnhanced
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.panel1 = new System.Windows.Forms.Panel();
+            this.panelMain = new System.Windows.Forms.Panel();
+            this.panelTop = new System.Windows.Forms.Panel();
             this.enabledLbl = new System.Windows.Forms.Label();
             this.checkBox1 = new System.Windows.Forms.CheckBox();
             this.ruleNameLbl = new System.Windows.Forms.Label();
@@ -4274,44 +4297,61 @@ namespace RazorEnhanced
             this.moveUpSelectedRuleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.moveDownSelectedRuleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.deleteSelectedRuleMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.panel1.SuspendLayout();
+            this.panelMain.SuspendLayout();
             this.ruleDropDownMenu.SuspendLayout();
             this.SuspendLayout();
             // 
-            // panel1
+            // panelMain
             // 
-            this.panel1.Controls.Add(this.enabledLbl);
-            this.panel1.Controls.Add(this.checkBox1);
-            this.panel1.Controls.Add(this.ruleNameLbl);
-            this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panel1.Location = new System.Drawing.Point(0, 0);
-            this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(150, 27);
-            this.panel1.TabIndex = 0;
-            this.panel1.Click += new System.EventHandler(this.panel1_Click);
+            this.panelMain.Controls.Add(this.enabledLbl);
+            this.panelMain.Controls.Add(this.checkBox1);
+            this.panelMain.Controls.Add(this.ruleNameLbl);
+            this.panelMain.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelMain.Location = new System.Drawing.Point(0, 0);
+            this.panelMain.Name = "panelMain";
+            this.panelMain.Size = new System.Drawing.Size(150, 27);
+            this.panelMain.TabIndex = 0;
+            this.panelMain.Click += new System.EventHandler(this.SetActiveClick);
+            this.panelMain.ContextMenuStrip = this.ruleDropDownMenu;
+            // 
+            // panelMain
+            // 
+            this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelTop.Location = new System.Drawing.Point(0, 0);
+            this.panelTop.Name = "panelTop";
+            this.panelTop.Size = new System.Drawing.Size(150, 2);
+            this.panelTop.TabIndex = 0;
+            this.panelTop.Click += new System.EventHandler(this.SetActiveClick);
+            this.panelTop.Visible = false;
+            
             // 
             // enabledLbl
             // 
-            this.enabledLbl.Location = new System.Drawing.Point(106, 6);
+            this.enabledLbl.Location = new System.Drawing.Point(106, 4);
             this.enabledLbl.Name = "enabledLbl";
-            this.enabledLbl.Size = new System.Drawing.Size(17, 15);
+            this.enabledLbl.Size = new System.Drawing.Size(17, 14);
             this.enabledLbl.TabIndex = 4;
+            this.enabledLbl.Click += new System.EventHandler(this.SetActiveClick);
+            this.enabledLbl.ContextMenuStrip = this.ruleDropDownMenu;
             // 
             // checkBox1
             // 
-            this.checkBox1.Location = new System.Drawing.Point(129, 6);
+            this.checkBox1.Location = new System.Drawing.Point(129, 4);
             this.checkBox1.Name = "checkBox1";
-            this.checkBox1.Size = new System.Drawing.Size(18, 17);
+            this.checkBox1.Size = new System.Drawing.Size(18, 14);
             this.checkBox1.TabIndex = 3;
             this.checkBox1.UseVisualStyleBackColor = true;
             // 
             // ruleNameLbl
             // 
-            this.ruleNameLbl.Location = new System.Drawing.Point(3, 6);
+            this.ruleNameLbl.Location = new System.Drawing.Point(3, 4);
             this.ruleNameLbl.Name = "ruleNameLbl";
-            this.ruleNameLbl.Size = new System.Drawing.Size(97, 16);
+            this.ruleNameLbl.Size = new System.Drawing.Size(97, 14);
             this.ruleNameLbl.TabIndex = 2;
             this.ruleNameLbl.Text = "label1";
+            this.ruleNameLbl.Click += new System.EventHandler(this.SetActiveClick);
+            
+            this.ruleNameLbl.ContextMenuStrip = this.ruleDropDownMenu;
             // 
             // ruleDropDownMenu
             // 
@@ -4335,17 +4375,19 @@ namespace RazorEnhanced
             // 
             this.deleteSelectedRuleMenuItem.Name = "deleteSelectedRuleMenuItem";
             this.deleteSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.deleteSelectedRuleMenuItem.Text = "Delete Selected";
+            this.deleteSelectedRuleMenuItem.Text = "Delete Rule";
             this.deleteSelectedRuleMenuItem.Click += new System.EventHandler(this.deleteSelectedRuleMenuItem_Click);
             // 
             // RuleController
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.Controls.Add(this.panel1);
+            this.Controls.Add(this.panelMain);
             this.Name = "RuleController";
-            this.Size = new System.Drawing.Size(150, 27);
-            this.panel1.ResumeLayout(false);
+            this.Size = new System.Drawing.Size(150, 24);
+            this.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.Margin = new System.Windows.Forms.Padding(0);
+            this.panelMain.ResumeLayout(false);
             this.ruleDropDownMenu.ResumeLayout(false);
             this.ResumeLayout(false);
         }
@@ -4359,7 +4401,8 @@ namespace RazorEnhanced
         private System.Windows.Forms.Label ruleNameLbl;
         private System.Windows.Forms.CheckBox checkBox1;
 
-        private System.Windows.Forms.Panel panel1;
+        private System.Windows.Forms.Panel panelMain;
+        private System.Windows.Forms.Panel panelTop;
 
         #endregion
     }
