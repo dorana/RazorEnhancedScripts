@@ -3073,6 +3073,8 @@ namespace RazorEnhanced
                 {
                     character.Rules.RemoveAt(index);
                     character.Rules.Insert(index + step, existing);
+                    
+                    rulesList.Controls.SetChildIndex(rulesList.Controls[index], index + step);
                 }
             }
         }
