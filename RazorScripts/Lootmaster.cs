@@ -336,8 +336,13 @@ namespace RazorScripts
             }
             else if (pauseCheckvalue is bool value)
             {
+                var prevHue = _status;
+                _status = Hue.Paused;
+                UpdateLootMasterGump();
                 Misc.Pause(2000);
                 Misc.SetSharedValue("Lootmaster:Pause", 0);
+                _status = prevHue;
+                UpdateLootMasterGump();
             }
         }
 
