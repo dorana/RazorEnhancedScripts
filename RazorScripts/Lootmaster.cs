@@ -19,7 +19,7 @@ namespace RazorScripts
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.7.0.4";
+        private readonly string _version = "v1.7.0.5";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -155,6 +155,7 @@ namespace RazorScripts
                                 LootDirectContainer(target);
                                 break;
                             case OptionsItem.OpenConfig:
+                                co.buttonid = -1;
                                 ShowConfigurator();
                                 break;
                             case OptionsItem.LoadStarter:
