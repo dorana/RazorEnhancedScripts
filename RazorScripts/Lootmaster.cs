@@ -38,9 +38,11 @@ namespace RazorEnhanced
             {
                 if (Player.IsGhost)
                 {
-                    Handler.SendMessage(MessageType.Error, "You are a ghost, please ressurrect before running Lootmaster");
+                    Handler.SendMessage(MessageType.Error,
+                        "You are a ghost, please ressurrect before running Lootmaster");
                     return;
                 }
+
                 var firstRun = false;
                 //Remove existing debug log file
                 var logFile = Path.Combine(Engine.RootPath, "Lootmaster.log");
@@ -53,7 +55,7 @@ namespace RazorEnhanced
                 firstRun = !File.Exists(configFile);
 
                 _config.Init(_version);
-                
+
                 Misc.RemoveSharedValue("Lootmaster:DirectContainer");
                 Misc.RemoveSharedValue("Lootmaster:ReconfigureBags");
                 Misc.RemoveSharedValue("Lootmaster:ClearCurrentCharacter");
@@ -65,30 +67,41 @@ namespace RazorEnhanced
                 {
                     ShowWelcomeGump();
                 }
-                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(3821,0, "Gold Coin"));
-                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(3821,null, "Gold Coin"));
-                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(41777,0, "Coin Purse"));
-                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(41777,null, "Coin Purse"));
-                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(41779,0, "Gem Purse"));
-                
-                var gems = Enum.GetValues(typeof(Gem)).Cast<Gem>().ToList();
-                foreach (var g in gems) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)g, 0, Handler.SplitCamelCase(g.ToString())));
-                
-                var materials = Enum.GetValues(typeof(Materials)).Cast<Materials>().ToList();
-                foreach (var m in materials) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)m, 0, Handler.SplitCamelCase(m.ToString())));
-                
-                var reagensMagery = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().ToList();
-                foreach (var rm in reagensMagery) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)rm, 0, Handler.SplitCamelCase(rm.ToString())));
-                
-                var reagentsNecro = Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().ToList();
-                foreach (var rn in reagentsNecro) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)rn, 0, Handler.SplitCamelCase(rn.ToString())));
-                
-                var reagentsMysticism = Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().ToList();
-                foreach (var rmy in reagentsMysticism) _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)rmy, 0, Handler.SplitCamelCase(rmy.ToString())));
 
-                
-                
-                
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(3821, 0, "Gold Coin"));
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(3821, null, "Gold Coin"));
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(41777, 0, "Coin Purse"));
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(41777, null, "Coin Purse"));
+                _config.ItemColorLookup.AddUnique(new ItemColorIdentifier(41779, 0, "Gem Purse"));
+
+                var gems = Enum.GetValues(typeof(Gem)).Cast<Gem>().ToList();
+                foreach (var g in gems)
+                    _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)g, 0,
+                        Handler.SplitCamelCase(g.ToString())));
+
+                var materials = Enum.GetValues(typeof(Materials)).Cast<Materials>().ToList();
+                foreach (var m in materials)
+                    _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)m, 0,
+                        Handler.SplitCamelCase(m.ToString())));
+
+                var reagensMagery = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().ToList();
+                foreach (var rm in reagensMagery)
+                    _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)rm, 0,
+                        Handler.SplitCamelCase(rm.ToString())));
+
+                var reagentsNecro = Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().ToList();
+                foreach (var rn in reagentsNecro)
+                    _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)rn, 0,
+                        Handler.SplitCamelCase(rn.ToString())));
+
+                var reagentsMysticism = Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().ToList();
+                foreach (var rmy in reagentsMysticism)
+                    _config.ItemColorLookup.AddUnique(new ItemColorIdentifier((int)rmy, 0,
+                        Handler.SplitCamelCase(rmy.ToString())));
+
+
+
+
                 while (true)
                 {
                     var lm = Gumps.GetGumpData(13659823);
@@ -144,7 +157,8 @@ namespace RazorEnhanced
                                 ShowConfigurator();
                                 break;
                             case OptionsItem.LoadStarter:
-                                var confirmResult = MessageBox.Show("Are you sure you want to reset config to Starter Rules? \r\n\r\nIt's recomended to have at least 4 target bags ready.",
+                                var confirmResult = MessageBox.Show(
+                                    "Are you sure you want to reset config to Starter Rules? \r\n\r\nIt's recomended to have at least 4 target bags ready.",
                                     "Confirm Reset",
                                     MessageBoxButtons.YesNo);
                                 if (confirmResult == DialogResult.Yes)
@@ -184,10 +198,10 @@ namespace RazorEnhanced
                     }
 
                     HandlePause();
-                    
+
                     if (JustRessed())
                     {
-                        Handler.SendMessage(MessageType.Info,"Just Ressed");
+                        Handler.SendMessage(MessageType.Info, "Just Ressed");
                         Misc.Pause(2000);
                         continue;
                     }
@@ -197,12 +211,14 @@ namespace RazorEnhanced
                         ReconfigureBags();
                     }
 
-                    if (Misc.ReadSharedValue("Lootmaster:ClearCurrentCharacter") is bool clearCurrentCharacterConfig && clearCurrentCharacterConfig)
+                    if (Misc.ReadSharedValue("Lootmaster:ClearCurrentCharacter") is bool clearCurrentCharacterConfig &&
+                        clearCurrentCharacterConfig)
                     {
                         ClearCurrentCharacterConfig();
                     }
 
-                    if (Misc.ReadSharedValue("Lootmaster:DirectContainer") is int directContainerSerial && directContainerSerial != 0)
+                    if (Misc.ReadSharedValue("Lootmaster:DirectContainer") is int directContainerSerial &&
+                        directContainerSerial != 0)
                     {
                         if (directContainerSerial == -1)
                         {
@@ -210,7 +226,8 @@ namespace RazorEnhanced
                         }
 
                         LootRule rule = null;
-                        if (Misc.ReadSharedValue("Lootmaster:DirectContainerRule") is string directContainerRule && !string.IsNullOrEmpty(directContainerRule))
+                        if (Misc.ReadSharedValue("Lootmaster:DirectContainerRule") is string directContainerRule &&
+                            !string.IsNullOrEmpty(directContainerRule))
                         {
                             rule = _config.GetCharacter().Rules.FirstOrDefault(r => r.RuleName == directContainerRule);
                         }
@@ -219,7 +236,7 @@ namespace RazorEnhanced
 
                         Misc.RemoveSharedValue("Lootmaster:DirectContainer");
                         Misc.RemoveSharedValue("Lootmaster:DirectContainerRule");
-                        
+
                         Misc.Pause(200);
                         continue;
                     }
@@ -263,7 +280,8 @@ namespace RazorEnhanced
                                 else
                                 {
                                     _lootDelay += 10;
-                                    Handler.SendMessage(MessageType.Log, $"Adjusting loot delay with 10ms, currently at {_lootDelay}");
+                                    Handler.SendMessage(MessageType.Log,
+                                        $"Adjusting loot delay with 10ms, currently at {_lootDelay}");
                                 }
                             }
                         }
@@ -284,7 +302,8 @@ namespace RazorEnhanced
 
                 if (!Debug)
                 {
-                    Handler.SendMessage(MessageType.Error, "Lootmaster encountered an error, and was forced to shut down");
+                    Handler.SendMessage(MessageType.Error,
+                        "Lootmaster encountered an error, and was forced to shut down");
                     var logFile = Path.Combine(Engine.RootPath, "Lootmaster.log");
                     File.AppendAllText(logFile, e.ToString());
                 }
@@ -292,8 +311,12 @@ namespace RazorEnhanced
                 {
                     Handler.SendMessage(MessageType.Debug, e.ToString());
                 }
-               
+
                 throw;
+            }
+            finally
+            {
+                Gumps.CloseGump(13659823);
             }
         }
 
@@ -1643,7 +1666,7 @@ namespace RazorEnhanced
                             ItemColorLookup = new List<ItemColorIdentifier>();
                             foreach (var il in ItemLookup)
                             {
-                                ItemColorLookup.AddUnique(new ItemColorIdentifier(il.Key, 0, il.Value));
+                                ItemColorLookup.AddUnique(new ItemColorIdentifier(il.Key, null, il.Value));
                             }
                         }
                         break;
@@ -2379,6 +2402,7 @@ namespace RazorEnhanced
 
         private void ClearConfig()
         {
+            ActiveRule = null;
             foreach (Control rc in rulesList.Controls)
             {
                 if (rc is RuleController ruleController)
@@ -2448,24 +2472,6 @@ namespace RazorEnhanced
                     Disabled = !enabledCheckbox.Checked,
                     RegExString = string.IsNullOrEmpty(regExTextBox.Text.Trim()) ? null : regExTextBox.Text
                 };
-
-                var fileName = Path.Combine(Engine.RootPath, "Lootmaster.compare");
-                var ns = Assembly.LoadFile(Path.Combine(Engine.RootPath, "Newtonsoft.Json.dll"));
-                string current = "";
-                string active = "";
-                foreach(Type type in ns.GetExportedTypes())
-                {
-                    if (type.Name == "JsonConvert")
-                    {
-                        current = type.InvokeMember("SerializeObject", BindingFlags.InvokeMethod, null, null, new object[] { currentValues }) as string;
-                        active = type.InvokeMember("SerializeObject", BindingFlags.InvokeMethod, null, null, new object[] { ActiveRule }) as string;
-                    }
-                    
-                }
-                
-                File.AppendAllText(fileName, current + Environment.NewLine);
-                File.AppendAllText(fileName, active + Environment.NewLine);
-                
                 
                 
                 // check if currentRule and originalRule differ on any property
@@ -2509,6 +2515,7 @@ namespace RazorEnhanced
 
         private void LoadRule(LootRule rule)
         {
+            ActiveRule = rule;
             slotDropDown.SelectedIndex = 0;
             ruleNameTextBox.Text = rule.RuleName;
             rarityMinDropDown.SelectedIndex = rule.MinimumRarity == null ? 0 : Rarities.IndexOf(Rarities.First(r => r.Name == rule.MinimumRarity.ToString()));
@@ -2754,8 +2761,17 @@ namespace RazorEnhanced
                 ActiveRule.RegExString = string.IsNullOrEmpty(regExTextBox.Text) ? null : regExTextBox.Text;
                 
                 //Replace rule with sameID with updated activeRule
+                var ruleIndex = Config.GetCharacter().Rules.IndexOf(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
                 Config.GetCharacter().Rules.Remove(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
-                Config.GetCharacter().Rules.Add(ActiveRule);
+                Config.GetCharacter().Rules.Insert(ruleIndex,ActiveRule);
+
+                foreach (var ctr in rulesList.Controls)
+                {
+                    if (ctr is RuleController ruleController)
+                    {
+                        ruleController.UpdateData();
+                    }
+                }
                 
                 return ActiveRule.Id;
             }
@@ -3097,7 +3113,7 @@ namespace RazorEnhanced
                     if (ruleController.GetRule().Id == ruleId)
                     {
                         rulesList.Controls.Remove(control);
-                        deleteSelected = true;
+                        deleteSelected = ruleId == ActiveRule.Id;
                         break;
                     }
                 }
@@ -3574,7 +3590,7 @@ namespace RazorEnhanced
             this.clearTargetBagButton.Name = "clearTargetBagButton";
             this.clearTargetBagButton.Size = new System.Drawing.Size(122, 22);
             this.clearTargetBagButton.TabIndex = 1;
-            this.clearTargetBagButton.Text = "Clear Target Bag";
+            this.clearTargetBagButton.Text = "Clear Target Bags";
             this.clearTargetBagButton.UseVisualStyleBackColor = true;
             this.clearTargetBagButton.Click += this.clearTargetBagButton_Click;
             // 
@@ -4196,11 +4212,11 @@ namespace RazorEnhanced
     {
         public bool IsSelected => checkBox1.Checked;
         public Guid RuleId => _rule.Id;
-        private LootRule _rule;
-        
         public LootRule GetRule() => _rule;
         
+        
         private bool _isEnabled = false;
+        private LootRule _rule;
         Action<Guid> _deleteAction;
         Action<Guid, int> _moveAction;
         Action<Guid> _selectRule;
@@ -4208,6 +4224,12 @@ namespace RazorEnhanced
         public void ClearTargetBag()
         {
             _rule.TargetBag = null;
+        }
+
+        public void UpdateData()
+        {
+            ruleNameLbl.Text = _rule.RuleName;
+            SetEnabled(!_rule.Disabled);
         }
         
         public RuleController(LootRule rule, Action<Guid> deleteAction, Action<Guid,int> moveAction, Action<Guid> selectRule)
@@ -4229,10 +4251,12 @@ namespace RazorEnhanced
         {
             if (enabled)
             {
+                enabledLbl.ForeColor = Color.Green;
                 enabledLbl.Text = "\u2713";
             }
             else
             {
+                enabledLbl.ForeColor = Color.Red;
                 enabledLbl.Text = "X";
             }
         }
@@ -4262,6 +4286,16 @@ namespace RazorEnhanced
         {
             panelMain.BorderStyle = BorderStyle.FixedSingle;
             _selectRule(_rule.Id);
+        }
+
+        private void moveDownSelectedRuleMenuItem_Click(object sender, EventArgs e)
+        {
+            _moveAction(_rule.Id, 1);
+        }
+
+        private void moveUpSelectedRuleMenuItem_Click(object sender, EventArgs e)
+        {
+            _moveAction(_rule.Id, -1);
         }
         
         //Designer items
@@ -4366,12 +4400,14 @@ namespace RazorEnhanced
             this.moveUpSelectedRuleMenuItem.Name = "moveUpSelectedRuleMenuItem";
             this.moveUpSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
             this.moveUpSelectedRuleMenuItem.Text = "Move Up";
+            this.moveUpSelectedRuleMenuItem.Click += new System.EventHandler(this.moveUpSelectedRuleMenuItem_Click);
             // 
             // moveDownSelectedRuleMenuItem
             // 
             this.moveDownSelectedRuleMenuItem.Name = "moveDownSelectedRuleMenuItem";
             this.moveDownSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
             this.moveDownSelectedRuleMenuItem.Text = "Move Down";
+            this.moveDownSelectedRuleMenuItem.Click += new System.EventHandler(this.moveDownSelectedRuleMenuItem_Click);
             // 
             // deleteSelectedRuleMenuItem
             // 
