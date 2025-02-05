@@ -14,8 +14,8 @@ namespace RazorScripts
             {"Magery", 0},
             {"Necromancy", 0},
             {"Chivalry", 0},
-            {"Mysticism", 0},
-            {"Spellweaving", 100}
+            {"Mysticism", 120},
+            {"Spellweaving", 0}
         };
         
 
@@ -57,83 +57,72 @@ namespace RazorScripts
             var skillList = _castHolder[casterKey];
             var skillCap = _spellSchools[casterKey];
             var skill = Player.GetRealSkillValue(casterKey);
-            if(skill >= skillCap)
+            if (skill >= skillCap)
             {
                 return;
             }
-            
+
             var castFunc = GetCastFunction(casterKey);
-            while (true)
+            while (skill <= skillCap)
             {
-                if (_player.Hits < 20)
+                skillCap = _spellSchools[casterKey];
+                skill = Player.GetRealSkillValue(casterKey);
+                if (_player.Hits < 30)
                 {
-                    var magerySkill = Player.GetRealSkillValue("Magery");
-                    if(magerySkill >= 50)
+                    while (_player.Hits < Player.HitsMax)
                     {
-                        Spells.CastMagery("Greater Heal", _player);
-                        Misc.Pause(4000);
-                        continue;
+                        var magerySkill = Player.GetRealSkillValue("Magery");
+                        if (magerySkill >= 50)
+                        {
+                            CheckMana();
+                            Spells.CastMagery("Greater Heal", _player);
+                            Misc.Pause(4000);
+                            continue;
+                        }
+
+                        if (magerySkill >= 30)
+                        {
+                            CheckMana();
+                            Spells.CastMagery("Heal", _player);
+                            Misc.Pause(4000);
+                            continue;
+                        }
+
+                        var chivalrySkill = Player.GetRealSkillValue("Chivalry");
+                        if (chivalrySkill >= 30)
+                        {
+                            CheckMana();
+                            Spells.CastChivalry("Close Wounds", _player);
+                            Misc.Pause(4000);
+                            continue;
+                        }
+
+                        var spiritSpeakSkill = Player.GetRealSkillValue("Spirit Speak");
+                        if (spiritSpeakSkill >= 30)
+                        {
+                            Player.UseSkill("Spirit Speak");
+                            Misc.Pause(7000);
+                            continue;
+                        }
+
+                        var bandages = _player.Backpack.Contains.FirstOrDefault(i => i.ItemID == 0x0E21);
+                        if (bandages != null)
+                        {
+                            Items.UseItem(bandages, _player);
+                            Misc.Pause(7000);
+                            continue;
+                        }
                     }
-                    if (magerySkill <= 30)
-                    {
-                        Spells.CastMagery("Heal", _player);
-                        Misc.Pause(4000);
-                        continue;
-                    }
-                    var chivalrySkill = Player.GetRealSkillValue("Chivalry");
-                    if(chivalrySkill >= 30)
-                    {
-                        Spells.CastChivalry("Close Wounds", _player);
-                        Misc.Pause(4000);
-                        continue;
-                    }
-                    var spiritSpeakSkill = Player.GetRealSkillValue("Spirit Speak");
-                    if(spiritSpeakSkill >= 30)
-                    {
-                        Player.UseSkill("Spirit Speak");
-                        Misc.Pause(7000);
-                        continue;
-                    }
-                    var bandages = _player.Backpack.Contains.FirstOrDefault(i => i.ItemID == 0x0E21);
-                    if(bandages != null)
-                    {
-                        Items.UseItem(bandages, _player);
-                        Misc.Pause(7000);
-                        continue;
-                    }
-                    
-                    
                 }
+
                 UpdateGump(casterKey, false);
                 if (skill >= skillCap)
                 {
                     break;
                 }
 
-                if (Player.Mana < 30)
-                {
-                    if (Player.Buffs.Any(b => b.Contains("edit")))
-                    {
-                        while (Player.Mana < Player.ManaMax)
-                        {
-                            Misc.Pause(1000);
-                        }
-                    }
+                CheckMana();
 
-                    if (!Player.Buffs.Any(b => b.Contains("edit")))
-                    {
-                        Player.UseSkill("Mediation");
-                        Misc.Pause(3000);
-                        if (Player.Buffs.Any(b => b.Contains("edit")))
-                        {
-                            while (Player.Mana < Player.ManaMax)
-                            {
-                                Misc.Pause(1000);
-                            }
-                        }
-                    }
-
-                }
 
                 foreach (var spell in skillList)
                 {
@@ -142,6 +131,28 @@ namespace RazorScripts
                         castFunc.Invoke(spell.SpellName, _player, true);
                         Misc.Pause(spell.WaitTime);
                         break;
+                    }
+                }
+            }
+        }
+
+        private void CheckMana()
+        {
+            if (Player.Mana < 30)
+            {
+                while (Player.Mana < Player.ManaMax)
+                {
+                    if (Player.Buffs.Any(b => b.Contains("Medit")))
+                    {
+                        while (Player.Mana < Player.ManaMax)
+                        {
+                            Misc.Pause(1000);
+                        }
+                    }
+                    else
+                    {
+                        Player.UseSkill("Mediation");
+                        Misc.Pause(3000);
                     }
                 }
             }
@@ -192,7 +203,7 @@ namespace RazorScripts
                 spellList.Add(new SpellSkill {SkillLevel = 65, SpellName = "Paralyse",});
                 spellList.Add(new SpellSkill {SkillLevel = 75, SpellName = "Reveal",});
                 spellList.Add(new SpellSkill {SkillLevel = 90, SpellName = "Flame Strike",});
-                spellList.Add(new SpellSkill {SkillLevel = 120, SpellName = "Earthquake"});
+                spellList.Add(new SpellSkill {SkillLevel = 120, SpellName = "Earthquake",WaitTime = 5000});
                 _castHolder.Add("Magery", spellList);
             }
             if (_spellSchools["Mysticism"] > 0)
@@ -220,7 +231,6 @@ namespace RazorScripts
                 spellList.Add(new SpellSkill {SkillLevel = 60, SpellName = "Divine Fury"});
                 spellList.Add(new SpellSkill {SkillLevel = 70, SpellName = "Enemy of One"});
                 spellList.Add(new SpellSkill {SkillLevel = 90, SpellName = "Holy Light"});
-                spellList.Add(new SpellSkill {SkillLevel = 120, SpellName = "Noble Sacrifice"});
                 _castHolder.Add("Chivalry", spellList);
             }
             if(_spellSchools["Spellweaving"] > 0)
@@ -229,7 +239,7 @@ namespace RazorScripts
                 spellList.Add(new SpellSkill {SkillLevel = 20, SpellName = "Arcane Circle"});
                 spellList.Add(new SpellSkill {SkillLevel = 33, SpellName = "Immolating Weapon"});
                 spellList.Add(new SpellSkill {SkillLevel = 44, SpellName = "Reaper Form", DoNotEndOnBuff = "Reaper Form"});
-                spellList.Add(new SpellSkill {SkillLevel = 44, SpellName = "Summon Fey"});
+                spellList.Add(new SpellSkill {SkillLevel = 55, SpellName = "Summon Fey"});
                 spellList.Add(new SpellSkill {SkillLevel = 74, SpellName = "Essence of Wind"});
                 spellList.Add(new SpellSkill {SkillLevel = 90, SpellName = "Wildfire", WaitTime = 3000});
                 spellList.Add(new SpellSkill {SkillLevel = 120, SpellName = "Word of Death"});
