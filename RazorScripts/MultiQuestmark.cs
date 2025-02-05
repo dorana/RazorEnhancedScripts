@@ -1,6 +1,10 @@
+using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Linq;
+using Assistant;
 using RazorEnhanced;
+using Item = RazorEnhanced.Item;
 
 namespace Razorscripts
 {
@@ -8,10 +12,18 @@ namespace Razorscripts
     {
         public void Run()
         {
-            var old = Target.GetLast();
+            var player = Mobiles.FindBySerial(Player.Serial);
             Target.ClearLast();
-            Misc.WaitForContext(0x000661CE, 10000);
-            Misc.ContextReply(0x000661CE, 7);
+            var rows = Misc.WaitForContext(Player.Serial, 10000);
+            foreach (var row in rows)
+            {
+                if (row.Entry.Equals("Toggle Quest Item", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    Misc.ContextReply(Player.Serial, rows.IndexOf(row));
+                    break;
+                }
+            }
+            
             
             for (var i = 0; i <= 200; i++)
             {
