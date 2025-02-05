@@ -29,6 +29,7 @@ namespace RazorScripts
                     {
                         3, 4, 5, 6
                     },
+                    CheckLineOfSight = true
                 };
                 
                 
