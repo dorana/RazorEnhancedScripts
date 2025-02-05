@@ -866,21 +866,6 @@ namespace RazorScripts
             
             _player = Mobiles.FindBySerial(Player.Serial);
 
-            // var gems = Enum.GetValues(typeof(Gem)).Cast<Gem>().ToList();
-            // foreach (var gem in gems) _gems.Add((int)gem);
-            //
-            // var im = Enum.GetValues(typeof(Materials)).Cast<Materials>().ToList();
-            // foreach (var m in im) _imbueMaterials.Add((int)m);
-            //
-            // var regMagery = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().ToList();
-            // foreach (var rm in regMagery) _reagentsMagery.Add((int)rm);
-            //
-            // var regNecro = Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().ToList();
-            // foreach (var rn in regNecro) _reagentsNecro.Add((int)rn);
-            //
-            // var regMyst = Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().ToList();
-            // foreach (var rm in regMyst) _reagentsMysticism.Add((int)rm);
-
             Misc.RemoveSharedValue("Lootmaster:ReconfigureBags");
 
             Handler.SendMessage(MessageType.Info, "Lootmaster is ready to loot");
@@ -1527,6 +1512,7 @@ namespace RazorScripts
     public class LootMasterConfig
     {
         public string Version { get; set; }
+        public int BaseDelay { get; set; } = 200;
         public List<LootMasterCharacter> Characters { get; set; }
         public bool ColorCorpses { get; set; }
         public int? ColorCorpsesColor { get; set; }
@@ -1649,6 +1635,8 @@ namespace RazorScripts
 
                         ColorCorpses = readConfig?.ColorCorpses ?? true;
                         ColorCorpsesColor = readConfig?.ColorCorpsesColor ?? 0x3F6;
+                        
+                        BaseDelay = readConfig?.BaseDelay ?? 200;
 
                         ItemLookup = readConfig?.ItemLookup ?? new Dictionary<int, string>();
                         ItemColorLookup = readConfig?.ItemColorLookup ?? new List<ItemColorIdentifier>();
@@ -1793,12 +1781,12 @@ namespace RazorScripts
         DaemonClaw = 22049,       // 0x5721
         DelicateScales = 22330,   // 0x573A
         ElvenFletching = 22327,   // 0x5737
-        Essence = 22044,          // 0x571C
+        Essence = 22300,          // 0x571C
         FaeryDust = 22341,        // 0x5745
-        FeyWings = 22054,         // 0x5726
+        FeyWings = 22310,         // 0x5726
         FireRuby = 12695,         // 0x3197
-        GoblinBlood = 22060,      // 0x572C
-        LavaSerpentCrust = 22061, // 0x572D
+        GoblinBlood = 22316,      // 0x572C
+        LavaSerpentCrust = 22317, // 0x572D
         LuminescentFungi = 12689, // 0x3191
         ParasiticPlant = 12688,   // 0x3190
         RaptorTeeth = 22343,      // 0x5747
@@ -1806,10 +1794,10 @@ namespace RazorScripts
         SeedOfRenewal = 22326,    // 0x5736
         SilverSnakeSkin = 22340,  // 0x5744
         SlithTongue = 22342,      // 0x5746
-        SpiderCarapace = 22048,   // 0x5720
+        SpiderCarapace = 22304,   // 0x5720
         Turquoise = 12691,        // 0x3193
         UndyingFlesh = 22321,     // 0x5731
-        VialOfVitriol = 22050,    // 0x5722
+        VialOfVitriol = 22306,    // 0x5722
         VoidOrb = 22334,          // 0x573E
         WhitePearl = 12694        // 0x3196
     }
@@ -3066,14 +3054,63 @@ namespace RazorScripts
         {
             if (e.KeyChar == (char)Keys.Enter)
             {
-                if (int.TryParse(hueTextBox.Text, out var hueVal))
-                {
-                    Config.ColorCorpsesColor = hueVal;
-                    Config.Save();;
-                }
+                SetHue();
             }
         }
         
+        private void lootDelayTextBox_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (e.KeyChar == (char)Keys.Enter)
+            {
+                SetDelay();
+            }
+        }
+
+        private void SetHue()
+        {
+            if (int.TryParse(hueTextBox.Text, out var hueVal))
+            {
+                Config.ColorCorpsesColor = hueVal;
+                Config.Save();
+            }
+        }
+
+        private void SetDelay()
+        {
+            if (int.TryParse(lootDelayTextBox.Text, out var delayVal))
+            {
+                Config.BaseDelay = delayVal;
+                Config.Save();
+            }
+        }
+        
+        
+
+        private void lootDelayTextBox_Leave(object sender, EventArgs e)
+        {
+            SetDelay();
+        }
+
+        private void hueTextBox_Leave(object sender, EventArgs e)
+        {
+            SetHue();
+        }
+
+        private void deleteButton_Click(object sender, EventArgs e)
+        {
+            DeleteRule(ActiveRule.Id);
+        }
+
+        private void moveDownSelectedRuleMenuItem_Click(object sender, EventArgs e)
+        {
+            MoveRule(ActiveRule.Id, 1);
+        }
+
+        private void moveUpSelectedRuleMenuItem_Click(object sender, EventArgs e)
+        {
+            MoveRule(ActiveRule.Id, -1);
+        }
+
         private void addPropIgnoreButton_Click(object sender, EventArgs e)
         {
             try
@@ -3489,6 +3526,7 @@ namespace RazorScripts
             
             
             hueTextBox.Text = Config.ColorCorpsesColor?.ToString() ?? String.Empty;
+            lootDelayTextBox.Text = Config.BaseDelay.ToString();
             var foundColorMatch = huePicker.Items.Cast<Hue>().FirstOrDefault(h => h.Value == Config.ColorCorpsesColor);
             if(foundColorMatch != null)
             {
@@ -3557,6 +3595,7 @@ namespace RazorScripts
             label6 = new Label();
             label7 = new Label();
             label9 = new Label();
+            label10 = new Label();
             regExTextBox = new TextBox();
             minimumMatchPropsTextBox = new TextBox();
             propertiesIgnoreContainer = new GroupBox();
@@ -3567,6 +3606,7 @@ namespace RazorScripts
             hueTextBox = new TextBox();
             huePicker = new ComboBox();
             label8 = new Label();
+            lootDelayTextBox = new TextBox();
             
             this.listContainer.SuspendLayout();
             this.ruleContainer.SuspendLayout();
@@ -3579,15 +3619,16 @@ namespace RazorScripts
             // colorCorpseCheckbox
             // 
             this.colorCorpseCheckbox.AutoSize = true;
-            this.colorCorpseCheckbox.Location = new System.Drawing.Point(471, 8);
+            this.colorCorpseCheckbox.Location = new System.Drawing.Point(471, 12);
             this.colorCorpseCheckbox.Name = "colorCorpseCheckbox";
             this.colorCorpseCheckbox.Size = new System.Drawing.Size(149, 17);
             this.colorCorpseCheckbox.TabIndex = 0;
             this.colorCorpseCheckbox.Text = "Color Corpses after looting";// 
             this.colorCorpseCheckbox.CheckedChanged += this.colorCorpseCheckbox_CheckedChanged;
+            //
             // label4
             // 
-            this.label4.Location = new System.Drawing.Point(626, 9);
+            this.label4.Location = new System.Drawing.Point(626, 12);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(35, 23);
             this.label4.TabIndex = 4;
@@ -3595,16 +3636,34 @@ namespace RazorScripts
             // 
             // hueTextBox
             // 
-            this.hueTextBox.Location = new System.Drawing.Point(659, 6);
+            this.hueTextBox.Location = new System.Drawing.Point(659, 8);
             this.hueTextBox.Name = "hueTextBox";
             this.hueTextBox.Size = new System.Drawing.Size(56, 20);
             this.hueTextBox.TabIndex = 5;
             this.hueTextBox.KeyPress += this.hueTextBox_KeyPress;
+            this.hueTextBox.Leave += this.hueTextBox_Leave;
+            //
+            // label10
+            // 
+            this.label10.Location = new System.Drawing.Point(360, 12);
+            this.label10.Name = "label10";
+            this.label10.Size = new System.Drawing.Size(35, 23);
+            this.label10.TabIndex = 4;
+            this.label10.Text = "Wait";
+            // 
+            // lootDelayTextBox
+            // 
+            this.lootDelayTextBox.Location = new System.Drawing.Point(395,8);
+            this.lootDelayTextBox.Name = "lootDelayTextBox";
+            this.lootDelayTextBox.Size = new System.Drawing.Size(56, 20);
+            this.lootDelayTextBox.TabIndex = 5;
+            this.lootDelayTextBox.KeyPress += this.lootDelayTextBox_KeyPress;
+            this.lootDelayTextBox.Leave += this.lootDelayTextBox_Leave;
             // 
             // huePicker
             // 
             this.huePicker.FormattingEnabled = true;
-            this.huePicker.Location = new System.Drawing.Point(726, 6);
+            this.huePicker.Location = new System.Drawing.Point(726, 8);
             this.huePicker.Name = "huePicker";
             this.huePicker.Size = new System.Drawing.Size(100, 21);
             this.huePicker.TabIndex = 6;
@@ -4106,6 +4165,8 @@ namespace RazorScripts
             this.Controls.Add(this.exportCharacterButton);
             this.Controls.Add(this.importCharacterButton);
             this.Controls.Add(this.colorCorpseCheckbox);
+            this.Controls.Add(this.label10);
+            this.Controls.Add(this.lootDelayTextBox);
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
@@ -4128,21 +4189,6 @@ namespace RazorScripts
             this.ResumeLayout(false);
             this.PerformLayout();
 
-        }
-
-        private void deleteButton_Click(object sender, EventArgs e)
-        {
-            DeleteRule(ActiveRule.Id);
-        }
-
-        private void moveDownSelectedRuleMenuItem_Click(object sender, EventArgs e)
-        {
-            MoveRule(ActiveRule.Id, 1);
-        }
-
-        private void moveUpSelectedRuleMenuItem_Click(object sender, EventArgs e)
-        {
-            MoveRule(ActiveRule.Id, -1);
         }
 
         private CheckBox colorCorpseCheckbox;
@@ -4190,6 +4236,7 @@ namespace RazorScripts
         private Label label6;
         private Label label7;
         private Label label9;
+        private Label label10;
         private TextBox regExTextBox;
 
         private TextBox minimumMatchPropsTextBox;
@@ -4200,6 +4247,7 @@ namespace RazorScripts
         private FlowLayoutPanel propertiesIgnoreList;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.TextBox hueTextBox;
+        private System.Windows.Forms.TextBox lootDelayTextBox;
         private System.Windows.Forms.ComboBox huePicker;
 
         private System.ComponentModel.IContainer components = null;
