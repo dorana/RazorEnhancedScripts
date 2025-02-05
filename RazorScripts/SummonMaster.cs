@@ -281,7 +281,7 @@ namespace RazorScripts
                 {
                     var time = _timers[sum.Serial];
                     var diff = time - DateTime.Now;
-                    Gumps.AddLabel(ref sumGump, index*60-40+5,10,0x35,$"{diff.Minutes}:{diff.Seconds.ToString("##")}");
+                    Gumps.AddLabel(ref sumGump, index*60-40+5,10,0x35,$"{diff.Minutes.ToString("D2")}:{diff.Seconds.ToString("D2")}");
                 }
             }
             
