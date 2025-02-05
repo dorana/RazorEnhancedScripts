@@ -19,7 +19,7 @@ namespace RazorScripts
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.7.0.5";
+        private readonly string _version = "v1.8.0";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -280,12 +280,16 @@ namespace RazorScripts
                     Misc.Pause(100);
                 }
             }
+            catch (ThreadAbortException)
+            {
+               //Silent
+            }
+            catch (LootMasterException)
+            {
+                //Silent
+            }
             catch (Exception e)
             {
-                if (e is ThreadAbortException)
-                {
-                    return;
-                }
 
                 if (!Debug)
                 {
@@ -1542,7 +1546,7 @@ namespace RazorScripts
         public void Init(string version)
         {
             Version = version;
-            ReadConfig();
+            ReadConfig(version);
         }
 
         public void Save()
@@ -1577,27 +1581,43 @@ namespace RazorScripts
             character.Rules.Add(rule);
         }
         
-        private void ReadConfig()
+        private void ReadConfig(string version)
         {
             try
             {
+
                 var file = Path.Combine(Engine.RootPath, "Lootmaster.config");
                 if (!File.Exists(file))
                 {
                     return;
                 }
-                
+
                 var data = File.ReadAllText(file);
                 var ns = Assembly.LoadFile(Path.Combine(Engine.RootPath, "Newtonsoft.Json.dll"));
-                foreach(Type type in ns.GetExportedTypes())
+                foreach (Type type in ns.GetExportedTypes())
                 {
                     if (type.Name == "JsonConvert")
                     {
-                        var funcs = type.GetMethods(BindingFlags.InvokeMethod | BindingFlags.Static | BindingFlags.Public).Where(f => f.Name == "DeserializeObject" && f.IsGenericMethodDefinition);
-                        var func = funcs.FirstOrDefault(f => f.Name == "DeserializeObject" && f.GetParameters().Length == 1 && f.GetParameters()[0].ParameterType == typeof(string)).MakeGenericMethod(typeof(LootMasterConfig));
-                        var readConfig = func.Invoke(type, BindingFlags.InvokeMethod, null, new object[] { data },null) as LootMasterConfig;
-                        
-                        
+                        var funcs = type
+                            .GetMethods(BindingFlags.InvokeMethod | BindingFlags.Static | BindingFlags.Public)
+                            .Where(f => f.Name == "DeserializeObject" && f.IsGenericMethodDefinition);
+                        var func = funcs
+                            .FirstOrDefault(f =>
+                                f.Name == "DeserializeObject" && f.GetParameters().Length == 1 &&
+                                f.GetParameters()[0].ParameterType == typeof(string))
+                            .MakeGenericMethod(typeof(LootMasterConfig));
+                        var readConfig =
+                            func.Invoke(type, BindingFlags.InvokeMethod, null, new object[] { data }, null) as
+                                LootMasterConfig;
+
+                        if (!Handler.ValidateVersion(readConfig.Version, version))
+                        {
+                            Handler.SendMessage(MessageType.Critical,
+                                "Lootmaster config is newer than script, please update");
+                            return;
+                        }
+
+
                         Characters = new List<LootMasterCharacter>();
                         foreach (var rcc in readConfig?.Characters ?? new List<LootMasterCharacter>())
                         {
@@ -1608,7 +1628,9 @@ namespace RazorScripts
                                 {
                                     Id = (r.Id == default ? Guid.NewGuid() : r.Id),
                                     RuleName = r.RuleName,
-                                    ItemColorIds = r.ItemColorIds ?? r.ItemIds?.Select(i => new ItemColorIdentifier(i,0,string.Empty)).ToList() ?? new List<ItemColorIdentifier>(),
+                                    ItemColorIds = r.ItemColorIds ??
+                                                   r.ItemIds?.Select(i => new ItemColorIdentifier(i, 0, string.Empty))
+                                                       .ToList() ?? new List<ItemColorIdentifier>(),
                                     ItemNames = r.ItemNames ?? new List<string>(),
                                     Properties = r.Properties ?? new List<PropertyMatch>(),
                                     EquipmentSlots = r.EquipmentSlots ?? new List<EquipmentSlot>(),
@@ -1624,14 +1646,14 @@ namespace RazorScripts
                                 }).ToList()
                             });
                         }
-                        
+
                         ColorCorpses = readConfig?.ColorCorpses ?? true;
                         ColorCorpsesColor = readConfig?.ColorCorpsesColor ?? 0x3F6;
-                        
+
                         ItemLookup = readConfig?.ItemLookup ?? new Dictionary<int, string>();
                         ItemColorLookup = readConfig?.ItemColorLookup ?? new List<ItemColorIdentifier>();
-                        
-                        if(ItemColorLookup == null)
+
+                        if (ItemColorLookup == null)
                         {
                             ItemColorLookup = new List<ItemColorIdentifier>();
                             foreach (var il in ItemLookup)
@@ -1639,13 +1661,19 @@ namespace RazorScripts
                                 ItemColorLookup.AddUnique(new ItemColorIdentifier(il.Key, null, il.Value));
                             }
                         }
+
                         break;
                     }
                 }
             }
+            catch (LootMasterException)
+            {
+                throw;
+            }
             catch(Exception ex)
             {
                 Misc.SendMessage(ex);
+                throw;
             }
 
         }
@@ -1707,6 +1735,7 @@ namespace RazorScripts
         Error = 2,
         Info = 3,
         Debug = 4,
+        Critical = 5,
     }
 
     internal enum Gem
@@ -1789,7 +1818,7 @@ namespace RazorScripts
         public ItemProperty Property { get; set; }
         public int? Value { get; set; }
 
-        public string DisplayName => $"{Property.ToString()} : {Value}";
+        public string DisplayName => Handler.ResolvePropertyName(Property);
     }
     
     public class ItemColorIdentifier
@@ -2321,6 +2350,11 @@ namespace RazorScripts
                     Misc.SendMessage(message, 33);
                     Player.HeadMessage(0x23, message);
                     break;
+                case MessageType.Critical:
+                    Misc.SendMessage(message, 33);
+                    Player.HeadMessage(0x23, message);
+                    throw new LootMasterException(message);
+                    
                 case MessageType.Info:
                     Misc.SendMessage(message, 0x99);
                     Player.HeadMessage(0x99, message);
@@ -2348,6 +2382,47 @@ namespace RazorScripts
                 @"(\p{Ll})(\P{Ll})",
                 "$1 $2"
             );
+        }
+
+        public static bool ValidateVersion(string readConfigVersion, string scriptVersion)
+        {
+            var svStrip = scriptVersion.Replace("v", "");
+            var rvStrip = readConfigVersion.Replace("v", "");
+            //split version into parts
+            var svParts = svStrip.Split('.');
+            var rvParts = rvStrip.Split('.');
+            //compare major version
+            var isOk = true;
+            if(int.TryParse(svParts[0], out var svMajor) && int.TryParse(rvParts[0], out var rvMajor))
+            {
+                if (svMajor < rvMajor)
+                {
+                    isOk = false;
+                }
+            }
+            if(isOk && int.TryParse(svParts[1], out var svMinor) && int.TryParse(rvParts[1], out var rvMinor))
+            {
+                if (svMinor < rvMinor)
+                {
+                    isOk = false;
+                }
+            }
+            if(isOk && int.TryParse(svParts[2], out var svRevision) && int.TryParse(rvParts[2], out var rvRevision))
+            {
+                if (svRevision < rvRevision)
+                {
+                    isOk = false;
+                }
+            }
+
+            return isOk;
+        }
+    }
+
+    internal class LootMasterException : Exception
+    {
+        public LootMasterException(string message) : base(message)
+        {
         }
     }
 
@@ -2386,8 +2461,8 @@ namespace RazorScripts
             propertyDropDown.SelectedIndex = 0;
             presetDropDown.SelectedIndex = 0;
             itemNamesList.Controls.Clear();
-            propertiesList.Items.Clear();
-            propertiesIgnoreList.Items.Clear();
+            propertiesList.Controls.Clear();
+            propertiesIgnoreList.Controls.Clear();
             equipmentSlotList.Controls.Clear();
             weightCurseTextBox.Text = string.Empty;
             enabledCheckbox.Checked = true;
@@ -2442,8 +2517,8 @@ namespace RazorScripts
                     MaximumRarity = rarityMaxDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value,
                     ItemNames = nameList,
                     ItemColorIds = idList,
-                    Properties = propertiesList.Items.Cast<PropertyMatch>().ToList(),
-                    BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList(),
+                    Properties = propertiesList.Controls.Cast<PropertyControl>().Select(ctr => ctr.Get()).ToList(),
+                    BlackListedProperties = propertiesIgnoreList.Controls.Cast<PropertyControl>().Select(ctr => ctr.Get()).ToList(),
                     MaxWeight = weightCurseTextBox.Text == string.Empty ? (int?)null : int.Parse(weightCurseTextBox.Text),
                     Alert = alertCheckbox.Checked,
                     Disabled = !enabledCheckbox.Checked,
@@ -2551,11 +2626,24 @@ namespace RazorScripts
                 }
             }
 
-            propertiesList.Items.Clear();
-            propertiesIgnoreList.Items.Clear();
+            propertiesList.Controls.Clear();
+            propertiesIgnoreList.Controls.Clear();
+
+            if (rule.Properties != null)
+            {
+                foreach (var pm in rule.Properties)
+                {
+                    propertiesList.Controls.Add(new PropertyControl(pm, DeleteRuleData, EditRuleData));
+                }
+            }
             
-            propertiesList.Items.AddRange(rule.Properties?.ToArray() ?? new List<PropertyMatch>().ToArray());
-            propertiesIgnoreList.Items.AddRange(rule.BlackListedProperties?.ToArray() ?? new List<PropertyMatch>().ToArray());
+            if (rule.BlackListedProperties != null)
+            {
+                foreach (var pm in rule.BlackListedProperties)
+                {
+                    propertiesIgnoreList.Controls.Add(new PropertyControl(pm, DeleteRuleData, EditRuleData, true));
+                }
+            }
             
             weightCurseTextBox.Text = rule.MaxWeight?.ToString() ?? string.Empty;
             alertCheckbox.Checked = rule.Alert;
@@ -2587,6 +2675,21 @@ namespace RazorScripts
                     if (eqsCtr != null)
                     {
                         equipmentSlotList.Controls.RemoveAt(equipmentSlotList.Controls.Cast<EquipmentSlotControl>().ToList().IndexOf(eqsCtr));
+                    }
+                    break;
+                case "PropertyMatch":
+                    var pmCtr = propertiesList.Controls.Cast<PropertyControl>().FirstOrDefault(c => c.UniqueId == id)
+                        ?? propertiesIgnoreList.Controls.Cast<PropertyControl>().FirstOrDefault(c => c.UniqueId == id);
+                    if (pmCtr != null)
+                    {
+                        if (pmCtr.IsIgnoreProperty)
+                        {
+                            propertiesIgnoreList.Controls.RemoveAt(propertiesIgnoreList.Controls.Cast<PropertyControl>().ToList().IndexOf(pmCtr));
+                        }
+                        else
+                        {
+                            propertiesList.Controls.RemoveAt(propertiesList.Controls.Cast<PropertyControl>().ToList().IndexOf(pmCtr));
+                        }
                     }
                     break;
             }
@@ -2643,6 +2746,22 @@ namespace RazorScripts
             {
                 editForm = new EditRuleItem(dataProp);
                 result = editForm.ShowDialog();
+                if(result == DialogResult.OK)
+                {
+                    var ctr = propertiesList.Controls.Cast<PropertyControl>().FirstOrDefault(c => c.UniqueId == id);
+                    if (ctr != null)
+                    {
+                        var index = propertiesList.Controls.IndexOf(ctr);
+                        var newData = editForm.GetResponse<PropertyMatch>();
+                        propertiesList.SuspendLayout();
+                        propertiesList.Controls.RemoveAt(index);
+                        var newControl = new PropertyControl(newData, DeleteRuleData, EditRuleData);
+                        propertiesList.Controls.Add(newControl);
+                        propertiesList.Controls.SetChildIndex(newControl, index);
+                        propertiesList.ResumeLayout();
+                    }
+                    
+                }
             }
             
             editForm?.Dispose();
@@ -2760,7 +2879,7 @@ namespace RazorScripts
                 matchPropCount = minMatch;
             }
 
-            if (propertiesList.Items.Count == 0)
+            if (propertiesList.Controls.Count == 0)
             {
                 matchPropCount = null;
             }
@@ -2778,11 +2897,11 @@ namespace RazorScripts
                     : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value,
                 ItemNames = nameList,
                 ItemColorIds = idList,
-                Properties = propertiesList.Items.Cast<PropertyMatch>().ToList(),
+                Properties = propertiesList.Controls.Cast<PropertyControl>().Select(p => p.Get()).ToList(),
                 MaxWeight = weightCurseTextBox.Text == string.Empty ? (int?)null : int.Parse(weightCurseTextBox.Text),
                 Alert = alertCheckbox.Checked,
                 Disabled = !enabledCheckbox.Checked,
-                BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList(),
+                BlackListedProperties = propertiesIgnoreList.Controls.Cast<PropertyControl>().Select(p => p.Get()).ToList(),
                 PropertyMatchRequirement = matchPropCount,
                 RegExString = string.IsNullOrEmpty(regExTextBox.Text) ? null : regExTextBox.Text
             };
@@ -2821,13 +2940,13 @@ namespace RazorScripts
                     : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value;
                 ActiveRule.ItemNames = nameList;
                 ActiveRule.ItemColorIds = idList;
-                ActiveRule.Properties = propertiesList.Items.Cast<PropertyMatch>().ToList();
+                ActiveRule.Properties = propertiesList.Controls.Cast<PropertyControl>().Select(pm => pm.Get()).ToList();
                 ActiveRule.MaxWeight = weightCurseTextBox.Text == string.Empty
                     ? (int?)null
                     : int.Parse(weightCurseTextBox.Text);
                 ActiveRule.Alert = alertCheckbox.Checked;
                 ActiveRule.Disabled = !enabledCheckbox.Checked;
-                ActiveRule.BlackListedProperties = propertiesIgnoreList.Items.Cast<PropertyMatch>().ToList();
+                ActiveRule.BlackListedProperties = propertiesIgnoreList.Controls.Cast<PropertyControl>().Select(pm => pm.Get()).ToList();
                 ActiveRule.PropertyMatchRequirement = matchPropCount;
                 ActiveRule.RegExString = string.IsNullOrEmpty(regExTextBox.Text) ? null : regExTextBox.Text;
                 
@@ -2954,41 +3073,31 @@ namespace RazorScripts
                 }
             }
         }
-
-        private void propertiesList_DoubleClick(object sender, EventArgs e)
-        {
-            if (propertiesList.SelectedItem is PropertyMatch propertyItem)
-            {
-                var propList = propertyDropDown.Items.Cast<DropDownItem>().ToList();
-                propertyDropDown.SelectedIndex = propList.IndexOf(propList.First(p => p.Name == Handler.ResolvePropertyName(propertyItem.Property)));
-                propertyValueTextBox.Text = propertyItem.Value?.ToString() ?? string.Empty;
-            }
-            else
-            {
-                propertyDropDown.SelectedIndex = 0;
-                propertyValueTextBox.Text = string.Empty;
-            }
-        }
-
+        
         private void addPropIgnoreButton_Click(object sender, EventArgs e)
         {
-            var selectedProp = propertyIgnoreDropDown.SelectedItem as DropDownItem;
-            var index = propertiesIgnoreList.Items.Count;
-            var existing = propertiesIgnoreList.Items.Cast<PropertyMatch>().FirstOrDefault(x => x.Property == (ItemProperty)selectedProp.Value);
+            try
+            {
+                var selectedProp = propertyIgnoreDropDown.SelectedItem as DropDownItem;
+                
+                if (!propertiesIgnoreList.Controls.Cast<PropertyControl>().Any(s => s.GetName() == (propertyIgnoreDropDown.SelectedItem as DropDownItem).Name))
+                {
+                    var prop = new PropertyMatch
+                    {
+                        Property = (ItemProperty)selectedProp.Value,
+                        Value = null
+                    };
+                        
+                    propertiesIgnoreList.Controls.Add(new PropertyControl(prop, DeleteRuleData, EditRuleData, true));
+                }
+                
+                propertyIgnoreDropDown.SelectedIndex = 0;
 
-            if (existing != null)
-            {
-                propertyDropDown.SelectedIndex = 0;
-                propertyValueTextBox.Text = string.Empty;
-                return;
             }
-            
-            propertiesIgnoreList.Items.Insert(index, new PropertyMatch
+            catch
             {
-                Property = (ItemProperty)selectedProp.Value
-            });
-            propertyDropDown.SelectedIndex = 0;
-            propertyValueTextBox.Text = string.Empty;
+                // ignored
+            }
         }
         
         
@@ -3002,21 +3111,18 @@ namespace RazorScripts
                 {
                     value = tmpValue;
                 }
-
-                var index = propertiesList.Items.Count;
                 
-                var existing = propertiesList.Items.Cast<PropertyMatch>().FirstOrDefault(x => x.Property == (ItemProperty)selectedProp.Value);
-                if (existing != null)
+                if (!propertiesList.Controls.Cast<PropertyControl>().Any(s => s.GetName() == (propertyDropDown.SelectedItem as DropDownItem).Name))
                 {
-                    index = propertiesList.Items.IndexOf(existing);
-                    propertiesList.Items.Remove(existing);
+                    var prop = new PropertyMatch
+                    {
+                        Property = (ItemProperty)selectedProp.Value,
+                        Value = value
+                    };
+                        
+                    propertiesList.Controls.Add(new PropertyControl(prop, DeleteRuleData, EditRuleData));
                 }
-
-                propertiesList.Items.Insert(index, new PropertyMatch
-                {
-                    Property = (ItemProperty)selectedProp.Value,
-                    Value = value
-                });
+                
                 propertyDropDown.SelectedIndex = 0;
                 propertyValueTextBox.Text = string.Empty;
 
@@ -3026,40 +3132,7 @@ namespace RazorScripts
                 // ignored
             }
         }
-
-        private void deleteSelectedPropertyMenuItem_Click(object sender, EventArgs e)
-        {
-            var menuItem = sender as ToolStripMenuItem;
-            var parent = menuItem.Owner as ContextMenuStrip;
-            var createdBy = parent.SourceControl.Name;
-            switch (createdBy)
-            {
-                case "propertiesList":
-                    var selectedProp = propertiesList.SelectedItem;
-                    if (selectedProp != null)
-                    {
-                        propertiesList.Items.Remove(selectedProp);
-                        if(propertiesList.Items.Count == 0)
-                        {
-                            minimumMatchPropsTextBox.Text = string.Empty;
-                        }
-                    }
-                    break;
-                case "propertiesIgnoreList" :
-                    var selectedIgnoreProp = propertiesIgnoreList.SelectedItem;
-                    if (selectedIgnoreProp != null)
-                    {
-                        propertiesIgnoreList.Items.Remove(selectedIgnoreProp);
-                    }
-                    break;
-                default:
-                    break;
-                
-            }
-            
-        }
-
-
+        
         private void clearTargetBagButton_Click(object sender, EventArgs e)
         {
             Config.GetCharacter().Rules.Clear();
@@ -3471,15 +3544,13 @@ namespace RazorScripts
             this.itemIdAddTextBox = new TextBox();
             this.itemNamesList = new FlowLayoutPanel();
             this.equipmentSlotList = new FlowLayoutPanel();
-            this.propertiesList = new ListBox();
+            this.propertiesList = new FlowLayoutPanel();
             this.propertyDropDown = new ComboBox();
             this.addPropButton = new Button();
             this.propertyValueTextBox = new TextBox();
             this.label5 = new Label();
             this.slotDropDownMenu = new ContextMenuStrip(this.components);
-            this.propertyDropDownMenu = new ContextMenuStrip(this.components);
             this.ruleDropDownMenu = new ContextMenuStrip(this.components);
-            this.deleteSelectedPropertyMenuItem = new ToolStripMenuItem();
             slotDropDown = new ComboBox();
             slotAddButton = new Button();
             weightCurseTextBox = new TextBox();
@@ -3491,7 +3562,7 @@ namespace RazorScripts
             propertiesIgnoreContainer = new GroupBox();
             addPropIgnoreButton = new Button();
             propertyIgnoreDropDown = new ComboBox();
-            propertiesIgnoreList = new ListBox();
+            propertiesIgnoreList = new FlowLayoutPanel();
             label4 = new Label();
             hueTextBox = new TextBox();
             huePicker = new ComboBox();
@@ -3662,7 +3733,7 @@ namespace RazorScripts
             this.ruleContainer.Controls.Add(this.saveButton);
             this.ruleContainer.Location = new System.Drawing.Point(186, 31);
             this.ruleContainer.Name = "ruleContainer";
-            this.ruleContainer.Size = new System.Drawing.Size(808, 483);
+            this.ruleContainer.Size = new System.Drawing.Size(833, 483);
             this.ruleContainer.TabIndex = 3;
             this.ruleContainer.TabStop = false;
             this.ruleContainer.Text = "Rule Settings";
@@ -3687,7 +3758,7 @@ namespace RazorScripts
             this.settingContainer.Controls.Add(this.regExTextBox);
             this.settingContainer.Location = new System.Drawing.Point(5, 42);
             this.settingContainer.Name = "settingContainer";
-            this.settingContainer.Size = new System.Drawing.Size(787, 435);
+            this.settingContainer.Size = new System.Drawing.Size(823, 435);
             this.settingContainer.TabIndex = 10;
             this.settingContainer.TabStop = false;
             this.settingContainer.Text = "Settings";
@@ -3727,16 +3798,16 @@ namespace RazorScripts
             this.propertiesIgnoreContainer.Controls.Add(this.addPropIgnoreButton);
             this.propertiesIgnoreContainer.Controls.Add(this.propertyIgnoreDropDown);
             this.propertiesIgnoreContainer.Controls.Add(this.propertiesIgnoreList);
-            this.propertiesIgnoreContainer.Location = new System.Drawing.Point(581, 69);
+            this.propertiesIgnoreContainer.Location = new System.Drawing.Point(601, 69);
             this.propertiesIgnoreContainer.Name = "propertiesIgnoreContainer";
-            this.propertiesIgnoreContainer.Size = new System.Drawing.Size(198, 357);
+            this.propertiesIgnoreContainer.Size = new System.Drawing.Size(215, 357);
             this.propertiesIgnoreContainer.TabIndex = 14;
             this.propertiesIgnoreContainer.TabStop = false;
             this.propertiesIgnoreContainer.Text = "Ignore Properties";
             // 
             // addPropIgnoreButton
             // 
-            this.addPropIgnoreButton.Location = new System.Drawing.Point(142, 18);
+            this.addPropIgnoreButton.Location = new System.Drawing.Point(155, 18);
             this.addPropIgnoreButton.Name = "addPropIgnoreButton";
             this.addPropIgnoreButton.Size = new System.Drawing.Size(48, 22);
             this.addPropIgnoreButton.TabIndex = 3;
@@ -3750,32 +3821,19 @@ namespace RazorScripts
             this.propertyIgnoreDropDown.FormattingEnabled = true;
             this.propertyIgnoreDropDown.Location = new System.Drawing.Point(5, 19);
             this.propertyIgnoreDropDown.Name = "propertyIgnoreDropDown";
-            this.propertyIgnoreDropDown.Size = new System.Drawing.Size(133, 21);
+            this.propertyIgnoreDropDown.Size = new System.Drawing.Size(145, 21);
             this.propertyIgnoreDropDown.TabIndex = 1;
             this.propertyIgnoreDropDown.ValueMember = "Value";
             // 
             // propertiesIgnoreList
             // 
-            this.propertiesIgnoreList.ContextMenuStrip = this.propertyDropDownMenu;
-            this.propertiesIgnoreList.DisplayMember = "DisplayName";
-            this.propertiesIgnoreList.FormattingEnabled = true;
             this.propertiesIgnoreList.Location = new System.Drawing.Point(6, 69);
             this.propertiesIgnoreList.Name = "propertiesIgnoreList";
-            this.propertiesIgnoreList.Size = new System.Drawing.Size(185, 277);
+            this.propertiesIgnoreList.Size = new System.Drawing.Size(205, 277);
             this.propertiesIgnoreList.TabIndex = 0;
-            // 
-            // propertyDropDownMenu
-            // 
-            this.propertyDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.deleteSelectedPropertyMenuItem });
-            this.propertyDropDownMenu.Name = "propertyDropDownMenu";
-            this.propertyDropDownMenu.Size = new System.Drawing.Size(155, 26);
-            // 
-            // deleteSelectedPropertyMenuItem
-            // 
-            this.deleteSelectedPropertyMenuItem.Name = "deleteSelectedPropertyMenuItem";
-            this.deleteSelectedPropertyMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.deleteSelectedPropertyMenuItem.Text = "Delete Selected";
-            this.deleteSelectedPropertyMenuItem.Click += new System.EventHandler(this.deleteSelectedPropertyMenuItem_Click);
+            this.propertiesIgnoreList.VerticalScroll.Enabled = true;
+            this.propertiesIgnoreList.VerticalScroll.Visible = true;
+            this.propertiesIgnoreList.AutoScroll = true;
             // 
             // enabledCheckbox
             // 
@@ -3808,7 +3866,7 @@ namespace RazorScripts
             this.propertiesContainer.Controls.Add(this.propertiesList);
             this.propertiesContainer.Location = new System.Drawing.Point(377, 69);
             this.propertiesContainer.Name = "propertiesContainer";
-            this.propertiesContainer.Size = new System.Drawing.Size(198, 357);
+            this.propertiesContainer.Size = new System.Drawing.Size(218, 357);
             this.propertiesContainer.TabIndex = 12;
             this.propertiesContainer.TabStop = false;
             this.propertiesContainer.Text = "Properties";
@@ -3846,7 +3904,7 @@ namespace RazorScripts
             // 
             // addPropButton
             // 
-            this.addPropButton.Location = new System.Drawing.Point(142, 18);
+            this.addPropButton.Location = new System.Drawing.Point(160, 18);
             this.addPropButton.Name = "addPropButton";
             this.addPropButton.Size = new System.Drawing.Size(48, 22);
             this.addPropButton.TabIndex = 3;
@@ -3860,19 +3918,19 @@ namespace RazorScripts
             this.propertyDropDown.FormattingEnabled = true;
             this.propertyDropDown.Location = new System.Drawing.Point(5, 19);
             this.propertyDropDown.Name = "propertyDropDown";
-            this.propertyDropDown.Size = new System.Drawing.Size(133, 21);
+            this.propertyDropDown.Size = new System.Drawing.Size(145, 21);
             this.propertyDropDown.TabIndex = 1;
             this.propertyDropDown.ValueMember = "Value";
             // 
             // propertiesList
             // 
-            this.propertiesList.ContextMenuStrip = this.propertyDropDownMenu;
-            this.propertiesList.DisplayMember = "DisplayName";
-            this.propertiesList.FormattingEnabled = true;
             this.propertiesList.Location = new System.Drawing.Point(6, 69);
             this.propertiesList.Name = "propertiesList";
-            this.propertiesList.Size = new System.Drawing.Size(185, 251);
+            this.propertiesList.Size = new System.Drawing.Size(205, 251);
             this.propertiesList.TabIndex = 0;
+            this.propertiesList.VerticalScroll.Enabled = true;
+            this.propertiesList.VerticalScroll.Visible = true;
+            this.propertiesList.AutoScroll = true;
             // 
             // slotContainer
             // 
@@ -3913,6 +3971,9 @@ namespace RazorScripts
             this.equipmentSlotList.Name = "equipmentSlotList";
             this.equipmentSlotList.Size = new System.Drawing.Size(163, 303);
             this.equipmentSlotList.TabIndex = 4;
+            this.equipmentSlotList.VerticalScroll.Enabled = true;
+            this.equipmentSlotList.VerticalScroll.Visible = true;
+            this.equipmentSlotList.AutoScroll = true;
             // 
             // slotDropDownMenu
             // 
@@ -3937,6 +3998,8 @@ namespace RazorScripts
             this.itemNamesList.Name = "itemNamesList";
             this.itemNamesList.Size = new System.Drawing.Size(175, 303);
             this.itemNamesList.TabIndex = 4;
+            this.itemNamesList.VerticalScroll.Enabled = true;
+            this.itemNamesList.VerticalScroll.Visible = true;
             this.itemNamesList.AutoScroll = true;
             // 
             // itemIdAddTextBox
@@ -4033,7 +4096,7 @@ namespace RazorScripts
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(986, 524);
+            this.ClientSize = new System.Drawing.Size(1020, 524);
             this.Controls.Add(this.huePicker);
             this.Controls.Add(this.hueTextBox);
             this.Controls.Add(this.label4);
@@ -4045,6 +4108,7 @@ namespace RazorScripts
             this.Controls.Add(this.colorCorpseCheckbox);
             this.MaximizeBox = false;
             this.MinimizeBox = false;
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.Name = "Form1";
             this.ShowIcon = false;
             this.Text = "Lootmaster Configurator";
@@ -4055,7 +4119,6 @@ namespace RazorScripts
             this.settingContainer.ResumeLayout(false);
             this.settingContainer.PerformLayout();
             this.propertiesIgnoreContainer.ResumeLayout(false);
-            this.propertyDropDownMenu.ResumeLayout(false);
             this.propertiesContainer.ResumeLayout(false);
             this.propertiesContainer.PerformLayout();
             this.slotContainer.ResumeLayout(false);
@@ -4117,11 +4180,9 @@ namespace RazorScripts
         private TextBox propertyValueTextBox;
         private Button addPropButton;
         private ComboBox propertyDropDown;
-        private ListBox propertiesList;
+        private FlowLayoutPanel propertiesList;
         private ContextMenuStrip slotDropDownMenu;
-        private ContextMenuStrip propertyDropDownMenu;
         private ContextMenuStrip ruleDropDownMenu;
-        private ToolStripMenuItem deleteSelectedPropertyMenuItem;
         private CheckBox alertCheckbox;
         private CheckBox enabledCheckbox;
         
@@ -4136,7 +4197,7 @@ namespace RazorScripts
         private GroupBox propertiesIgnoreContainer;
         private Button addPropIgnoreButton;
         private ComboBox propertyIgnoreDropDown;
-        private ListBox propertiesIgnoreList;
+        private FlowLayoutPanel propertiesIgnoreList;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.TextBox hueTextBox;
         private System.Windows.Forms.ComboBox huePicker;
@@ -4180,6 +4241,7 @@ namespace RazorScripts
             value1Lbl.Text = "Name";
             value2Lbl.Text = "N/A";
             value2Tb.Enabled = false;
+            value1Tb.Focus();
         }
 
         public EditRuleItem(ItemColorIdentifier idColor)
@@ -4194,6 +4256,7 @@ namespace RazorScripts
             nameLbl.Text = idColor.Name;
             value1Lbl.Text = "Item Id";
             value2Lbl.Text = "Hue";
+            value1Tb.Focus();
         }
 
         public EditRuleItem(PropertyMatch propMatch)
@@ -4204,8 +4267,16 @@ namespace RazorScripts
                 Value = propMatch.Value,
             };
             
-            _typeObject = TypeObject.PropertyMatch;
             InitializeComponent();
+            
+            nameLbl.Text = propMatch.DisplayName;
+            value1Lbl.Text = "Value";
+            value1Tb.Text = _propMatch.Value.ToString();
+            value2Lbl.Text = "N/A";
+            value2Tb.Enabled = false;
+            value1Tb.Focus();
+            
+            _typeObject = TypeObject.PropertyMatch;
         }
         
         
@@ -4254,6 +4325,12 @@ namespace RazorScripts
                     break;
                 case TypeObject.String:
                     _name = value1Tb.Text;
+                    break;
+                case TypeObject.PropertyMatch:
+                    if (int.TryParse(value1Tb.Text, out int inVal))
+                    {
+                        _propMatch.Value = inVal;
+                    }
                     break;
                 default:
                     break;
@@ -4311,7 +4388,7 @@ namespace RazorScripts
             this.value2Lbl.Location = new System.Drawing.Point(3, 52);
             this.value1Lbl.Name = "value2Lbl";
             this.value2Lbl.Size = new System.Drawing.Size(120, 14);
-            this.value2Lbl.TabIndex = 3;
+            this.value2Lbl.TabIndex = 1;
             this.value2Lbl.Text = "Label2";
             //
             // value2Tb
@@ -4326,7 +4403,7 @@ namespace RazorScripts
             this.saveButton.Location = new System.Drawing.Point(123, 4);
             this.saveButton.Name = "saveButton";
             this.saveButton.Size = new System.Drawing.Size(50, 24);
-            this.saveButton.TabIndex = 5;
+            this.saveButton.TabIndex = 4;
             this.saveButton.Text = "Save";
             this.saveButton.Click += new System.EventHandler(this.saveButton_Click);
             //
@@ -4608,7 +4685,7 @@ namespace RazorScripts
             // ruleDropDownMenu
             // 
             this.ruleDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.moveUpSelectedRuleMenuItem, this.moveDownSelectedRuleMenuItem, this.deleteSelectedRuleMenuItem });
-            this.ruleDropDownMenu.Name = "propertyDropDownMenu";
+            this.ruleDropDownMenu.Name = "ruleDropDownMenu";
             this.ruleDropDownMenu.Size = new System.Drawing.Size(155, 70);
             this.ruleDropDownMenu.Opened += new System.EventHandler(this.ruleDropDownMenu_Opened);
             this.ruleDropDownMenu.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.ruleDropDownMenu_Closed);
@@ -5030,6 +5107,183 @@ namespace RazorScripts
 
         private System.Windows.Forms.Label nameLbl;
         private System.Windows.Forms.Button deleteBtn;
+
+        private System.Windows.Forms.Panel panelMain;
+        private System.Windows.Forms.Panel panelTop;
+
+        #endregion
+    }
+    
+    public partial class PropertyControl : UserControl
+    {
+        private Action<Guid,Type> _deleteAction;
+        private Action<Guid,object> _editAction;
+        private Guid _tempId = Guid.NewGuid();
+        private PropertyMatch _property;
+        private bool _isIgnoreProperty = false;
+        public PropertyMatch Get() => _property;
+        public string GetName() => _property.DisplayName;
+        public int? GetValue() => _property.Value;
+        public Guid UniqueId => _tempId;
+        public bool IsIgnoreProperty => _isIgnoreProperty;
+        
+        public PropertyControl(PropertyMatch property, Action<Guid,Type> deleteAction, Action<Guid,object> editAction, bool ignore = false)
+        {
+            if (property.DisplayName.Contains("Slayer") || property.DisplayName.Equals("Silver"))
+            {
+                property.Value = null;
+            }
+            
+            InitializeComponent();
+            nameLbl.Text = property.DisplayName;
+            valueLbl.Text = property.Value?.ToString() ?? "ANY";
+            _deleteAction = deleteAction;
+            _editAction = editAction;
+            _property = property;
+            if (ignore)
+            {
+                _isIgnoreProperty = true;
+                editBtn.Visible = false;
+                valueLbl.Visible = false;
+                deleteBtn.Left = editBtn.Left;
+            }
+        }
+
+        private void deleteBtn_Click(object sender, EventArgs e)
+        {
+            _deleteAction(_tempId, typeof(PropertyMatch));
+        }
+
+        private void editBtn_Click(object sender, EventArgs e)
+        {
+            _editAction(_tempId, _property);
+        }
+        
+        
+        //Designer items
+        private IContainer components = null;
+
+        /// <summary> 
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        #region Component Designer generated code
+
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.components = new System.ComponentModel.Container();
+            this.panelMain = new System.Windows.Forms.Panel();
+            this.panelTop = new System.Windows.Forms.Panel();
+            this.nameLbl = new System.Windows.Forms.Label();
+            this.valueLbl = new System.Windows.Forms.Label();
+            this.deleteBtn = new System.Windows.Forms.Button();
+            this.editBtn = new System.Windows.Forms.Button();
+            this.panelMain.SuspendLayout();
+            this.SuspendLayout();
+            // 
+            // panelMain
+            // 
+            this.panelMain.Controls.Add(this.nameLbl);
+            this.panelMain.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelMain.Location = new System.Drawing.Point(0, 0);
+            this.panelMain.Name = "panelMain";
+            this.panelMain.Size = new System.Drawing.Size(185, 36);
+            this.panelMain.TabIndex = 0;
+            // 
+            // panelTop
+            // 
+            this.panelTop.Controls.Add(this.nameLbl);
+            this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelTop.Location = new System.Drawing.Point(0, 0);
+            this.panelTop.Name = "panelTop";
+            this.panelTop.Size = new System.Drawing.Size(185, 1);
+            this.panelTop.TabIndex = 0;
+            this.panelTop.BackColor = SystemColors.ControlDark;
+            // 
+            // panelMain
+            // 
+            this.panelMain.Controls.Add(this.nameLbl);
+            this.panelMain.Controls.Add(this.valueLbl);
+            this.panelMain.Controls.Add(this.deleteBtn);
+            this.panelMain.Controls.Add(this.editBtn);
+            this.panelMain.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.panelMain.Location = new System.Drawing.Point(0, 1);
+            this.panelMain.Name = "panelMain";
+            this.panelMain.Size = new System.Drawing.Size(185, 35);
+            this.panelMain.TabIndex = 0;
+            // 
+            // nameLbl
+            // 
+            this.nameLbl.Location = new System.Drawing.Point(3, 4);
+            this.nameLbl.Name = "nameLbl";
+            this.nameLbl.Size = new System.Drawing.Size(140, 14);
+            this.nameLbl.TabIndex = 2;
+            this.nameLbl.Text = "label1";
+            // 
+            // valueLbl 
+            // 
+            this.valueLbl.Location = new System.Drawing.Point(3, 18);
+            this.valueLbl.Name = "valueLbl";
+            this.valueLbl.Size = new System.Drawing.Size(50, 14);
+            this.valueLbl.TabIndex = 2;
+            this.valueLbl.Text = "label2";
+            // 
+            // editBtn
+            // 
+            this.editBtn.Location = new System.Drawing.Point(145, 2);
+            this.editBtn.Name = "editBtn";
+            this.editBtn.Size = new System.Drawing.Size(18, 18);
+            this.editBtn.TabIndex = 2;
+            this.editBtn.Text = "/";
+            this.editBtn.ForeColor = Color.DarkOrange;
+            this.editBtn.Padding = Padding.Empty;
+            this.editBtn.Margin = Padding.Empty;
+            this.editBtn.Click += new System.EventHandler(this.editBtn_Click);
+            // 
+            // deleteBtn
+            // 
+            this.deleteBtn.Location = new System.Drawing.Point(165, 2);
+            this.deleteBtn.Name = "deleteBtn";
+            this.deleteBtn.Size = new System.Drawing.Size(18, 18);
+            this.deleteBtn.TabIndex = 2;
+            this.deleteBtn.Text = "X";
+            this.deleteBtn.ForeColor = Color.Red;
+            this.deleteBtn.Padding = Padding.Empty;
+            this.deleteBtn.Margin = Padding.Empty;
+            this.deleteBtn.Click += new System.EventHandler(this.deleteBtn_Click);
+            // 
+            // EquipmentSlotControl
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.panelTop);
+            this.Controls.Add(this.panelMain);
+            this.Name = "RuleController";
+            this.Size = new System.Drawing.Size(185, 36);
+            this.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.Margin = new System.Windows.Forms.Padding(0);
+            this.panelMain.ResumeLayout(false);
+            this.ResumeLayout(false);
+        }
+
+        private System.Windows.Forms.Label nameLbl;
+        private System.Windows.Forms.Label valueLbl;
+        private System.Windows.Forms.Button deleteBtn;
+        private System.Windows.Forms.Button editBtn;
 
         private System.Windows.Forms.Panel panelMain;
         private System.Windows.Forms.Panel panelTop;
