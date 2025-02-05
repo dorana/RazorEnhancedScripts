@@ -271,21 +271,6 @@ namespace RazorScripts
 
                             var rows = _journal.GetJournalEntry(_lastEntry);
                             if (rows == null) continue;
-                            var filtered = rows.Where(r => r.Type == "System");
-                            if (filtered.Any(r => r.Text == "You must wait to perform another action."))
-                            {
-                                if (_lootDelay >= 700)
-                                {
-                                    _lootDelay = 400;
-                                    Handler.SendMessage(MessageType.Log, $"Resetting loot delay to {_lootDelay}");
-                                }
-                                else
-                                {
-                                    _lootDelay += 10;
-                                    Handler.SendMessage(MessageType.Log,
-                                        $"Adjusting loot delay with 10ms, currently at {_lootDelay}");
-                                }
-                            }
                         }
 
                         _status = Hue.Idle;
@@ -1166,48 +1151,21 @@ namespace RazorScripts
                     }
                 }
             };
-
-        public LootRule(string ruleName, params string[] itemName)
-        {
-            RuleName = ruleName;
-            ItemNames = itemName.ToList();
-            TargetBag = null;
-        }
-
+        
         public LootRule(string ruleName, string itemName, bool alert = false)
         {
             RuleName = ruleName;
             ItemNames = new List<string> { itemName };
             Alert = alert;
             TargetBag = null;
+            Id = Guid.NewGuid();
         }
 
         public LootRule()
         {
             TargetBag = null;
+            Id = Guid.NewGuid();
         }
-
-        public LootRule(string ruleName, ItemProperty property, int amount, ItemRarity? minimumRarity, EquipmentSlot? slot, bool alert = false)
-        {
-            RuleName = ruleName;
-            EquipmentSlots = slot == null ? null : new List<EquipmentSlot>
-            {
-                slot.Value
-            };
-            Properties = new List<PropertyMatch>
-            {
-                new PropertyMatch
-                {
-                    Property = property,
-                    Value = amount
-                }
-            };
-            MinimumRarity = minimumRarity;
-            Alert = alert;
-            TargetBag = null;
-        }
-
-
 
         public bool Match(Item item)
         {
@@ -1273,7 +1231,7 @@ namespace RazorScripts
                         x != EquipmentSlot.RightHand &&
                         x != EquipmentSlot.LeftHand &&
                         x != EquipmentSlot.Ring &&
-                        x != EquipmentSlot.Bracelet
+                        x != EquipmentSlot.Bracelet 
                     ).ToList();
                 matchFound = tempList.Select(x => x.ToString()).Any(s => s.ToString().Equals(item.Layer, StringComparison.OrdinalIgnoreCase));
             }
@@ -2427,10 +2385,10 @@ namespace RazorScripts
             slotDropDown.SelectedIndex = 0;
             propertyDropDown.SelectedIndex = 0;
             presetDropDown.SelectedIndex = 0;
-            itemNamesList.Items.Clear();
+            itemNamesList.Controls.Clear();
             propertiesList.Items.Clear();
             propertiesIgnoreList.Items.Clear();
-            eqipmentSlotList.Items.Clear();
+            equipmentSlotList.Controls.Clear();
             weightCurseTextBox.Text = string.Empty;
             enabledCheckbox.Checked = true;
             ruleDownButton.Enabled = false;
@@ -2452,27 +2410,34 @@ namespace RazorScripts
             {
                 var nameList = new List<string>();
                 var idList = new List<ItemColorIdentifier>();
-                foreach (var val in itemNamesList.Items.Cast<string>())
+                var slotList = new List<EquipmentSlot>();
+                foreach (var val in itemNamesList.Controls)
                 {
-                    if (val.StartsWith("0x"))
+                    if (val is IdNameControl idcVal)
                     {
-                        var idString = val.Split('|').First().Trim();
-                        var colorString = val.Split('|')[1].Trim();
-                        var name = val.Split('|')[2].Trim();
-                        var parseVal = Convert.ToInt32(idString, 16);
-                        int? colorId = Convert.ToInt32(colorString, 16);
-                        idList.Add(new ItemColorIdentifier(parseVal, colorId, name));
+                        if (idcVal.IsIdColor)
+                        {
+                            idList.Add(idcVal.Get());
+                        }
+                        else
+                        {
+                            nameList.Add(idcVal.GetName());
+                        }
                     }
-                    else
+                }
+                
+                foreach (var val in equipmentSlotList.Controls)
+                {
+                    if (val is EquipmentSlotControl eqc)
                     {
-                        nameList.Add(val);
+                        slotList.Add(eqc.Get());
                     }
                 }
 
                 var currentValues = new LootRule
                 {
                     RuleName = ruleNameTextBox.Text,
-                    EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value).ToList(),
+                    EquipmentSlots = slotList,
                     MinimumRarity = rarityMinDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMinDropDown.SelectedItem as DropDownItem).Value,
                     MaximumRarity = rarityMaxDropDown.SelectedIndex == 0 ? null : (ItemRarity?)(rarityMaxDropDown.SelectedItem as DropDownItem).Value,
                     ItemNames = nameList,
@@ -2533,41 +2498,58 @@ namespace RazorScripts
             rarityMinDropDown.SelectedIndex = rule.MinimumRarity == null ? 0 : Rarities.IndexOf(Rarities.First(r => r.Name == rule.MinimumRarity.ToString()));
             rarityMaxDropDown.SelectedIndex = rule.MaximumRarity == null ? 0 : Rarities.IndexOf(Rarities.First(r => r.Name == rule.MaximumRarity.ToString()));
             
-            eqipmentSlotList.Items.Clear();
-            var slotList = rule.EquipmentSlots?.OrderBy(x => x.ToString()).Select(x => new DropDownItem
+            equipmentSlotList.Controls.Clear();
+
+            if (rule.EquipmentSlots != null)
             {
-                Name = x.ToString(),
-                Value = (int)x
-            }) ?? new List<DropDownItem>();
+                equipmentSlotList.SuspendLayout();
+                foreach (var slot in rule.EquipmentSlots)
+                {
+                    equipmentSlotList.Controls.Add(new EquipmentSlotControl(slot,DeleteRuleData));
+                }
+                equipmentSlotList.ResumeLayout();
+            }
             
-            eqipmentSlotList.Items.AddRange(slotList.ToArray());
-            
-            itemNamesList.Items.Clear();
+            itemNamesList.Controls.Clear();
             regExTextBox.Text = rule.RegExString;
             
             if (rule.ItemColorIds != null)
             {
+                itemNamesList.SuspendLayout();
                 foreach (var itemId in rule.ItemColorIds)
                 {
                     Item item = null;
-                    if (string.IsNullOrEmpty(Config.ItemColorLookup.GetNameFromItem(itemId)))
+                    if (string.IsNullOrEmpty(itemId.Name))
                     {
-                        item = Items.FindByID(itemId.ItemId, itemId.Color ?? -1, -1, false, false);
-                        
-                        if (item != null)
+                        if (string.IsNullOrEmpty(Config.ItemColorLookup.GetNameFromItem(itemId)))
                         {
-                            Config.ItemColorLookup.AddUnique(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));    
-                        }
-                    }
+                            item = Items.FindByID(itemId.ItemId, itemId.Color ?? -1, -1, false, false);
 
-                    var lookupName =  Config.ItemColorLookup.GetNameFromSet(itemId.ItemId, item == null ? itemId.Color ?? -1 : item.Hue);
-                    
-                    itemNamesList.Items.Add($"0x{Convert.ToString(itemId.ItemId, 16)} | {(itemId.Color == null ? "ANY" : $"0x{Convert.ToString(itemId.Color.Value, 16)}")} | {lookupName ?? string.Empty}");
+                            if (item != null)
+                            {
+                                Config.ItemColorLookup.AddUnique(new ItemColorIdentifier(item.ItemID, item.Hue,
+                                    item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()));
+                            }
+                        }
+                        var lookupName =  Config.ItemColorLookup.GetNameFromSet(itemId.ItemId, item == null ? itemId.Color ?? -1 : item.Hue);
+                        itemNamesList.Controls.Add(new IdNameControl(new ItemColorIdentifier(itemId.ItemId, itemId.Color, lookupName), DeleteRuleData, EditRuleData));
+                    }
+                    else
+                    {
+                        itemNamesList.Controls.Add(new IdNameControl(itemId, DeleteRuleData,EditRuleData));
+                    }
                 }
+                itemNamesList.ResumeLayout();
             }
             
             var nameList = rule.ItemNames ?? new List<string>();
-            if (rule.ItemNames != null) itemNamesList.Items.AddRange(nameList.OrderBy(x => x).ToArray());
+            if (rule.ItemNames != null)
+            {
+                foreach (var name in rule.ItemNames)
+                {
+                    itemNamesList.Controls.Add(new IdNameControl(name, DeleteRuleData,EditRuleData));
+                }
+            }
 
             propertiesList.Items.Clear();
             propertiesIgnoreList.Items.Clear();
@@ -2586,13 +2568,93 @@ namespace RazorScripts
             clearTargetBagButton.Enabled = rule.TargetBag != null;
         }
 
+        private void DeleteRuleData(Guid id, Type type)
+        {
+            var typeName = type.Name;
+            switch (typeName)
+            {
+                case "ItemColorIdentifier" :
+                case "String":
+                    var iciCtr = itemNamesList.Controls.Cast<IdNameControl>().FirstOrDefault(c => c.UniqueId == id);
+                    if (iciCtr != null)
+                    {
+                        itemNamesList.Controls.RemoveAt(itemNamesList.Controls.Cast<IdNameControl>().ToList().IndexOf(iciCtr));
+                    }
+
+                    break;
+                case "EquipmentSlot":
+                    var eqsCtr = equipmentSlotList.Controls.Cast<EquipmentSlotControl>().FirstOrDefault(c => c.UniqueId == id);
+                    if (eqsCtr != null)
+                    {
+                        equipmentSlotList.Controls.RemoveAt(equipmentSlotList.Controls.Cast<EquipmentSlotControl>().ToList().IndexOf(eqsCtr));
+                    }
+                    break;
+            }
+        }
+        
+        private void EditRuleData(Guid id, object data)
+        {
+            EditRuleItem editForm = null;
+            DialogResult result;
+            if (data is string dataString)
+            {
+                editForm = new EditRuleItem(dataString);
+                result = editForm.ShowDialog();
+                if (result == DialogResult.OK)
+                {
+                    var ctr = itemNamesList.Controls.Cast<IdNameControl>().FirstOrDefault(c => c.UniqueId == id);
+                    if (ctr != null)
+                    {
+                        var index = itemNamesList.Controls.IndexOf(ctr);
+                        var newData = editForm.GetResponse<string>();
+                        itemNamesList.SuspendLayout();
+                        itemNamesList.Controls.RemoveAt(index);
+                        var newControl = new IdNameControl(newData, DeleteRuleData, EditRuleData);
+                        itemNamesList.Controls.Add(newControl);
+                        itemNamesList.Controls.SetChildIndex(newControl, index);
+                        itemNamesList.ResumeLayout();
+                    }
+                }
+                
+            }
+            else if (data is ItemColorIdentifier dataId)
+            {
+                editForm = new EditRuleItem(dataId);
+                result = editForm.ShowDialog();
+                if(result == DialogResult.OK)
+                {
+                    var ctr = itemNamesList.Controls.Cast<IdNameControl>().FirstOrDefault(c => c.UniqueId == id);
+                    if (ctr != null)
+                    {
+                        var index = itemNamesList.Controls.IndexOf(ctr);
+                        var newData = editForm.GetResponse<ItemColorIdentifier>();
+                        itemNamesList.SuspendLayout();
+                        itemNamesList.Controls.RemoveAt(index);
+                        var newControl = new IdNameControl(newData, DeleteRuleData, EditRuleData);
+                        itemNamesList.Controls.Add(newControl);
+                        itemNamesList.Controls.SetChildIndex(newControl, index);
+                        itemNamesList.ResumeLayout();
+                    }
+                    
+                }
+                
+            }
+            else if (data is PropertyMatch dataProp)
+            {
+                editForm = new EditRuleItem(dataProp);
+                result = editForm.ShowDialog();
+            }
+            
+            editForm?.Dispose();
+        }
+
         private void addSlotButton_Click(object sender, EventArgs e)
         {
             try
             {
-                if (!eqipmentSlotList.Items.Cast<DropDownItem>().Any(s => s.Name == (slotDropDown.SelectedItem as DropDownItem).Name))
+                if (!equipmentSlotList.Controls.Cast<EquipmentSlotControl>().Any(s => s.GetName() == (slotDropDown.SelectedItem as DropDownItem).Name))
                 {
-                    eqipmentSlotList.Items.Add(slotDropDown.SelectedItem);
+                    equipmentSlotList.Controls.Add(new EquipmentSlotControl((slotDropDown.SelectedItem as DropDownItem).Name,  DeleteRuleData));
                 }
             }
             catch
@@ -2620,7 +2682,7 @@ namespace RazorScripts
 
                         var lookupName = Config.ItemColorLookup.GetNameFromSet(intVal, 0);
                         
-                        itemNamesList.Items.Add($"0x{Convert.ToString(intVal, 16)} | 0x{Convert.ToString(0, 16)} | {lookupName ?? string.Empty}");
+                        itemNamesList.Controls.Add(new IdNameControl(new ItemColorIdentifier(intVal, null, lookupName), DeleteRuleData,EditRuleData));
                     }
                     else
                     {
@@ -2638,11 +2700,11 @@ namespace RazorScripts
 
                             var lookupName = Config.ItemColorLookup.GetNameFromSet(intVal,0);
                         
-                            itemNamesList.Items.Add($"0x{Convert.ToString(intVal, 16)} | 0x{Convert.ToString(0, 16)} | {lookupName ?? string.Empty}");
+                            itemNamesList.Controls.Add(new IdNameControl(new ItemColorIdentifier(intVal,null, lookupName), DeleteRuleData,EditRuleData));
                         }
                         catch
                         {
-                            itemNamesList.Items.Add(itemIdAddTextBox.Text);
+                            itemNamesList.Controls.Add(new IdNameControl(itemIdAddTextBox.Text, DeleteRuleData,EditRuleData));
                         }
                         
                     }
@@ -2662,7 +2724,7 @@ namespace RazorScripts
 
                         var lookupName = Config.ItemColorLookup.GetNameFromSet(item.ItemID, item.Hue);
                     
-                        itemNamesList.Items.Add($"0x{Convert.ToString(item.ItemID, 16)} | 0x{Convert.ToString(item.Hue, 16)} | {lookupName ?? string.Empty}");
+                        itemNamesList.Controls.Add(new IdNameControl(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()), DeleteRuleData,EditRuleData));
                     }
                 }
             }
@@ -2676,21 +2738,18 @@ namespace RazorScripts
         {
             var nameList = new List<string>();
             var idList = new List<ItemColorIdentifier>();
-            foreach (var val in itemNamesList.Items.Cast<string>())
+            foreach (var val in itemNamesList.Controls)
             {
-                if (val.StartsWith("0x"))
+                if(val is IdNameControl idcVal)
                 {
-                    var idString = val.Split('|').First().Trim();
-                    var colorString = val.Split('|')[1].Trim();
-                    var name = val.Split('|')[2].Trim();
-                    var parseVal = Convert.ToInt32(idString, 16);
-                    int? colorId = Convert.ToInt32(colorString, 16);
-
-                    idList.Add(new ItemColorIdentifier(parseVal, colorId, name));
-                }
-                else
-                {
-                    nameList.Add(val);
+                    if (idcVal.IsIdColor)
+                    {
+                        idList.Add(idcVal.Get());
+                    }
+                    else
+                    {
+                        nameList.Add(idcVal.GetName());
+                    }
                 }
             }
 
@@ -2709,7 +2768,7 @@ namespace RazorScripts
             var rule = new LootRule
             {
                 RuleName = ruleNameTextBox.Text,
-                EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>().Select(x => (EquipmentSlot)x.Value)
+                EquipmentSlots = equipmentSlotList.Controls.Cast<EquipmentSlotControl>().Select(x => x.Get())
                     .ToList(),
                 MinimumRarity = rarityMinDropDown.SelectedIndex == 0
                     ? null
@@ -2752,8 +2811,8 @@ namespace RazorScripts
             if (ActiveRule != null)
             {
                 ActiveRule.RuleName = rule.RuleName;
-                ActiveRule.EquipmentSlots = eqipmentSlotList.Items.Cast<DropDownItem>()
-                    .Select(x => (EquipmentSlot)x.Value).ToList();
+                ActiveRule.EquipmentSlots = equipmentSlotList.Controls.Cast<EquipmentSlotControl>()
+                    .Select(x => x.Get()).ToList();
                 ActiveRule.MinimumRarity = rarityMinDropDown.SelectedIndex == 0
                     ? null
                     : (ItemRarity?)(rarityMinDropDown.SelectedItem as DropDownItem).Value;
@@ -2965,24 +3024,6 @@ namespace RazorScripts
             catch
             {
                 // ignored
-            }
-        }
-
-        private void deleteSelectedNameMenuItem_Click(object sender, EventArgs e)
-        {
-            var selected = itemNamesList.SelectedItem;
-            if (selected != null)
-            {
-                itemNamesList.Items.Remove(selected);
-            }
-        }
-
-        private void deleteSelectedSlotMenuItem_Click(object sender, EventArgs e)
-        {
-            var selected = eqipmentSlotList.SelectedItem;
-            if (selected != null)
-            {
-                eqipmentSlotList.Items.Remove(selected);
             }
         }
 
@@ -3428,19 +3469,16 @@ namespace RazorScripts
             this.propertiesContainer = new GroupBox();
             this.idAddButton = new Button();
             this.itemIdAddTextBox = new TextBox();
-            this.itemNamesList = new ListBox();
-            this.eqipmentSlotList = new ListBox();
+            this.itemNamesList = new FlowLayoutPanel();
+            this.equipmentSlotList = new FlowLayoutPanel();
             this.propertiesList = new ListBox();
             this.propertyDropDown = new ComboBox();
             this.addPropButton = new Button();
             this.propertyValueTextBox = new TextBox();
             this.label5 = new Label();
-            this.nameDropDownMenu = new ContextMenuStrip(this.components);
             this.slotDropDownMenu = new ContextMenuStrip(this.components);
             this.propertyDropDownMenu = new ContextMenuStrip(this.components);
             this.ruleDropDownMenu = new ContextMenuStrip(this.components);
-            this.deleteSelectedNameMenuItem = new ToolStripMenuItem();
-            this.deleteSelectedSlotMenuItem = new ToolStripMenuItem();
             this.deleteSelectedPropertyMenuItem = new ToolStripMenuItem();
             slotDropDown = new ComboBox();
             slotAddButton = new Button();
@@ -3689,7 +3727,7 @@ namespace RazorScripts
             this.propertiesIgnoreContainer.Controls.Add(this.addPropIgnoreButton);
             this.propertiesIgnoreContainer.Controls.Add(this.propertyIgnoreDropDown);
             this.propertiesIgnoreContainer.Controls.Add(this.propertiesIgnoreList);
-            this.propertiesIgnoreContainer.Location = new System.Drawing.Point(565, 69);
+            this.propertiesIgnoreContainer.Location = new System.Drawing.Point(581, 69);
             this.propertiesIgnoreContainer.Name = "propertiesIgnoreContainer";
             this.propertiesIgnoreContainer.Size = new System.Drawing.Size(198, 357);
             this.propertiesIgnoreContainer.TabIndex = 14;
@@ -3768,7 +3806,7 @@ namespace RazorScripts
             this.propertiesContainer.Controls.Add(this.addPropButton);
             this.propertiesContainer.Controls.Add(this.propertyDropDown);
             this.propertiesContainer.Controls.Add(this.propertiesList);
-            this.propertiesContainer.Location = new System.Drawing.Point(361, 69);
+            this.propertiesContainer.Location = new System.Drawing.Point(377, 69);
             this.propertiesContainer.Name = "propertiesContainer";
             this.propertiesContainer.Size = new System.Drawing.Size(198, 357);
             this.propertiesContainer.TabIndex = 12;
@@ -3840,10 +3878,10 @@ namespace RazorScripts
             // 
             this.slotContainer.Controls.Add(this.slotDropDown);
             this.slotContainer.Controls.Add(this.slotAddButton);
-            this.slotContainer.Controls.Add(this.eqipmentSlotList);
-            this.slotContainer.Location = new System.Drawing.Point(179, 69);
+            this.slotContainer.Controls.Add(this.equipmentSlotList);
+            this.slotContainer.Location = new System.Drawing.Point(195, 69);
             this.slotContainer.Name = "slotContainer";
-            this.slotContainer.Size = new System.Drawing.Size(177, 357);
+            this.slotContainer.Size = new System.Drawing.Size(180, 357);
             this.slotContainer.TabIndex = 11;
             this.slotContainer.TabStop = false;
             this.slotContainer.Text = "Equipment Slots";
@@ -3870,26 +3908,16 @@ namespace RazorScripts
             // 
             // eqipmentSlotList
             // 
-            this.eqipmentSlotList.ContextMenuStrip = this.slotDropDownMenu;
-            this.eqipmentSlotList.DisplayMember = "Name";
-            this.eqipmentSlotList.FormattingEnabled = true;
-            this.eqipmentSlotList.Location = new System.Drawing.Point(5, 48);
-            this.eqipmentSlotList.Name = "eqipmentSlotList";
-            this.eqipmentSlotList.Size = new System.Drawing.Size(163, 303);
-            this.eqipmentSlotList.TabIndex = 4;
+            this.equipmentSlotList.ContextMenuStrip = this.slotDropDownMenu;
+            this.equipmentSlotList.Location = new System.Drawing.Point(5, 48);
+            this.equipmentSlotList.Name = "equipmentSlotList";
+            this.equipmentSlotList.Size = new System.Drawing.Size(163, 303);
+            this.equipmentSlotList.TabIndex = 4;
             // 
             // slotDropDownMenu
             // 
-            this.slotDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.deleteSelectedSlotMenuItem });
             this.slotDropDownMenu.Name = "slotDropDownMenu";
             this.slotDropDownMenu.Size = new System.Drawing.Size(155, 26);
-            // 
-            // deleteSelectedSlotMenuItem
-            // 
-            this.deleteSelectedSlotMenuItem.Name = "deleteSelectedSlotMenuItem";
-            this.deleteSelectedSlotMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.deleteSelectedSlotMenuItem.Text = "Delete Selected";
-            this.deleteSelectedSlotMenuItem.Click += new System.EventHandler(this.deleteSelectedSlotMenuItem_Click);
             // 
             // itemNameContainer
             // 
@@ -3898,32 +3926,18 @@ namespace RazorScripts
             this.itemNameContainer.Controls.Add(this.idAddButton);
             this.itemNameContainer.Location = new System.Drawing.Point(8, 69);
             this.itemNameContainer.Name = "itemNameContainer";
-            this.itemNameContainer.Size = new System.Drawing.Size(165, 357);
+            this.itemNameContainer.Size = new System.Drawing.Size(185, 357);
             this.itemNameContainer.TabIndex = 10;
             this.itemNameContainer.TabStop = false;
             this.itemNameContainer.Text = "Names / Id\'s";
             // 
             // itemNamesList
             // 
-            this.itemNamesList.ContextMenuStrip = this.nameDropDownMenu;
-            this.itemNamesList.FormattingEnabled = true;
             this.itemNamesList.Location = new System.Drawing.Point(5, 48);
             this.itemNamesList.Name = "itemNamesList";
-            this.itemNamesList.Size = new System.Drawing.Size(155, 303);
+            this.itemNamesList.Size = new System.Drawing.Size(175, 303);
             this.itemNamesList.TabIndex = 4;
-            // 
-            // nameDropDownMenu
-            // 
-            this.nameDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.deleteSelectedNameMenuItem });
-            this.nameDropDownMenu.Name = "nameDropDownMenu";
-            this.nameDropDownMenu.Size = new System.Drawing.Size(155, 26);
-            // 
-            // deleteSelectedNameMenuItem
-            // 
-            this.deleteSelectedNameMenuItem.Name = "deleteSelectedNameMenuItem";
-            this.deleteSelectedNameMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.deleteSelectedNameMenuItem.Text = "Delete Selected";
-            this.deleteSelectedNameMenuItem.Click += new System.EventHandler(this.deleteSelectedNameMenuItem_Click);
+            this.itemNamesList.AutoScroll = true;
             // 
             // itemIdAddTextBox
             // 
@@ -4048,7 +4062,6 @@ namespace RazorScripts
             this.slotDropDownMenu.ResumeLayout(false);
             this.itemNameContainer.ResumeLayout(false);
             this.itemNameContainer.PerformLayout();
-            this.nameDropDownMenu.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -4089,8 +4102,8 @@ namespace RazorScripts
         private Button idAddButton;
         private Button slotAddButton;
         private GroupBox itemNameContainer;
-        private ListBox itemNamesList;
-        private ListBox eqipmentSlotList;
+        private FlowLayoutPanel itemNamesList;
+        private FlowLayoutPanel equipmentSlotList;
         private TextBox ruleNameTextBox;
         private Label label2;
         private ComboBox rarityMinDropDown;
@@ -4105,12 +4118,9 @@ namespace RazorScripts
         private Button addPropButton;
         private ComboBox propertyDropDown;
         private ListBox propertiesList;
-        private ContextMenuStrip nameDropDownMenu;
         private ContextMenuStrip slotDropDownMenu;
         private ContextMenuStrip propertyDropDownMenu;
         private ContextMenuStrip ruleDropDownMenu;
-        private ToolStripMenuItem deleteSelectedNameMenuItem;
-        private ToolStripMenuItem deleteSelectedSlotMenuItem;
         private ToolStripMenuItem deleteSelectedPropertyMenuItem;
         private CheckBox alertCheckbox;
         private CheckBox enabledCheckbox;
@@ -4142,6 +4152,200 @@ namespace RazorScripts
                 components.Dispose();
             }
             base.Dispose(disposing);
+        }
+    }
+
+    public class EditRuleItem : Form
+    {
+        
+        private PropertyMatch _propMatch { get; set; }
+        private ItemColorIdentifier _idColor { get; set; }
+        private string _name { get; set; }
+        
+        private TypeObject _typeObject { get; set; }
+        
+        private enum TypeObject
+        {
+            PropertyMatch,
+            ItemColorIdentifier,
+            String
+        }
+        public EditRuleItem(string name)
+        {
+            _name = name;
+            _typeObject = TypeObject.String;
+            InitializeComponent();
+            value1Tb.Text = name;
+            nameLbl.Text = name;
+            value1Lbl.Text = "Name";
+            value2Lbl.Text = "N/A";
+            value2Tb.Enabled = false;
+        }
+
+        public EditRuleItem(ItemColorIdentifier idColor)
+        {
+            _name = idColor.Name;
+            _idColor = new ItemColorIdentifier(idColor.ItemId, idColor.Color, idColor.Name);
+            
+            _typeObject = TypeObject.ItemColorIdentifier;
+            InitializeComponent();
+            value1Tb.Text = $"0x{idColor.ItemId.ToString("X")}";
+            value2Tb.Text = idColor.Color == null ? string.Empty : $"0x{idColor.Color?.ToString("X")}";
+            nameLbl.Text = idColor.Name;
+            value1Lbl.Text = "Item Id";
+            value2Lbl.Text = "Hue";
+        }
+
+        public EditRuleItem(PropertyMatch propMatch)
+        {
+            _propMatch = new PropertyMatch
+            {
+                Property = propMatch.Property,
+                Value = propMatch.Value,
+            };
+            
+            _typeObject = TypeObject.PropertyMatch;
+            InitializeComponent();
+        }
+        
+        
+        
+        public T GetResponse<T>()
+        {
+            if(typeof(T) == typeof(PropertyMatch))
+                return (T)Convert.ChangeType(_propMatch, typeof(T));
+            if(typeof(T) == typeof(ItemColorIdentifier))
+                return (T)Convert.ChangeType(_idColor, typeof(T));
+            if(typeof(T) == typeof(string))
+                return (T)Convert.ChangeType(_name, typeof(T));
+            
+            return default(T);
+        }
+        
+        private void saveButton_Click(object sender, EventArgs e)
+        {
+            switch (_typeObject)
+            {
+                case TypeObject.ItemColorIdentifier:
+                    if (int.TryParse(value1Tb.Text, out int inIdVal))
+                    {
+                        _idColor.ItemId = inIdVal;
+                    }
+                    else
+                    {
+                        var inIdVal2 = Convert.ToInt32(value1Tb.Text , 16);
+                        _idColor.ItemId = inIdVal2;
+                    }
+                    int? saveVal = null;
+                    if (value2Tb.Text.Trim() == string.Empty || value2Tb.Text.Equals("any", StringComparison.OrdinalIgnoreCase))
+                    {
+                        saveVal = null;
+                    }
+                    else if (int.TryParse(value2Tb.Text, out int inHueVal))
+                    {
+                        saveVal = inHueVal;
+                    }
+                    else
+                    {
+                        var inHueVal2 = Convert.ToInt32(value2Tb.Text , 16);
+                        saveVal = inHueVal2;
+                    }
+                    _idColor.Color = saveVal;
+                    break;
+                case TypeObject.String:
+                    _name = value1Tb.Text;
+                    break;
+                default:
+                    break;
+            }
+            
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+        
+        
+        public Button saveButton;
+        public TextBox value1Tb;
+        public TextBox value2Tb;
+        public Label nameLbl;
+        public Label value1Lbl;
+        public Label value2Lbl;
+
+        void InitializeComponent()
+        {
+            value1Tb = new TextBox();
+            value2Tb = new TextBox();
+            nameLbl = new Label();
+            value1Lbl = new Label();
+            value2Lbl = new Label();
+            saveButton = new Button();
+
+            this.SuspendLayout();
+
+            //
+            // nameLbl
+            // 
+            this.nameLbl.Location = new System.Drawing.Point(3, 4);
+            this.nameLbl.Name = "nameLbl";
+            this.nameLbl.Size = new System.Drawing.Size(120, 14);
+            this.nameLbl.TabIndex = 1;
+            //
+            // value1Lbl
+            // 
+            this.value1Lbl.Location = new System.Drawing.Point(3, 28);
+            this.value1Lbl.Name = "value1Lbl";
+            this.value1Lbl.Size = new System.Drawing.Size(50, 14);
+            this.value1Lbl.TabIndex = 1;
+            this.value1Lbl.Text = "Label1";
+            //
+            // value1Tb
+            // 
+            this.value1Tb.Location = new System.Drawing.Point(56, 28);
+            this.value1Tb.Name = "value1Tb";
+            this.value1Tb.Size = new System.Drawing.Size(120, 14);
+            this.value1Tb.TabIndex = 2;
+            this.value1Tb.Enabled = true;
+            //
+            // value2Lbl
+            // 
+            this.value2Lbl.Location = new System.Drawing.Point(3, 52);
+            this.value1Lbl.Name = "value2Lbl";
+            this.value2Lbl.Size = new System.Drawing.Size(120, 14);
+            this.value2Lbl.TabIndex = 3;
+            this.value2Lbl.Text = "Label2";
+            //
+            // value2Tb
+            // 
+            this.value2Tb.Location = new System.Drawing.Point(56, 52);
+            this.value2Tb.Name = "value2Tb";
+            this.value2Tb.Size = new System.Drawing.Size(50, 14);
+            this.value2Tb.TabIndex = 4;
+            //
+            // saveButton
+            // 
+            this.saveButton.Location = new System.Drawing.Point(123, 4);
+            this.saveButton.Name = "saveButton";
+            this.saveButton.Size = new System.Drawing.Size(50, 24);
+            this.saveButton.TabIndex = 5;
+            this.saveButton.Text = "Save";
+            this.saveButton.Click += new System.EventHandler(this.saveButton_Click);
+            //
+            // Form1
+            //
+            this.Controls.Add(this.nameLbl);
+            this.Controls.Add(this.value1Tb);
+            this.Controls.Add(this.value2Tb);
+            this.Controls.Add(this.value1Lbl);
+            this.Controls.Add(this.value2Lbl);
+            this.Controls.Add(this.saveButton);
+            this.Width = 200;
+            this.Height = 120;
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.Text = "Edit value";
+            
+            this.ResumeLayout();
         }
     }
 
@@ -4406,6 +4610,8 @@ namespace RazorScripts
             this.ruleDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.moveUpSelectedRuleMenuItem, this.moveDownSelectedRuleMenuItem, this.deleteSelectedRuleMenuItem });
             this.ruleDropDownMenu.Name = "propertyDropDownMenu";
             this.ruleDropDownMenu.Size = new System.Drawing.Size(155, 70);
+            this.ruleDropDownMenu.Opened += new System.EventHandler(this.ruleDropDownMenu_Opened);
+            this.ruleDropDownMenu.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.ruleDropDownMenu_Closed);
             // 
             // moveUpSelectedRuleMenuItem
             // 
@@ -4442,6 +4648,34 @@ namespace RazorScripts
             this.ResumeLayout(false);
         }
 
+        private void ruleDropDownMenu_Closed(object sender, ToolStripDropDownClosedEventArgs e)
+        {
+            var tp = sender as ContextMenuStrip;
+            var control = tp.SourceControl as Control;
+            if (control is Panel panel)
+            {
+                panel.BorderStyle = BorderStyle.None;
+            }
+            else if(control is Label label)
+            {
+                (label.Parent as Panel).BorderStyle = BorderStyle.None;
+            }
+        }
+
+        private void ruleDropDownMenu_Opened(object sender, EventArgs e)
+        {
+            var tp = sender as ContextMenuStrip;
+            var control = tp.SourceControl as Control;
+            if (control is Panel panel)
+            {
+                panel.BorderStyle = BorderStyle.FixedSingle;
+            }
+            else if(control is Label label)
+            {
+                (label.Parent as Panel).BorderStyle = BorderStyle.FixedSingle;
+            }
+        }
+
         private System.Windows.Forms.Label enabledLbl;
 
         private System.Windows.Forms.ContextMenuStrip ruleDropDownMenu;
@@ -4450,6 +4684,352 @@ namespace RazorScripts
         private System.Windows.Forms.ToolStripMenuItem deleteSelectedRuleMenuItem;
         private System.Windows.Forms.Label ruleNameLbl;
         private System.Windows.Forms.CheckBox checkBox1;
+
+        private System.Windows.Forms.Panel panelMain;
+        private System.Windows.Forms.Panel panelTop;
+
+        #endregion
+    }
+    
+    public partial class IdNameControl : UserControl
+    {
+        private Action<Guid,Type> _deleteAction;
+        private Action<Guid,object> _editAction;
+        private Guid _tempId = Guid.NewGuid();
+        private ItemColorIdentifier _idcolor = null;
+        private string _name;
+        
+        public ItemColorIdentifier Get() => _idcolor;
+        public string GetName() => _name;
+        public bool IsIdColor { get; set; }
+        public Guid UniqueId => _tempId;
+
+
+        public IdNameControl(string name, Action<Guid,Type> deleteAction, Action<Guid,object> editAction)
+        {
+            _name = name;
+            IsIdColor = false;
+            InitializeComponent();
+            idLbl.Text = string.Empty;
+            colorLbl.Text = string.Empty;
+            nameLbl.Text = name;
+            idLbl.Visible = false;
+            colorLbl.Visible = false;
+            _deleteAction = deleteAction;
+            _editAction = editAction;
+        }
+        public IdNameControl(ItemColorIdentifier idcolor, Action<Guid,Type> deleteAction, Action<Guid,object> editAction)
+        {
+            _idcolor = idcolor;
+            IsIdColor = true;
+            _deleteAction = deleteAction;
+            _editAction = editAction;
+            _name = idcolor.Name;
+            InitializeComponent();
+            idLbl.Text = string.Format("0x{0:X}", idcolor.ItemId);
+            colorLbl.Text = idcolor.Color != null ? string.Format("0x{0:X}", idcolor.Color) : "ANY";
+            nameLbl.Text = idcolor.Name;
+        }
+
+        private void editBtn_Click(object sender, EventArgs e)
+        {
+            if(IsIdColor)
+                _editAction(_tempId,_idcolor);
+            else
+                _editAction(_tempId,_name);
+        }
+
+        private void deleteBtn_Click(object sender, EventArgs e)
+        {
+            _deleteAction(_tempId, IsIdColor ? typeof(ItemColorIdentifier) : typeof(string));
+        }
+        
+        
+        //Designer items
+        private IContainer components = null;
+
+        /// <summary> 
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        #region Component Designer generated code
+
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.components = new System.ComponentModel.Container();
+            this.panelMain = new System.Windows.Forms.Panel();
+            this.panelTop = new System.Windows.Forms.Panel();
+            this.idLbl = new System.Windows.Forms.Label();
+            this.colorLbl = new System.Windows.Forms.Label();
+            this.nameLbl = new System.Windows.Forms.Label();
+            this.editBtn = new System.Windows.Forms.Button();
+            this.deleteBtn = new System.Windows.Forms.Button();
+            this.panelMain.SuspendLayout();
+            this.SuspendLayout();
+            // 
+            // panelMain
+            // 
+            this.panelMain.Controls.Add(this.idLbl);
+            this.panelMain.Controls.Add(this.colorLbl);
+            this.panelMain.Controls.Add(this.nameLbl);
+            this.panelMain.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelMain.Location = new System.Drawing.Point(0, 0);
+            this.panelMain.Name = "panelMain";
+            this.panelMain.Size = new System.Drawing.Size(155, 36);
+            this.panelMain.TabIndex = 0;
+            // 
+            // panelTop
+            // 
+            this.panelTop.Controls.Add(this.idLbl);
+            this.panelTop.Controls.Add(this.colorLbl);
+            this.panelTop.Controls.Add(this.nameLbl);
+            this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelTop.Location = new System.Drawing.Point(0, 0);
+            this.panelTop.Name = "panelTop";
+            this.panelTop.Size = new System.Drawing.Size(155, 1);
+            this.panelTop.TabIndex = 0;
+            this.panelTop.BackColor = SystemColors.ControlDark;
+            // 
+            // panelMain
+            // 
+            this.panelMain.Controls.Add(this.idLbl);
+            this.panelMain.Controls.Add(this.colorLbl);
+            this.panelMain.Controls.Add(this.nameLbl);
+            this.panelMain.Controls.Add(this.editBtn);
+            this.panelMain.Controls.Add(this.deleteBtn);
+            this.panelMain.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.panelMain.Location = new System.Drawing.Point(1, 0);
+            this.panelMain.Name = "panelMain";
+            this.panelMain.Size = new System.Drawing.Size(157, 35);
+            this.panelMain.TabIndex = 0;
+            // 
+            // idLbl
+            // 
+            this.idLbl.Location = new System.Drawing.Point(3, 20);
+            this.idLbl.Name = "idLbl";
+            this.idLbl.Size = new System.Drawing.Size(55, 14);
+            this.idLbl.TabIndex = 2;
+            this.idLbl.Text = "label1";
+            this.idLbl.BorderStyle = BorderStyle.FixedSingle;
+            // 
+            // colorLbl
+            // 
+            this.colorLbl.Location = new System.Drawing.Point(60, 20);
+            this.colorLbl.Name = "colorLbl";
+            this.colorLbl.Size = new System.Drawing.Size(55, 14);
+            this.colorLbl.TabIndex = 2;
+            this.colorLbl.Text = "label1";
+            this.colorLbl.BorderStyle = BorderStyle.FixedSingle;
+            // 
+            // nameLbl
+            // 
+            this.nameLbl.Location = new System.Drawing.Point(3, 4);
+            this.nameLbl.Name = "nameLbl";
+            this.nameLbl.Size = new System.Drawing.Size(110, 14);
+            this.nameLbl.TabIndex = 2;
+            this.nameLbl.Text = "label1";
+            // 
+            // editBtn
+            // 
+            this.editBtn.Location = new System.Drawing.Point(115, 2);
+            this.editBtn.Name = "editBtn";
+            this.editBtn.Size = new System.Drawing.Size(18, 18);
+            this.editBtn.TabIndex = 2;
+            this.editBtn.Text = "/";
+            this.editBtn.ForeColor = Color.DarkOrange;
+            this.editBtn.Padding = Padding.Empty;
+            this.editBtn.Margin = Padding.Empty;
+            this.editBtn.Click += new System.EventHandler(this.editBtn_Click);
+            // 
+            // deleteBtn
+            // 
+            this.deleteBtn.Location = new System.Drawing.Point(135, 2);
+            this.deleteBtn.Name = "deleteBtn";
+            this.deleteBtn.Size = new System.Drawing.Size(18, 18);
+            this.deleteBtn.TabIndex = 2;
+            this.deleteBtn.Text = "X";
+            this.deleteBtn.ForeColor = Color.Red;
+            this.deleteBtn.Padding = Padding.Empty;
+            this.deleteBtn.Margin = Padding.Empty;
+            this.deleteBtn.Click += new System.EventHandler(this.deleteBtn_Click);
+            // 
+            // idControl
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.panelTop);
+            this.Controls.Add(this.panelMain);
+            this.Name = "RuleController";
+            this.Size = new System.Drawing.Size(157, 36);
+            this.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.Margin = new System.Windows.Forms.Padding(0);
+            this.panelMain.ResumeLayout(false);
+            this.ResumeLayout(false);
+        }
+
+        private System.Windows.Forms.Label idLbl;
+        private System.Windows.Forms.Label colorLbl;
+        private System.Windows.Forms.Label nameLbl;
+        private System.Windows.Forms.Button editBtn;
+        private System.Windows.Forms.Button deleteBtn;
+
+        private System.Windows.Forms.Panel panelMain;
+        private System.Windows.Forms.Panel panelTop;
+
+        #endregion
+    }
+    
+    public partial class EquipmentSlotControl : UserControl
+    {
+        private Action<Guid,Type> _deleteAction;
+        private Guid _tempId = Guid.NewGuid();
+        private EquipmentSlot _slot;
+        public EquipmentSlot Get() => _slot;
+        public string GetName() => _slot.ToString();
+        public Guid UniqueId => _tempId;
+
+        
+        public EquipmentSlotControl(string slot, Action<Guid,Type> deleteAction)
+        {
+            if (Enum.TryParse(slot, out EquipmentSlot enumSlot))
+            {
+                InitializeComponent();
+                nameLbl.Text = slot;
+                _slot = enumSlot;
+                _deleteAction = deleteAction;
+            }
+            else
+            {
+                throw new Exception();
+            }
+        }
+
+        public EquipmentSlotControl(EquipmentSlot slot, Action<Guid,Type> deleteAction)
+        {
+            InitializeComponent();
+            nameLbl.Text = slot.ToString();
+            _slot = slot;
+            _deleteAction = deleteAction;
+        }
+
+        private void deleteBtn_Click(object sender, EventArgs e)
+        {
+            _deleteAction(_tempId, typeof(EquipmentSlot));
+        }
+        
+        
+        //Designer items
+        private IContainer components = null;
+
+        /// <summary> 
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        #region Component Designer generated code
+
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.components = new System.ComponentModel.Container();
+            this.panelMain = new System.Windows.Forms.Panel();
+            this.panelTop = new System.Windows.Forms.Panel();
+            this.nameLbl = new System.Windows.Forms.Label();
+            this.deleteBtn = new System.Windows.Forms.Button();
+            this.panelMain.SuspendLayout();
+            this.SuspendLayout();
+            // 
+            // panelMain
+            // 
+            this.panelMain.Controls.Add(this.nameLbl);
+            this.panelMain.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelMain.Location = new System.Drawing.Point(0, 0);
+            this.panelMain.Name = "panelMain";
+            this.panelMain.Size = new System.Drawing.Size(155, 36);
+            this.panelMain.TabIndex = 0;
+            // 
+            // panelTop
+            // 
+            this.panelTop.Controls.Add(this.nameLbl);
+            this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelTop.Location = new System.Drawing.Point(0, 0);
+            this.panelTop.Name = "panelTop";
+            this.panelTop.Size = new System.Drawing.Size(155, 1);
+            this.panelTop.TabIndex = 0;
+            this.panelTop.BackColor = SystemColors.ControlDark;
+            // 
+            // panelMain
+            // 
+            this.panelMain.Controls.Add(this.nameLbl);
+            this.panelMain.Controls.Add(this.deleteBtn);
+            this.panelMain.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.panelMain.Location = new System.Drawing.Point(1, 0);
+            this.panelMain.Name = "panelMain";
+            this.panelMain.Size = new System.Drawing.Size(157, 23);
+            this.panelMain.TabIndex = 0;
+            // 
+            // nameLbl
+            // 
+            this.nameLbl.Location = new System.Drawing.Point(3, 4);
+            this.nameLbl.Name = "nameLbl";
+            this.nameLbl.Size = new System.Drawing.Size(110, 14);
+            this.nameLbl.TabIndex = 2;
+            this.nameLbl.Text = "label1";
+            // 
+            // deleteBtn
+            // 
+            this.deleteBtn.Location = new System.Drawing.Point(135, 2);
+            this.deleteBtn.Name = "deleteBtn";
+            this.deleteBtn.Size = new System.Drawing.Size(18, 18);
+            this.deleteBtn.TabIndex = 2;
+            this.deleteBtn.Text = "X";
+            this.deleteBtn.ForeColor = Color.Red;
+            this.deleteBtn.Padding = Padding.Empty;
+            this.deleteBtn.Margin = Padding.Empty;
+            this.deleteBtn.Click += new System.EventHandler(this.deleteBtn_Click);
+            // 
+            // EquipmentSlotControl
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.panelTop);
+            this.Controls.Add(this.panelMain);
+            this.Name = "RuleController";
+            this.Size = new System.Drawing.Size(157, 24);
+            this.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.Margin = new System.Windows.Forms.Padding(0);
+            this.panelMain.ResumeLayout(false);
+            this.ResumeLayout(false);
+        }
+
+        private System.Windows.Forms.Label nameLbl;
+        private System.Windows.Forms.Button deleteBtn;
 
         private System.Windows.Forms.Panel panelMain;
         private System.Windows.Forms.Panel panelTop;
