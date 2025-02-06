@@ -17,7 +17,7 @@ namespace RazorScripts
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.8.1";
+        private readonly string _version = "v1.8.2";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -2937,6 +2937,7 @@ namespace RazorScripts
                 ActiveRule.RegExString = string.IsNullOrEmpty(regExTextBox.Text) ? null : regExTextBox.Text;
                 
                 //Replace rule with sameID with updated activeRule
+                var existing = Config.GetCharacter().Rules;
                 var ruleIndex = Config.GetCharacter().Rules.IndexOf(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
                 Config.GetCharacter().Rules.Remove(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
                 Config.GetCharacter().Rules.Insert(ruleIndex,ActiveRule);
@@ -3025,6 +3026,7 @@ namespace RazorScripts
             }
             
             LootRule rule = presetDropDown.SelectedItem as LootRule;
+            rule.Id = ActiveRule?.Id ?? Guid.NewGuid();
             LoadRule(rule);
         }
         
