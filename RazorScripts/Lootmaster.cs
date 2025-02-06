@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Management.Instrumentation;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -19,7 +17,7 @@ namespace RazorScripts
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.8.0";
+        private readonly string _version = "v1.8.1";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
