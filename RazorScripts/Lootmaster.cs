@@ -17,7 +17,7 @@ namespace RazorScripts
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.8.2";
+        private readonly string _version = "v1.8.3";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -2941,7 +2941,7 @@ namespace RazorScripts
                 var ruleIndex = Config.GetCharacter().Rules.IndexOf(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
                 Config.GetCharacter().Rules.Remove(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
                 Config.GetCharacter().Rules.Insert(ruleIndex,ActiveRule);
-
+                
                 foreach (var ctr in rulesList.Controls)
                 {
                     if (ctr is RuleController ruleController)
@@ -3027,6 +3027,8 @@ namespace RazorScripts
             
             LootRule rule = presetDropDown.SelectedItem as LootRule;
             rule.Id = ActiveRule?.Id ?? Guid.NewGuid();
+            rule.TargetBag = ActiveRule?.TargetBag;
+            rulesList.Controls.Cast<RuleController>().ToList().First( l => l.RuleId == rule.Id).SetRule(rule);
             LoadRule(rule);
         }
         
@@ -4554,6 +4556,7 @@ namespace RazorScripts
         public bool IsSelected => checkBox1.Checked;
         public Guid RuleId => _rule.Id;
         public LootRule GetRule() => _rule;
+        public void SetRule(LootRule rule) => _rule = rule;
         
         
         private bool _isEnabled = false;
