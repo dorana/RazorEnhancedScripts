@@ -17,7 +17,7 @@ namespace RazorScripts
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.8.3";
+        private readonly string _version = "v1.8.4";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -3712,7 +3712,7 @@ namespace RazorScripts
             this.listContainer.Controls.Add(this.clearTargetBagButton);
             this.listContainer.Location = new System.Drawing.Point(10, 31);
             this.listContainer.Name = "listContainer";
-            this.listContainer.Size = new System.Drawing.Size(160, 483);
+            this.listContainer.Size = new System.Drawing.Size(170, 483);
             this.listContainer.TabIndex = 2;
             this.listContainer.TabStop = false;
             this.listContainer.Text = "Current Rules";
@@ -3723,8 +3723,11 @@ namespace RazorScripts
             this.rulesList.Dock = System.Windows.Forms.DockStyle.Top;
             this.rulesList.Location = new System.Drawing.Point(3, 16);
             this.rulesList.Name = "rulesList";
-            this.rulesList.Size = new System.Drawing.Size(156, 371);
+            this.rulesList.Size = new System.Drawing.Size(166, 371);
             this.rulesList.TabIndex = 0;
+            this.rulesList.VerticalScroll.Enabled = true;
+            this.rulesList.VerticalScroll.Visible = true;
+            this.rulesList.AutoScroll = true;
             // 
             // ruleUpButton
             // 
