@@ -16,7 +16,19 @@ namespace RazorScripts
         Dictionary<int,DateTime> _timers = new Dictionary<int, DateTime>();
         System.Timers.Timer _timer = new System.Timers.Timer(5000);
         private Target _target = new Target();
-        private string _version = "1.2.1";
+        private string _version = "1.3.0";
+        Journal _journal = new Journal();
+        private Journal.JournalEntry _lastJournalEntry = null;
+
+        private List<string> _summonBenefitSpells = new List<string>
+        {
+            "In Mani",
+            "In Vas Mani",
+            "In Vas Mani Hur",
+            "An Nox",
+            "Olorisstra",
+            "Rel Sanct"
+        };
 
         public void Run()
         {
@@ -88,8 +100,32 @@ namespace RazorScripts
                                 reply.buttonid = -1;
                                 break;
                             default:
-                                UpdateGump();
+                                if (Target.HasTarget())
+                                {
+                                    var lines = _journal.GetJournalEntry(_lastJournalEntry).OrderBy(j => j.Timestamp).ToList();
+                                    if (lines.Any())
+                                    {
+                                        var lastSpell = lines.LastOrDefault(l =>
+                                            l.Type.Equals("Spell", StringComparison.InvariantCultureIgnoreCase) &&
+                                            l.Name.Equals(Player.Name, StringComparison.InvariantCultureIgnoreCase));
+                                        if (lastSpell != null)
+                                        {
+                                            if (_summonBenefitSpells.Any(word =>
+                                                    lastSpell.Text.Equals(word,
+                                                        StringComparison.InvariantCultureIgnoreCase)))
+                                            {
+                                                Target.TargetExecute(reply.buttonid);
+                                                UpdateGump();
+                                                reply.buttonid = -1;
+                                                _lastJournalEntry = lines.Last();
+                                                break;
+                                            }
+                                        }
+                                        _lastJournalEntry = lines.Last();
+                                    }
+                                }
                                 ReleaseSummon(reply.buttonid);
+                                UpdateGump();
                                 reply.buttonid = -1;
                                 break;
                         }
@@ -147,7 +183,6 @@ namespace RazorScripts
                             Properties = s.Properties.ToList()
                         }));
                     }
-
                     Misc.Pause(500);
                 }
             }
