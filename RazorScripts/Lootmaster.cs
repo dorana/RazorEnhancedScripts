@@ -1594,7 +1594,7 @@ namespace RazorScripts
                             func.Invoke(type, BindingFlags.InvokeMethod, null, new object[] { data }, null) as
                                 LootMasterConfig;
 
-                        if (!Handler.ValidateVersion(readConfig.Version, version))
+                        if (!Handler.ValidateVersion(readConfig?.Version, version))
                         {
                             Handler.SendMessage(MessageType.Critical,
                                 "Lootmaster config is newer than script, please update");
@@ -2372,6 +2372,12 @@ namespace RazorScripts
 
         public static bool ValidateVersion(string readConfigVersion, string scriptVersion)
         {
+            if(string.IsNullOrEmpty(readConfigVersion))
+            {
+                //Read Config has no known version, the means it's either older or nonexisting
+                return true;
+            }
+            
             var svStrip = scriptVersion.Replace("v", "");
             var rvStrip = readConfigVersion.Replace("v", "");
             //split version into parts
