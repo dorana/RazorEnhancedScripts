@@ -16,7 +16,7 @@ namespace RazorScripts
         Dictionary<int,DateTime> _timers = new Dictionary<int, DateTime>();
         System.Timers.Timer _timer = new System.Timers.Timer(5000);
         private Target _target = new Target();
-        private string _version = "1.2.0";
+        private string _version = "1.2.1";
 
         public void Run()
         {
@@ -267,6 +267,24 @@ namespace RazorScripts
             foreach (var sum in Summons)
             {
                 var index = Summons.IndexOf(sum) + 1;
+                
+                
+                var healthFraction = (double)sum.Hits / sum.HitsMax;
+                var healthVal = (int)Math.Floor(healthFraction * 44);
+                Gumps.AddImageTiled(ref sumGump, index*60-48,30,8,44,9740);
+                if(sum.Poisoned)
+                {
+                    Gumps.AddImageTiled(ref sumGump, index*60-48,74-healthVal,8,healthVal,9742);
+                }
+                else if(sum.YellowHits)
+                {
+                    Gumps.AddImageTiled(ref sumGump, index*60-48,74-healthVal,8,healthVal,9743);
+                }
+                else
+                {
+                    Gumps.AddImageTiled(ref sumGump, index*60-48,74-healthVal,8,healthVal,9741);
+                }
+                
                 Gumps.AddButton(ref sumGump,index*60-40,30,GetGumpKey(sum),GetGumpKey(sum),sum.Serial,1,1);
                 Gumps.AddTooltip(ref sumGump,"Release " + sum.Name);
                 if (sum.Properties.Any(p => p.Number == 1080078))
