@@ -16,7 +16,7 @@ namespace RazorScripts
         Dictionary<int,DateTime> _timers = new Dictionary<int, DateTime>();
         System.Timers.Timer _timer = new System.Timers.Timer(5000);
         private Target _target = new Target();
-        private string _version = "1.3.0";
+        private string _version = "1.3.1";
         Journal _journal = new Journal();
         private Journal.JournalEntry _lastJournalEntry = null;
 
@@ -25,6 +25,7 @@ namespace RazorScripts
             "In Mani",
             "In Vas Mani",
             "In Vas Mani Hur",
+            "Vas An Nox",
             "An Nox",
             "Olorisstra",
             "Rel Sanct"
