@@ -16,7 +16,7 @@ namespace RazorScripts
         Dictionary<int,DateTime> _timers = new Dictionary<int, DateTime>();
         System.Timers.Timer _timer = new System.Timers.Timer(5000);
         private Target _target = new Target();
-        private string _version = "1.3.1";
+        private string _version = "1.3.2";
         Journal _journal = new Journal();
         private Journal.JournalEntry _lastJournalEntry = null;
 
@@ -346,8 +346,8 @@ namespace RazorScripts
             Gumps.AddLabel(ref sumGump, 355,40,0x6D,"Release");
             Gumps.AddLabel(ref sumGump, 355,70,0x35,"Guard");
             
-            Gumps.AddLabel(ref sumGump,290,95,0x7b, "Summon Master");
-            Gumps.AddLabel(ref sumGump,393,95,0x7b, "Version: " + _version);
+            Gumps.AddLabel(ref sumGump,340,95,0x7b, "SummonMaster");
+            Gumps.AddLabel(ref sumGump,440,95,0x7b, _version);
             
             Gumps.CloseGump(Gumpid);
             Gumps.SendGump(sumGump,500,500);
