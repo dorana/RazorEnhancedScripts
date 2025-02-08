@@ -1442,6 +1442,13 @@ namespace RazorScripts
                         var stringVal = prop.ToString().Replace("%", "").Replace("+","");
                         var reMatch = re.Match(stringVal);
                         var numIndex = reMatch.Success ? reMatch.Index : stringVal.Length;
+                        
+                        //Handle case of negative values
+                        if(stringVal.Length > 1 && stringVal[numIndex-1] == '-')
+                        {
+                            numIndex--;
+                        }
+                        
                         if (checkProps.Any(propString => propString.Equals(stringVal.Substring(0, numIndex).Trim(), StringComparison.InvariantCultureIgnoreCase)))
                         {
                             var numstring = stringVal.Substring(numIndex);
