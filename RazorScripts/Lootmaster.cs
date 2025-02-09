@@ -17,7 +17,7 @@ namespace RazorScripts
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.8.5";
+        private readonly string _version = "v1.8.6";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -863,6 +863,10 @@ namespace RazorScripts
             Misc.RemoveSharedValue("LootmasterDirectContainer");
             
             _player = Mobiles.FindBySerial(Player.Serial);
+            if (_config.BaseDelay > 0)
+            {
+                _lootDelay = _config.BaseDelay;
+            }
 
             Misc.RemoveSharedValue("Lootmaster:ReconfigureBags");
 
@@ -935,16 +939,16 @@ namespace RazorScripts
 
         public Guid Id { get; set; }
         public string RuleName { get; set; }
-        public List<string> ItemNames { get; set; }
-        public List<EquipmentSlot> EquipmentSlots { get; set; }
-        public List<PropertyMatch> Properties { get; set; }
+        public List<string> ItemNames { get; set; } = new List<string>();
+        public List<EquipmentSlot> EquipmentSlots { get; set; } = new List<EquipmentSlot>();
+        public List<PropertyMatch> Properties { get; set; } = new List<PropertyMatch>();
         public ItemRarity? MinimumRarity { get; set; }
         public ItemRarity? MaximumRarity { get; set; }
         public int? MaxWeight { get; set; }
         public bool IgnoreWeightCurse { get; set; }
-        public List<ItemColorIdentifier> ItemColorIds { get; set; }
+        public List<ItemColorIdentifier> ItemColorIds { get; set; } = new List<ItemColorIdentifier>();
         public List<int> ItemIds { get; set; }
-        public List<PropertyMatch> BlackListedProperties { get; set; }
+        public List<PropertyMatch> BlackListedProperties { get; set; } = new List<PropertyMatch>();
 
         public bool Alert { get; set; }
 
@@ -2926,7 +2930,9 @@ namespace RazorScripts
                 return Guid.Empty;
             }
 
-            if (ActiveRule != null)
+            var ruleIndex = Config.GetCharacter().Rules.IndexOf(Config.GetCharacter().Rules.FirstOrDefault(x => x.Id == ActiveRule.Id));
+            
+            if (ActiveRule != null && ruleIndex != -1)
             {
                 ActiveRule.RuleName = rule.RuleName;
                 ActiveRule.EquipmentSlots = equipmentSlotList.Controls.Cast<EquipmentSlotControl>()
@@ -2951,7 +2957,7 @@ namespace RazorScripts
                 
                 //Replace rule with sameID with updated activeRule
                 var existing = Config.GetCharacter().Rules;
-                var ruleIndex = Config.GetCharacter().Rules.IndexOf(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
+                
                 Config.GetCharacter().Rules.Remove(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
                 Config.GetCharacter().Rules.Insert(ruleIndex,ActiveRule);
                 
@@ -3039,9 +3045,13 @@ namespace RazorScripts
             }
             
             LootRule rule = presetDropDown.SelectedItem as LootRule;
-            rule.Id = ActiveRule?.Id ?? Guid.NewGuid();
-            rule.TargetBag = ActiveRule?.TargetBag;
-            rulesList.Controls.Cast<RuleController>().ToList().First( l => l.RuleId == rule.Id).SetRule(rule);
+            if (ActiveRule != null && ActiveRule.Id != Guid.NewGuid())
+            {
+                rule.Id = ActiveRule?.Id ?? Guid.NewGuid();
+                rule.TargetBag = ActiveRule?.TargetBag;
+                rulesList.Controls.Cast<RuleController>().ToList().FirstOrDefault(l => l.RuleId == rule.Id)?.SetRule(rule);
+            }
+
             LoadRule(rule);
         }
         
