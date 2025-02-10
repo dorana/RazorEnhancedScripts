@@ -1451,15 +1451,9 @@ namespace RazorScripts
                         var reMatch = re.Match(stringVal);
                         var numIndex = reMatch.Success ? reMatch.Index : stringVal.Length;
                         
-                        //Handle case of negative values
-                        if(stringVal.Length > 1 && reMatch.Success && numIndex != 0 && stringVal[numIndex-1] == '-')
-                        {
-                            numIndex--;
-                        }
-                        
                         if (checkProps.Any(propString => propString.Equals(stringVal.Substring(0, numIndex).Trim(), StringComparison.InvariantCultureIgnoreCase)))
                         {
-                            var numstring = stringVal.Substring(numIndex);
+                            var numstring = prop.Args;
                             int.TryParse(numstring, out var parseValue);
                             if (ruleProp.Value == null || parseValue >= ruleProp.Value || !reMatch.Success)
                             {
@@ -1479,7 +1473,7 @@ namespace RazorScripts
                         var propString = Handler.ResolvePropertyName(ruleProp.Property);
                         if (propString.Equals(stringVal.Substring(0, numIndex).Trim(), StringComparison.InvariantCultureIgnoreCase))
                         {
-                            var numstring = stringVal.Substring(numIndex);
+                            var numstring = prop.Args;
                             int.TryParse(numstring, out var parseValue);
                             if (ruleProp.Value == null || parseValue >= ruleProp.Value || !reMatch.Success)
                             {
