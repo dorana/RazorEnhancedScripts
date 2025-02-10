@@ -247,7 +247,7 @@ namespace RazorScripts
                     Gumps.AddImageTiled(ref sumGump, index * 60 - 48, 74 - healthVal, 8, healthVal, 9741);
                 }
 
-                if (Mobiles.ContextExists(sum,"Release"))
+                if (Misc.WaitForContext(sum,500).Any())
                 {
                     Gumps.AddButton(ref sumGump, index * 60 - 40, 30, GetGumpKey(sum), GetGumpKey(sum), sum.Serial, 1, 1);
                 }
