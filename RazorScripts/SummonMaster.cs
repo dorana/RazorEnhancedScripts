@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using RazorEnhanced;
 using Mobile = RazorEnhanced.Mobile;
 
@@ -9,6 +10,7 @@ namespace RazorScripts
 {
     public class SummonMaster
     {
+        private bool _compactMode = true;
         private uint Gumpid = 98413566;
         private List<Mobile> Summons = new List<Mobile>();
         private List<MockMob> LastLoop = new List<MockMob>();
@@ -16,7 +18,7 @@ namespace RazorScripts
         Dictionary<int,DateTime> _timers = new Dictionary<int, DateTime>();
         System.Timers.Timer _timer = new System.Timers.Timer(5000);
         private Target _target = new Target();
-        private string _version = "1.3.3";
+        private string _version = "1.3.4";
         Journal _journal = new Journal();
         private Journal.JournalEntry _lastJournalEntry = null;
 
@@ -53,7 +55,7 @@ namespace RazorScripts
                     }).ToList();
                     
                     runMobs.ForEach(m => Mobiles.WaitForProps(m, 1000));
-                    var runSums = runMobs.Where(m => m.Properties.Any(p => p.Number == 1049646)).ToList();
+                    var runSums = runMobs.Where(m => m.Properties.Any(p => p.Number == (int)PropertyNumber.Summoned)).ToList();
                     var mySumms = FilterMySummons(runSums);
                     Summons = mySumms;
                     foreach (var summon in Summons)
@@ -85,6 +87,11 @@ namespace RazorScripts
                             case SumReply.Release:
                                 UpdateGump();
                                 ReleaseAll();
+                                reply.buttonid = -1;
+                                break;
+                            case SumReply.Follow:
+                                UpdateGump();
+                                Follow();
                                 reply.buttonid = -1;
                                 break;
                             case SumReply.Attack:
@@ -218,69 +225,66 @@ namespace RazorScripts
             return result;
         }
 
-        private void GuardMode()
+        private Task GuardMode()
         {
             foreach (var mob in Summons)
             {
-                Mobiles.WaitForProps(mob,1000);
-                var sumProp = mob.Properties.FirstOrDefault(p => p.Number == 1049646);
-                if (sumProp == null || !sumProp.ToString().Contains("summoned")) continue;
                 Misc.WaitForContext(mob, 500);
                 Misc.ContextReply(mob, 2);
-                var timeprop = mob.Properties.FirstOrDefault(p => p.Number == 1060847);
+                var timeprop = mob.Properties.FirstOrDefault(p => p.Number == (int)PropertyNumber.TimeRemaining);
                 if(timeprop != null)
                 {
-                    var parts = timeprop.Args.Split('\t')[1].Split(':');
-                    if (parts.Length == 2)
+                    var propString = timeprop.Args.Split('\t');
+                    if(propString.Length >= 2)
                     {
-                        var time = DateTime.Now.AddMinutes(int.Parse(parts[0])).AddSeconds(int.Parse(parts[1]));
-                        _timers[mob.Serial] = time;
+                        var parts = propString[1].Split(':');
+                        if (parts.Length == 2)
+                        {
+                            var time = DateTime.Now.AddMinutes(int.Parse(parts[0])).AddSeconds(int.Parse(parts[1]));
+                            _timers[mob.Serial] = time;
+                        }
                     }
+                    
                 }
             }
+            
+            return Task.CompletedTask;
         }
 
-        private void ReleaseAll()
+        private Task Follow()
         {
-            var filter = new Mobiles.Filter
+            foreach (var mob in Summons)
             {
-                RangeMax = 20,
-                RangeMin = 0,
-                Notorieties = new List<byte> { 1, 2 }
-            };
-
-            var mobs = Mobiles.ApplyFilter(filter);
-            foreach (var mob in mobs)
-            {
-                Mobiles.WaitForProps(mob,1000);
-                if (mob.Properties.Any(p => p.Number == 1049646))
-                {
-                    ReleaseSummon(mob.Serial);    
-                }
+                Misc.WaitForContext(mob, 500);
+                Misc.ContextReply(mob, 1);
+                Target.WaitForTarget(1000);
+                Target.TargetExecute(Player.Serial);
             }
+
+            return Task.CompletedTask;
+        }
+
+        private Task ReleaseAll()
+        {
+            foreach (var mob in Summons)
+            {
+                ReleaseSummon(mob.Serial);
+            }
+            
+            return Task.CompletedTask;
         }
         
-        private void Attack(Mobile target)
+        private Task Attack(Mobile target)
         {
-            var filter = new Mobiles.Filter
+            foreach (var mob in Summons)
             {
-                RangeMax = 20,
-                RangeMin = 0,
-                Notorieties = new List<byte> { 1, 2 }
-            };
-
-            var mobs = Mobiles.ApplyFilter(filter);
-            foreach (var mob in mobs)
-            {
-                Mobiles.WaitForProps(mob,1000);
-                if (mob.Properties.Any(p => p.Number == 1049646))
-                {
-                    Misc.WaitForContext(mob, 500);
-                    Misc.ContextReply(mob, 0);
-                    Target.WaitForTarget(1000);
-                    Target.TargetExecute(target);
-                }
+                Misc.WaitForContext(mob, 500);
+                Misc.ContextReply(mob, 0);
+                Target.WaitForTarget(1000);
+                Target.TargetExecute(target);
             }
+            
+            return Task.CompletedTask;
         }
 
         private void ReleaseSummon(int serial)
@@ -296,9 +300,10 @@ namespace RazorScripts
         private void UpdateGump()
         {
             var sumGump = Gumps.CreateGump();
+            var width = (_compactMode ? (Summons.Count * 58) + 100 : 480);
             sumGump.gumpId = Gumpid;
             sumGump.serial = (uint)Player.Serial;
-            Gumps.AddBackground(ref sumGump,0,0,480,120,1755);
+            Gumps.AddBackground(ref sumGump,0,0, width,140,1755);
 
             foreach (var sum in Summons)
             {
@@ -323,7 +328,7 @@ namespace RazorScripts
                 
                 Gumps.AddButton(ref sumGump,index*60-40,30,GetGumpKey(sum),GetGumpKey(sum),sum.Serial,1,1);
                 Gumps.AddTooltip(ref sumGump,"Release " + sum.Name);
-                if (sum.Properties.Any(p => p.Number == 1080078))
+                if (sum.Properties.Any(p => p.Number == (int)PropertyNumber.Guarding))
                 {
                     Gumps.AddLabel(ref sumGump, index*60-40+5,75,0x35,"Guard");
                 }
@@ -339,50 +344,77 @@ namespace RazorScripts
                 }
             }
             
-            Gumps.AddButton(ref sumGump, 330,10,9903,9904,(int)SumReply.Attack,1,0);
-            Gumps.AddButton(ref sumGump, 330,40,9903,9904,(int)SumReply.Release,1,0);
-            Gumps.AddButton(ref sumGump, 330,70,9903,9904,(int)SumReply.Guard,1,0);
-            Gumps.AddLabel(ref sumGump, 355,10,0x30,"Attack");
-            Gumps.AddLabel(ref sumGump, 355,40,0x6D,"Release");
-            Gumps.AddLabel(ref sumGump, 355,70,0x35,"Guard");
-            
-            Gumps.AddLabel(ref sumGump,340,95,0x7b, "SummonMaster");
-            Gumps.AddLabel(ref sumGump,440,95,0x7b, _version);
-            
+            Gumps.AddButton(ref sumGump, width - 80, 10, 9903, 9904, (int)SumReply.Attack, 1, 0);
+            Gumps.AddButton(ref sumGump, width - 80, 40, 9903, 9904, (int)SumReply.Release, 1, 0);
+            Gumps.AddButton(ref sumGump, width - 80, 70, 9903, 9904, (int)SumReply.Guard, 1, 0);
+            Gumps.AddButton(ref sumGump, width - 80, 100, 9903, 9904, (int)SumReply.Follow, 1, 0);
+            Gumps.AddLabel(ref sumGump, width - 60, 10, 0x30, "Attack");
+            Gumps.AddLabel(ref sumGump, width - 60, 40, 0x6D, "Release");
+            Gumps.AddLabel(ref sumGump, width - 60, 70, 0x35, "Guard");
+            Gumps.AddLabel(ref sumGump, width - 60, 100, 0x55, "Follow");
+
+            if (!_compactMode || Summons.Count >= 2)
+            {
+                Gumps.AddLabel(ref sumGump, 15, 115, 0x7b, "SummonMaster");
+                Gumps.AddLabel(ref sumGump, 100, 115, 0x7b, _version);
+            }
+
             Gumps.CloseGump(Gumpid);
             Gumps.SendGump(sumGump,500,500);
         }
 
         private int GetGumpKey(Mobile mobile)
         {
-            switch (mobile.MobileID)
+            switch ((KnownSummon)mobile.MobileID)
             {
-                case 0x0080:
+                case KnownSummon.Fey:
                     return 23006;
-                case 0x000D:
+                case KnownSummon.AirElemental:
                     return 2299;
-                case 0x000A:
+                case KnownSummon.Daemon:
                     return 2300;
-                case 0x000E:
+                case KnownSummon.EarthElemental:
                     return 2301;
-                case 0x000F:
+                case KnownSummon.FireElemental:
                     return 2302;
-                case 0x0010:
+                case KnownSummon.WaterElemental:
                     return 2303;
-                case 0x033D:
+                case KnownSummon.Colossus:
                     return 24015;
-                case 0x02B4:
+                case KnownSummon.AnimateWeapon:
                     return 24006;
                 default :
                     return 2279;
             }
         }
         
+        private enum PropertyNumber
+        {
+            Summoned = 1049646,
+            Guarding = 1080078,
+            TimeRemaining = 1060847
+        }
+        
+        private enum KnownSummon
+        {
+            BladeSpirits = 0x023E,
+            EnergyVortex = 0x00A4,
+            Fey = 0x0080,
+            AnimateWeapon = 0x02B4,
+            EarthElemental = 0x000E,
+            AirElemental = 0x000D,
+            FireElemental = 0x000F,
+            WaterElemental = 0x0010,
+            Daemon = 0x000A,
+            Colossus = 0x033D
+        }
+        
         private enum SumReply
         {
             Attack = 1,
             Release = 2,
-            Guard = 3
+            Guard = 3,
+            Follow = 4
         }
 
         private class MockMob
