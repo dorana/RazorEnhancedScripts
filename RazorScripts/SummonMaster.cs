@@ -33,7 +33,7 @@ namespace RazorScripts
             "Vas An Nox",
             "An Nox",
             "Olorisstra",
-            "Rel Sanct",
+            "Rel Sanct"
         };
 
         public void Run()
@@ -41,12 +41,12 @@ namespace RazorScripts
             UpdateGump();
             try
             {
-                _timer.Enabled = false;
+                _timer.Enabled = true;
                 _timer.Elapsed += (sender, e) => UpdateGump();
                 _timer.AutoReset = true;
                 _timer.Start();
 
-                while (true)
+                while (Player.Connected)
                 {
                     //Player.Pets will check Rename ability we just need summoned prop lookup.
                     var runMobs = Player.Pets.Concat(GetEnergyVortextOrBladeSpirit()).Where(m => m.Properties.Any(p => p.Number == SummonedPropNum)).ToList();
