@@ -1443,12 +1443,16 @@ namespace RazorScripts
                     
                     foreach (var prop in item.Properties)
                     {
+                        if (prop.ToString() == item.Name)
+                        {
+                            continue;
+                        }
                         var stringVal = prop.ToString().Replace("%", "").Replace("+","");
                         var reMatch = re.Match(stringVal);
                         var numIndex = reMatch.Success ? reMatch.Index : stringVal.Length;
                         
                         //Handle case of negative values
-                        if(stringVal.Length > 1 && stringVal[numIndex-1] == '-')
+                        if(stringVal.Length > 1 && reMatch.Success && numIndex != 0 && stringVal[numIndex-1] == '-')
                         {
                             numIndex--;
                         }
