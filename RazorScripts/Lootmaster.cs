@@ -2930,7 +2930,7 @@ namespace RazorScripts
                 return Guid.Empty;
             }
 
-            var ruleIndex = Config.GetCharacter().Rules.IndexOf(Config.GetCharacter().Rules.FirstOrDefault(x => x.Id == ActiveRule.Id));
+            var ruleIndex = Config.GetCharacter().Rules.IndexOf(Config.GetCharacter().Rules.FirstOrDefault(x => x.Id == ActiveRule?.Id));
             
             if (ActiveRule != null && ruleIndex != -1)
             {
