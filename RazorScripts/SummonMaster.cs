@@ -10,7 +10,8 @@ namespace RazorScripts
 {
     public class SummonMaster
     {
-        private bool _compactMode = true;
+        private bool _compactMode = false;
+        
         private uint Gumpid = 98413566;
         private List<Mobile> Summons = new List<Mobile>();
         private List<MockMob> LastLoop = new List<MockMob>();
