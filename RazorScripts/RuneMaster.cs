@@ -16,12 +16,11 @@ namespace Razorscripts
         private double Magery;
         private double Chivalry;
         private int _activeRunePage = 0;
-        private int _runePageSize = 16;
         private bool _optionShow = false;
         private bool UseMagery => Magery > Chivalry;
         private RuneConfig _config;
         
-        Func<RuneHelper,bool> _searchFilter = (rl) => true;
+        Func<RuneDisplay,bool> _searchFilter = (rl) => true;
         
         public void Run()
         {
@@ -36,7 +35,7 @@ namespace Razorscripts
                     _config = new RuneConfig();
                 }
                 
-                if (!_config.RuneLocations().Any())
+                if (!_config.GetRuneBooks().Any())
                 {
                     RefreshRunes(false);
                 }
@@ -128,14 +127,14 @@ namespace Razorscripts
                         }
                         if(gumpResponse.buttonid == (int)Buttons.ToggleColors)
                         {
-                            _config.SetShowColors(!_config.UseColors());
+                            _config.SetShowColors(!_config.GetUseColors());
                             gumpResponse.buttonid = -1;
                             UpdateGump();
                             continue;
                         }
                         if(gumpResponse.buttonid == (int)Buttons.RunTheRunes)
                         {
-                            var runes = _config.RuneLocations();
+                            var runes = _config.GetAllRunes();
                             foreach (var runeLocation in runes)
                             {
                                 if (runeLocation.Name.ToLower().Contains("ship"))
@@ -145,7 +144,7 @@ namespace Razorscripts
                                     continue;
                                     
                                 }
-                                if(runeLocation.Cord != null)
+                                if(runeLocation.Map != null)
                                 {
                                     gumpResponse.buttonid = -1;
                                     UpdateGump();
@@ -167,6 +166,16 @@ namespace Razorscripts
                         if(gumpResponse.buttonid == (int)Buttons.ResetRunes)
                         {
                             RefreshRunes(false);
+                            gumpResponse.buttonid = -1;
+                            UpdateGump();
+                            continue;
+                        }
+                        if(gumpResponse.buttonid == (int)Buttons.SetPageSize)
+                        {
+                            if (int.TryParse(gumpResponse.text.LastOrDefault(), out var size))
+                            {
+                                _config.SetPageSize(size);
+                            }
                             gumpResponse.buttonid = -1;
                             UpdateGump();
                             continue;
@@ -198,23 +207,23 @@ namespace Razorscripts
 
         private void RefreshRunes(bool merge)
         {
-            var runes = GetAllRuneLocations();
-            _config.UppdateLocations(runes, merge);
+            var books = GetAllRuneLocations();
+            _config.UppdateLocations(books, merge);
         }
 
-        private List<RuneHelper> GetAllRuneLocations()
+        private List<BookData> GetAllRuneLocations()
         {
-            var runes = new List<RuneHelper>();
-            runes.AddRange(GetAllRuneBookLocations());
+            var books = new List<BookData>();
+            books.AddRange(GetAllRuneBookLocations());
             Misc.Pause(50);
-            runes.AddRange(GetAllRuneAtlasLocations());
+            books.AddRange(GetAllRuneAtlasLocations());
 
-            return runes;
+            return books;
         }
 
-        private List<RuneHelper> GetAllRuneBookLocations()
+        private List<BookData> GetAllRuneBookLocations()
         {
-            var list = new List<RuneHelper>();
+            var list = new List<BookData>();
             var books = Player.Backpack.Contains.Where(i => i.ItemID == 0x22C5).ToList();
             var straps = Player.Backpack.Contains.Where(i => i.ItemID == 0xA721 && i.Name.Equals("Runebook Strap", StringComparison.InvariantCultureIgnoreCase)).ToList();
             straps.ForEach( s =>
@@ -235,17 +244,20 @@ namespace Razorscripts
                 Misc.Pause(200);
                 if (Gumps.HasGump(0x59))
                 {
+                    var currentBookData = new BookData
+                    {
+                        Serial = book.Serial,
+                        Name = bookName,
+                        Type = BookType.Runebook
+                    };
                     var gd = Gumps.GetGumpData(0x59);
-                    List<string> runeNameLines = gd.stringList.Skip(2).Take(16).Where(s => !s.Equals("Empty", StringComparison.OrdinalIgnoreCase)).ToList();
+                    List<string> runeNameLines = gd.stringList.Skip(2).Take(_config.GetPageSize()).Where(s => !s.Equals("Empty", StringComparison.OrdinalIgnoreCase)).ToList();
                     var index = 0;
                     foreach (var name in runeNameLines)
                     {
-                        list.Add(new RuneHelper
+                        currentBookData.Runes.Add(new RuneData
                         {
                             Name = name,
-                            BookSerial = book.Serial,
-                            BookName = bookName,
-                            BookType = BookType.Runebook,
                             RecallIndex = 50+index,
                             GateIndex = 100+index,
                             SacredJourneyIndex = 75+index,
@@ -254,6 +266,7 @@ namespace Razorscripts
 
                         index++;
                     }
+                    list.Add(currentBookData);
                     Gumps.CloseGump(0x59);
                 }
             }
@@ -261,9 +274,9 @@ namespace Razorscripts
             return list;
         }
         
-        private List<RuneHelper> GetAllRuneAtlasLocations()
+        private List<BookData> GetAllRuneAtlasLocations()
         {
-            var list = new List<RuneHelper>();
+            var list = new List<BookData>();
             var atlases = Player.Backpack.Contains.Where(i => i.ItemID == 0x9C16).ToList();
             var straps = Player.Backpack.Contains.Where(i => i.ItemID == 0xA721 && i.Name.Equals("Runebook Strap", StringComparison.InvariantCultureIgnoreCase)).ToList();
             straps.ForEach( s =>
@@ -277,12 +290,18 @@ namespace Razorscripts
             atlases.AddRange(strapAtlases);
             foreach (var atlas in atlases)
             {
-                Items.WaitForProps(atlas, 300);
+                Items.WaitForProps(atlas, 1000);
                 var bookName = atlas.Properties.FirstOrDefault(p => p.Number == 1042971)?.ToString();
                 Items.UseItem(atlas);
                 Misc.Pause(200);
                 if (Gumps.HasGump( 0x1f2))
                 {
+                    var currentBookData = new BookData
+                    {
+                        Serial = atlas.Serial,
+                        Name = bookName,
+                        Type = BookType.RuneAtlas
+                    };
                     var page = 1;
                     Items.UseItem(atlas);
                     Misc.Pause(200);
@@ -307,16 +326,13 @@ namespace Razorscripts
                         var runeNamesLines = lines.GetRange(runeIndexStart+1, endIndex - runeIndexStart-1)
                             .Where(l => !l.Equals("Empty")).ToList();
 
-                        var runeIndex = (page-1)*16;
+                        var runeIndex = (page-1)*_config.GetPageSize();
                         foreach (var namesLine in runeNamesLines)
                         {
                             // var runeIIndex = runeNamesLines.IndexOf(namesLine);
-                            list.Add(new RuneHelper
+                            currentBookData.Runes.Add(new RuneData
                             {
                                 Name = namesLine,
-                                BookSerial = atlas.Serial,
-                                BookName = bookName,
-                                BookType = BookType.RuneAtlas,
                                 RecallIndex = 100+runeIndex,
                                 GateIndex = 100+runeIndex,
                                 SacredJourneyIndex = 100+runeIndex,
@@ -335,6 +351,8 @@ namespace Razorscripts
                     }
                     
                     Gumps.CloseGump(0x1f2);
+                    
+                    list.Add(currentBookData);
                 }
             }
 
@@ -348,7 +366,8 @@ namespace Razorscripts
             var gump = Gumps.CreateGump();
             gump.gumpId = _gumpId;
             gump.serial = (uint)Player.Serial;
-            Gumps.AddBackground(ref gump,0,0,240,390,1755);
+            var height = _config.GetPageSize() * 20 + 70;
+            Gumps.AddBackground(ref gump,0,0,240,height,1755);
             Gumps.AddLabel(ref gump,18, 15,0x7b, "T");
             if (enableGates)
             {
@@ -364,7 +383,12 @@ namespace Razorscripts
             Gumps.AddTooltip(ref gump,"Clear Search");
             if (_optionShow)
             {
-                Gumps.AddBackground(ref gump,240,0,130,390,1755);
+                var optionsHeight = height;
+                if (height < 350)
+                {
+                    optionsHeight = 350;
+                }
+                Gumps.AddBackground(ref gump,240,0,130,optionsHeight,1755);
                 Gumps.AddButton(ref gump, 345, 15, 9781, 9781, (int)Buttons.ToggleOptions, 1, 1);
                 Gumps.AddTooltip(ref gump, "Hide Options");
                 
@@ -378,21 +402,27 @@ namespace Razorscripts
                 
                 Gumps.AddLabel(ref gump,255, 115,0x75, "Sort By");
                 Gumps.AddButton(ref gump,255, 145, 5601, 5601, (int)Buttons.SetSortTypeAlphabetical, 1, 1);
-                Gumps.AddLabel(ref gump,275, 145,_config.Sorting() == SortType.Alphabetical ? 72 : 0x7b, "Alphabetical");
+                Gumps.AddLabel(ref gump,275, 145,_config.GetSorting() == SortType.Alphabetical ? 72 : 0x7b, "Alphabetical");
                 Gumps.AddButton(ref gump,255, 165, 5601, 5601, (int)Buttons.SetSortTypeBookOrder, 1, 1);
-                Gumps.AddLabel(ref gump,275, 165,_config.Sorting() == SortType.Alphabetical ? 0x7b : 72, "Book Order");
+                Gumps.AddLabel(ref gump,275, 165,_config.GetSorting() == SortType.Alphabetical ? 0x7b : 72, "Book Order");
                 
                 Gumps.AddButton(ref gump,255, 200, 5601, 5601, (int)Buttons.ToggleColors, 1, 1);
-                Gumps.AddLabel(ref gump, 275, 200, _config.UseColors() ? 72 : 0x7b, "Toggle Colors");
+                Gumps.AddLabel(ref gump, 275, 200, _config.GetUseColors() ? 72 : 0x7b, "Toggle Colors");
                 
-                Gumps.AddButton(ref gump,255, 325, 5601, 5601, (int)Buttons.UpdateRunes, 1, 1);
-                Gumps.AddLabel(ref gump,275, 325,0x7b, "Update Runes");
+                Gumps.AddLabel(ref gump, 255, 235, 0x7b, "Page Size");
+                Gumps.AddImageTiled(ref gump, 265, 258, 20, 16,1803);
+                Gumps.AddTextEntry(ref gump, 265,258,20,32,0x16a,1,_config.GetPageSize().ToString());
+                Gumps.AddTooltip(ref gump, "Size of each page");
+                Gumps.AddButton(ref gump,290, 255, 247, 248, (int)Buttons.SetPageSize, 1, 1);
                 
-                Gumps.AddButton(ref gump,255, 345, 5601, 5601, (int)Buttons.ResetRunes, 1, 1);
-                Gumps.AddLabel(ref gump,275, 345,0x7b, "Reset Runes");
+                Gumps.AddButton(ref gump,255, optionsHeight-65, 5601, 5601, (int)Buttons.UpdateRunes, 1, 1);
+                Gumps.AddLabel(ref gump,275, optionsHeight-65,0x7b, "Update Runes");
                 
-                Gumps.AddButton(ref gump,255, 365, 5601, 5601, (int)Buttons.RunTheRunes, 1, 1);
-                Gumps.AddLabel(ref gump,275, 365,0x7b, "Run Runes");
+                Gumps.AddButton(ref gump,255, optionsHeight-45, 5601, 5601, (int)Buttons.ResetRunes, 1, 1);
+                Gumps.AddLabel(ref gump,275, optionsHeight-45,0x7b, "Reset Runes");
+                
+                Gumps.AddButton(ref gump,255, optionsHeight-25, 5601, 5601, (int)Buttons.RunTheRunes, 1, 1);
+                Gumps.AddLabel(ref gump,275, optionsHeight-25,0x7b, "Run Runes");
             }
             else
             {
@@ -400,39 +430,42 @@ namespace Razorscripts
                 Gumps.AddTooltip(ref gump, "Show Options");
             }
 
-            ListRunes(gump,enableGates, useMagery);
+           var rows =  ListRunes(gump,enableGates, useMagery);
             
-            HandlePaging(gump, 390);
+            HandlePaging(gump, height, rows);
             
             Gumps.CloseGump(_gumpId);
             Gumps.SendGump(gump, 500,500);
         }
 
-        private void ListRunes(Gumps.GumpData gump, bool enableGates, bool useMagery)
+        private int ListRunes(Gumps.GumpData gump, bool enableGates, bool useMagery)
         {
-            List<RuneHelper> filteredRunes = new List<RuneHelper>();
-            if(_config.Listings() == RuneListing.SimplePaged)
+            List<RuneDisplay> filteredRunes = new List<RuneDisplay>();
+            var realRunes = _config.GetAllRunes();
+            if(_config.GetListings() == RuneListing.SimplePaged)
             {
-                filteredRunes = _config.RuneLocations().Where(_searchFilter).OrderBy(b => b.Name).ToList();
+                filteredRunes = realRunes.Where(_searchFilter).OrderBy(b => b.Name).ToList();
             }
-            else if(_config.Listings() == RuneListing.ByBook)
+            else if(_config.GetListings() == RuneListing.ByBook)
             {
-                var books = _config.RuneLocations().Where(_searchFilter).GroupBy(b => b.BookName).OrderBy(g => g.Key);
-                filteredRunes = new List<RuneHelper>();
+                var books = realRunes.Where(_searchFilter).GroupBy(b => b.Book.Name).OrderBy(g => g.Key);
+                filteredRunes = new List<RuneDisplay>();
                 foreach (var book in books)
                 {
-                    filteredRunes.Add(new RuneHelper
+                    filteredRunes.Add(new RuneDisplay
                     {
                         Name = book.Key,
-                        BookSerial = 0,
-                        BookName = string.Empty,
-                        BookType = BookType.None,
+                        Book = new BookDisplay
+                        {
+                            Name = book.Key,
+                            Type = BookType.None
+                        },
                         RecallIndex = 0,
                         GateIndex = 0,
                         SacredJourneyIndex = 0,
-                        Cord = null
+                        Map = null
                     });
-                    if(_config.Sorting() == SortType.Alphabetical)
+                    if(_config.GetSorting() == SortType.Alphabetical)
                     {
                         filteredRunes.AddRange(book.OrderBy(b => b.Name));
                     }
@@ -443,15 +476,15 @@ namespace Razorscripts
                 }
                 
                 //get all indexes that would be right on the pageSize indexes
-                var pageSizeindexes = filteredRunes.Select((r, i) => new {r, i}).Where(ri => ri.i % _runePageSize == 0).Select(ri => ri.i).ToList();
+                var pageSizeindexes = filteredRunes.Select((r, i) => new {r, i}).Where(ri => ri.i % _config.GetPageSize() == 0).Select(ri => ri.i).ToList();
 
                 foreach (var ix in pageSizeindexes)
                 {
                     var checkBook = filteredRunes[ix];
-                    if (checkBook.BookType != BookType.None)
+                    if (checkBook.Book.Type != BookType.None)
                     {
                         // find previous Book of tyepe none
-                        var previousBook = filteredRunes.Take(ix).LastOrDefault(b => b.BookType == BookType.None);
+                        var previousBook = filteredRunes.Take(ix).LastOrDefault(b => b.Book.Type == BookType.None);
                         if (previousBook != null)
                         {
                             var index = filteredRunes.IndexOf(previousBook);
@@ -460,27 +493,28 @@ namespace Razorscripts
                     }
                 }
             }
-            else if (_config.Listings() == RuneListing.ByMap)
+            else if (_config.GetListings() == RuneListing.ByMap)
             {
-                var maps = _config.RuneLocations().Where(_searchFilter).GroupBy(b => b.Cord?.Map).OrderBy(g => g.Key);
+                var maps = realRunes.Where(_searchFilter).GroupBy(b => b.Map).OrderBy(g => g.Key);
                 var unknowns = maps.Where(m => m.Key == null);
                 var knowns = maps.Where(m => m.Key != null).OrderBy(m => (int)m.Key);
                 var listMaps = knowns.Concat(unknowns).ToList();
-                filteredRunes = new List<RuneHelper>();
+                filteredRunes = new List<RuneDisplay>();
                 foreach (var map in listMaps)
                 {
-                    filteredRunes.Add(new RuneHelper
+                    filteredRunes.Add(new RuneDisplay
                     {
                         Name = map.Key?.ToString() ?? "UNKNOWN",
-                        BookSerial = 0,
-                        BookName = string.Empty,
-                        BookType = BookType.None,
+                        Book = new BookDisplay
+                        {
+                            Type = BookType.None
+                        },
                         RecallIndex = 0,
                         GateIndex = 0,
                         SacredJourneyIndex = 0,
-                        Cord = null
+                        Map = null
                     });
-                    if(_config.Sorting() == SortType.Alphabetical)
+                    if(_config.GetSorting() == SortType.Alphabetical)
                     {
                         filteredRunes.AddRange(map.OrderBy(b => b.Name));
                     }
@@ -491,15 +525,15 @@ namespace Razorscripts
                 }
                 
                 //get all indexes that would be right on the pageSize indexes
-                var pageSizeindexes = filteredRunes.Select((r, i) => new {r, i}).Where(ri => ri.i % _runePageSize == 0).Select(ri => ri.i).ToList();
+                var pageSizeindexes = filteredRunes.Select((r, i) => new {r, i}).Where(ri => ri.i % _config.GetPageSize() == 0).Select(ri => ri.i).ToList();
 
                 foreach (var ix in pageSizeindexes)
                 {
                     var checkBook = filteredRunes[ix];
-                    if (checkBook.BookType != BookType.None)
+                    if (checkBook.Book.Type != BookType.None)
                     {
                         // find previous Book of tyepe none
-                        var previousBook = filteredRunes.Take(ix).LastOrDefault(b => b.BookType == BookType.None);
+                        var previousBook = filteredRunes.Take(ix).LastOrDefault(b => b.Book.Type == BookType.None);
                         if (previousBook != null)
                         {
                             var index = filteredRunes.IndexOf(previousBook);
@@ -509,13 +543,13 @@ namespace Razorscripts
                 }
             }
             
-            var pageRunes = filteredRunes.Skip(_activeRunePage * _runePageSize).Take(_runePageSize).ToList();
+            var pageRunes = filteredRunes.Skip(_activeRunePage * _config.GetPageSize()).Take(_config.GetPageSize()).ToList();
             
             foreach (var rl in pageRunes)
             {
                 var displayIndex = pageRunes.IndexOf(rl);
-                var runeIndex = _config.RuneLocations().IndexOf(rl);
-                if (rl.BookType == BookType.None)
+                var runeIndex = realRunes.IndexOf(rl);
+                if (rl.Book.Type == BookType.None)
                 {
                     Gumps.AddImageTiled(ref gump,8,35+displayIndex*20,194,4,9351);
                     Gumps.AddImageTiled(ref gump,8,35+displayIndex*20+4,194,12,9354);
@@ -541,7 +575,7 @@ namespace Razorscripts
                     {
                         Gumps.AddLabel(ref gump,enableGates ? 55 : 35, 35+displayIndex*20, GetRuneColor(rl), rl.Name);
                     }
-                    Gumps.AddTooltip(ref gump, $"{rl.Name} ({rl.Cord?.Map.ToString() ?? ("Unknown")})");
+                    Gumps.AddTooltip(ref gump, $"{rl.Name} ({rl.Map?.ToString() ?? ("Unknown")})");
                     
                     Gumps.AddButton(ref gump, 15, 35 + displayIndex * 20, 11400, 11401, runeIndex, 1, 1);
                     Gumps.AddTooltip(ref gump,useMagery ? "Recall" : "Sacred Journey");
@@ -552,22 +586,13 @@ namespace Razorscripts
                     }
                 }
             }
+
+            return filteredRunes.Count();
         }
 
-        private void HandlePaging(Gumps.GumpData gump, int height)
+        private void HandlePaging(Gumps.GumpData gump, int height, int rows)
         {
-            var bookCount = 0;
-            var mapCount = 0;
-            if (_config.Listings() == RuneListing.ByBook)
-            {
-                bookCount = _config.RuneLocations().GroupBy(g => g.BookName).Count();
-            }
-            if (_config.Listings() == RuneListing.ByMap)
-            {
-                mapCount = _config.RuneLocations().GroupBy(g => g.Cord?.Map).Count();
-            }
-
-            var pagecount = (int)Math.Ceiling((double)(_config.RuneLocations().Where(_searchFilter).ToList().Count + bookCount + mapCount) / _runePageSize);
+            var pagecount = (int)Math.Ceiling((double)(rows) / _config.GetPageSize());
             Gumps.AddLabel(ref gump, 60,height-24,0x7b, $"Page: {_activeRunePage+1}/{pagecount}");
 
             if (_activeRunePage != 0)
@@ -585,17 +610,17 @@ namespace Razorscripts
 
         private int GetListingColor(RuneListing listing)
         {
-            return listing == _config.Listings() ? 72 : 0x7b;
+            return listing == _config.GetListings() ? 72 : 0x7b;
         }
 
-        private int GetRuneColor(RuneHelper rune)
+        private int GetRuneColor(RuneDisplay rune)
         {
-            if(!_config.UseColors() || rune.Cord == null)
+            if(!_config.GetUseColors() || rune.Map == null)
             {
                 return 0x7b;
             }
 
-            switch (rune.Cord.Map)
+            switch (rune.Map)
             {
                 case Map.Trammel:
                     return 1000;
@@ -619,17 +644,17 @@ namespace Razorscripts
             UpdateGump();
             if (index >= 10000)
             {
-                var rune = _config.RuneLocations()[index - 10000];
-                Items.UseItem(rune.BookSerial);
+                var rune = _config.GetAllRunes()[index - 10000];
+                Items.UseItem(rune.Book.Serial);
                 Misc.Pause(200);
-                if(rune.BookType == BookType.Runebook)
+                if(rune.Book.Type == BookType.Runebook)
                 {
                     if(Gumps.HasGump(0x59))
                     {
                         Gumps.SendAction(0x59, rune.GateIndex);
                     }
                 }
-                else if (rune.BookType == BookType.RuneAtlas)
+                else if (rune.Book.Type == BookType.RuneAtlas)
                 {
                     if(Gumps.HasGump(0x1f2))
                     {
@@ -645,10 +670,10 @@ namespace Razorscripts
             }
             else
             {
-                var rune = _config.RuneLocations()[index];
-                Items.UseItem(rune.BookSerial);
+                var rune = _config.GetAllRunes()[index];
+                Items.UseItem(rune.Book.Serial);
                 Misc.Pause(200);
-                if(rune.BookType == BookType.Runebook)
+                if(rune.Book.Type == BookType.Runebook)
                 {
                     if(Gumps.HasGump(0x59))
                     {
@@ -662,10 +687,10 @@ namespace Razorscripts
                     { 
                         //Make sure we get to the correct page
                         var simplifiedIndex = rune.GateIndex - 100;
-                        while(simplifiedIndex>15)
+                        while(simplifiedIndex>_config.GetPageSize()-1)
                         {
                             Gumps.SendAction(0x1f2, 1150);
-                            simplifiedIndex -= 16;
+                            simplifiedIndex -= _config.GetPageSize();
                             Misc.Pause(200);
                             while(!Gumps.HasGump(0x1f2))
                             {
@@ -684,9 +709,17 @@ namespace Razorscripts
             }
         }
 
-        private void RegisterRuneLocation(RuneHelper rune)
+        private void RegisterRuneLocation(RuneDisplay rune)
         {
-            if (rune.Cord != null)
+            var book = _config.GetRuneBooks().FirstOrDefault(b => b.Serial == rune.Book.Serial);
+            if (book == null)
+            {
+                return;
+            }
+            
+            var runeData = book.Runes.FirstOrDefault(r => r.Name == rune.Name && r.RecallIndex == rune.RecallIndex);
+            
+            if (runeData.Cord != null)
             {
                 return;
             }
@@ -701,7 +734,7 @@ namespace Razorscripts
                 // have we moved more than 10 tiles in any direction
                 if (Math.Abs(px - Player.Position.X) > 10 || Math.Abs(py - Player.Position.Y) > 10)
                 {
-                    rune.Cord = new Cord
+                    runeData.Cord = new Cord
                     {
                         X = Player.Position.X,
                         Y = Player.Position.Y,
@@ -751,12 +784,44 @@ namespace Razorscripts
     internal class RuneConfig
     {
         
-        public virtual bool UseColors() => GetCharacter().UseColors;
-        public RuneListing Listings() => GetCharacter().RuneListing;
-        public SortType Sorting() => GetCharacter().SortType;
+        public bool GetUseColors() => GetCharacter().UseColors;
+        public RuneListing GetListings() => GetCharacter().RuneListing;
+        public SortType GetSorting() => GetCharacter().SortType;
+
+        public List<BookData> GetRuneBooks() => GetCharacter().Books;
+        
+        public int GetPageSize() => GetCharacter().RunePageSize;
+        public void SetPageSize(int size)
+        {
+            GetCharacter().RunePageSize = size;
+            Save();
+        }
         public List<Character> Characters { get; } = new List<Character>();
 
-        public virtual List<RuneHelper> RuneLocations() => GetCharacter().RuneLocations;
+        public List<RuneDisplay> GetAllRunes()
+        {
+            var result = new List<RuneDisplay>();
+            foreach (var book in GetCharacter().Books)
+            {
+                foreach (var rune in book.Runes)
+                {
+                    var dbook = new BookDisplay(book);
+                    result.Add(new RuneDisplay
+                    {
+                        Name = rune.Name,
+                        RecallIndex = rune.RecallIndex,
+                        GateIndex = rune.GateIndex,
+                        SacredJourneyIndex = rune.SacredJourneyIndex,
+                        Map = rune.Cord?.Map,
+                        Book = dbook
+                    });
+                }
+            }
+
+            return result;
+        }
+        
+        
         
         public Character GetCharacter()
         {
@@ -772,35 +837,73 @@ namespace Razorscripts
             return character;
         }
         
-        public void UppdateLocations(List<RuneHelper> runeLocations, bool merge)
+        public void UppdateLocations(List<BookData> books, bool merge)
         {
             if (merge)
             {
-                var existingRunes = GetCharacter().RuneLocations;
-
-                foreach (var runeLocation in runeLocations)
+                var deleteBookSerials = new List<int>();
+                var deleteRunes = new List<RuneData>();
+                foreach (var bookData in GetCharacter().Books)
                 {
-                    var existingRune = existingRunes
-                        .Where(r => r.Name == runeLocation.Name && r.BookSerial == runeLocation.BookSerial).ToList();
-                    if (existingRune.Count() == 1)
+                    var existingRunes = bookData.Runes;
+                    var book = books.FirstOrDefault(b => b.Serial == bookData.Serial);
+                    if (book == null)
                     {
-                        runeLocation.Cord = existingRune.First().Cord;
+                        //Book did not exist in the new list
+                        deleteBookSerials.Add(bookData.Serial);
+                        continue;
+                    }
+                    foreach (var rune in book.Runes)
+                    {
+                        //Handle Runes Found in both
+                        var foundRunes = existingRunes
+                            .Where(r => r.Name == rune.Name).ToList();
+                        if (foundRunes.Count() == 1)
+                        {
+                            rune.Cord = foundRunes.First().Cord;
+                        }
+                        if (!foundRunes.Any())
+                        {
+                            bookData.Runes.Add(rune);
+                        }
                     }
                 }
+                
+                foreach (var serial in deleteBookSerials)
+                {
+                    var book = GetCharacter().Books.FirstOrDefault(b => b.Serial == serial);
+                    GetCharacter().Books.Remove(book);
+                }
 
-                GetCharacter().RuneLocations = runeLocations;
+                foreach (var book in books)
+                {
+                    var existingBook = GetCharacter().Books.FirstOrDefault(b => b.Serial == book.Serial);
+                    if (existingBook == null)
+                    {
+                        GetCharacter().Books.Add(book);
+                        continue;
+                    }
+                    foreach (var rune in existingBook.Runes)
+                    {
+                        var anyRune = book.Runes
+                            .Any(r => r.Name == rune.Name);
+                        if (!anyRune)
+                        {
+                            deleteRunes.Add(rune);
+                        }
+                    }
+
+                    foreach (var deleteRune in deleteRunes)
+                    {
+                        existingBook.Runes.Remove(deleteRune);
+                    }
+                }
             }
             else
             {
-                GetCharacter().RuneLocations = runeLocations;
+                GetCharacter().Books = books;
             }
 
-            Save();
-        }
-
-        public void AddRuneLocation(RuneHelper rune)
-        {
-            GetCharacter().RuneLocations.Add(rune);
             Save();
         }
         
@@ -853,21 +956,58 @@ namespace Razorscripts
         public bool UseColors { get; set; }
         public RuneListing RuneListing { get; set; }
         public SortType SortType { get; set; }
-        public List<RuneHelper> RuneLocations { get; set; } = new List<RuneHelper>();
+        public int RunePageSize { get; set; } = 16;
+        public List<BookData> Books { get; set; } = new List<BookData>();
     }
     
-    
-    
-    internal class RuneHelper
+    internal class BookData
     {
-        public string Name {get; set; }
-        public int BookSerial { get; set; }
-        public string BookName { get; set; }
-        public BookType BookType { get; set; }
+        
+        public int Serial { get; set; }
+        public string Name { get; set; }
+        public BookType Type { get; set; }
+        
+        public List<RuneData> Runes { get; set; } = new List<RuneData>();
+    }
+    
+    internal class BookDisplay
+    {
+        public BookDisplay(BookData book)
+        {
+            Serial = book.Serial;
+            Name = book.Name;
+            Type = book.Type;
+        }
+
+        public BookDisplay()
+        {
+            
+        }
+        
+        public int Serial { get; set; }
+        public string Name { get; set; }
+        public BookType Type { get; set; }
+    }
+
+
+    internal class RuneData
+    {
+        public string Name { get; set; }
         public int RecallIndex { get; set; }
         public int GateIndex { get; set; }
         public int SacredJourneyIndex { get; set; }
         public Cord Cord { get; set; }
+
+    }
+
+    internal class RuneDisplay
+    {
+        public string Name {get; set; }
+        public int RecallIndex { get; set; }
+        public int GateIndex { get; set; }
+        public int SacredJourneyIndex { get; set; }
+        public Map? Map { get; set; }
+        public BookDisplay Book { get; set; }
     }
     
     internal enum BookType
@@ -905,7 +1045,8 @@ namespace Razorscripts
         ToggleColors = 100010,
         RunTheRunes = 100011,
         UpdateRunes = 100012,
-        ResetRunes = 100013
+        ResetRunes = 100013,
+        SetPageSize = 100014
     }
     
     internal enum Map
