@@ -853,6 +853,9 @@ namespace Razorscripts
                         deleteBookSerials.Add(bookData.Serial);
                         continue;
                     }
+                    
+                    bookData.Name = book.Name;
+                    
                     foreach (var rune in book.Runes)
                     {
                         //Handle Runes Found in both
