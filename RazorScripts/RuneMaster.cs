@@ -339,7 +339,7 @@ namespace Razorscripts
                         var runeNamesLines = lines.GetRange(runeIndexStart+1, endIndex - runeIndexStart-1)
                             .Where(l => !l.Equals("Empty")).ToList();
 
-                        var runeIndex = (page-1)*_config.GetPageSize();
+                        var runeIndex = (page-1)*16;
                         foreach (var namesLine in runeNamesLines)
                         {
                             // var runeIIndex = runeNamesLines.IndexOf(namesLine);
@@ -429,13 +429,19 @@ namespace Razorscripts
                 Gumps.AddButton(ref gump,290, 255, 247, 248, (int)Buttons.SetPageSize, 1, 1);
                 
                 Gumps.AddButton(ref gump,255, optionsHeight-65, 5601, 5601, (int)Buttons.UpdateRunes, 1, 1);
+                Gumps.AddTooltip(ref gump, "Checks for changes and updates the runes");
                 Gumps.AddLabel(ref gump,275, optionsHeight-65,0x7b, "Update Runes");
+                Gumps.AddTooltip(ref gump, "Checks for changes and updates the runes");
                 
                 Gumps.AddButton(ref gump,255, optionsHeight-45, 5601, 5601, (int)Buttons.ResetRunes, 1, 1);
+                Gumps.AddTooltip(ref gump, "WARNING : Clears all runes and reloads");
                 Gumps.AddLabel(ref gump,275, optionsHeight-45,0x7b, "Reset Runes");
+                Gumps.AddTooltip(ref gump, "WARNING : Clears all runes and reloads");
                 
                 Gumps.AddButton(ref gump,255, optionsHeight-25, 5601, 5601, (int)Buttons.RunTheRunes, 1, 1);
+                Gumps.AddTooltip(ref gump, "Teleport to all yet unknown rune locations");
                 Gumps.AddLabel(ref gump,275, optionsHeight-25,0x7b, "Run Runes");
+                Gumps.AddTooltip(ref gump, "Teleport to all yet unknown rune locations");
             }
             else
             {
@@ -984,6 +990,7 @@ namespace Razorscripts
         public BookType Type { get; set; }
         
         public List<RuneData> Runes { get; set; } = new List<RuneData>();
+        public Cord BookLocation { get; set; }
     }
     
     internal class BookDisplay
