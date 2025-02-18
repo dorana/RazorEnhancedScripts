@@ -264,7 +264,7 @@ namespace Razorscripts
                         Type = BookType.Runebook
                     };
                     var gd = Gumps.GetGumpData(0x59);
-                    List<string> runeNameLines = gd.stringList.Skip(2).Take(_config.GetPageSize()).Where(s => !s.Equals("Empty", StringComparison.OrdinalIgnoreCase)).ToList();
+                    List<string> runeNameLines = gd.stringList.Skip(2).Take(16).Where(s => !s.Equals("Empty", StringComparison.OrdinalIgnoreCase)).ToList();
                     var index = 0;
                     foreach (var name in runeNameLines)
                     {
