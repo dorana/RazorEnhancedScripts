@@ -39,6 +39,19 @@ namespace Razorscripts
                 {
                     RefreshRunes(false);
                 }
+                else
+                {
+                    Items.WaitForContents(Player.Backpack, 1000);
+                    var straps = Player.Backpack.Contains.Where(i => i.ItemID == 0xA721 && i.Name.Equals("Runebook Strap", StringComparison.InvariantCultureIgnoreCase)).ToList();
+                    Misc.Pause(1000);
+                    foreach (var strap in straps)
+                    {
+                        if(!strap.Contains.Any())
+                        {
+                            Items.UseItem(strap);
+                        }
+                    }
+                }
                 
                 UpdateGump();
                 
@@ -687,10 +700,10 @@ namespace Razorscripts
                     { 
                         //Make sure we get to the correct page
                         var simplifiedIndex = rune.GateIndex - 100;
-                        while(simplifiedIndex>_config.GetPageSize()-1)
+                        while(simplifiedIndex>15)
                         {
                             Gumps.SendAction(0x1f2, 1150);
-                            simplifiedIndex -= _config.GetPageSize();
+                            simplifiedIndex -= 16;
                             Misc.Pause(200);
                             while(!Gumps.HasGump(0x1f2))
                             {
