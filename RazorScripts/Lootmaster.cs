@@ -1443,7 +1443,7 @@ namespace RazorScripts
                     
                     foreach (var prop in item.Properties)
                     {
-                        if (prop.ToString() == item.Name)
+                        if (prop.ToString().Equals(item.Name, StringComparison.InvariantCultureIgnoreCase))
                         {
                             continue;
                         }
@@ -1467,6 +1467,11 @@ namespace RazorScripts
                 {
                     foreach (var prop in item.Properties)
                     {
+                        if (prop.ToString().Equals(item.Name, StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            continue;
+                        }
+                        
                         var stringVal = prop.ToString().Replace("%", "").Replace("+","");
                         var reMatch = re.Match(stringVal);
                         var numIndex = reMatch.Success ? reMatch.Index : stringVal.Length;

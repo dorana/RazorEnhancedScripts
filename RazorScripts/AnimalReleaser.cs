@@ -36,9 +36,29 @@ namespace RazorScripts
                     if (!_friendlies.Contains(pet.Serial))
                     {
                         Misc.WaitForContext(pet, 500);
+                        Misc.PetRename(pet, "Tamed");
+                        Misc.Pause(100);
                         Misc.ContextReply(pet, 9);
-                        Misc.Pause(200);
-                        Gumps.SendAction( 0x29aac7b8,2);
+                        var ids = Gumps.AllGumpIDs();
+                        var foundGunp = 0;
+                        while(foundGunp == 0)
+                        {
+                            var newIds = Gumps.AllGumpIDs();
+                            //get Id's not earlier existing
+                            var diff = newIds.Except(ids).ToList();
+
+                            foreach (var gid in diff)
+                            {
+                                var lines = Gumps.GetLineList(gid);
+                                if (lines.Any(l => l.Contains("release your pet")))
+                                {
+                                    foundGunp = (int)gid;
+                                    break;
+                                }
+                            }
+                            Misc.Pause(50);
+                        }
+                        Gumps.SendAction((uint)foundGunp,2);
                         Misc.Pause(200);
                     }
                     newFriendsList.Add(pet.Serial);
