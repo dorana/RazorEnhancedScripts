@@ -176,6 +176,7 @@ namespace RazorScripts
             {
                 timer.Stop();
                 timer.Dispose();
+                Gumps.CloseGump(_gumpId);
             }
 
         }
