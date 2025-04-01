@@ -11,7 +11,9 @@ namespace RazorScripts
     public class SummonMaster
     {
         private bool _compactMode = false;
-        
+        private bool _transparancyMode = false;
+
+        private bool _optionShow = false;
         private uint Gumpid = 98413566;
         private List<Mobile> Summons = new List<Mobile>();
         private List<MockMob> LastLoop = new List<MockMob>();
@@ -19,7 +21,7 @@ namespace RazorScripts
         Dictionary<int,DateTime> _timers = new Dictionary<int, DateTime>();
         System.Timers.Timer _timer = new System.Timers.Timer(5000);
         private Target _target = new Target();
-        private string _version = "1.3.4";
+        private string _version = "1.4.0";
         Journal _journal = new Journal();
         private Journal.JournalEntry _lastJournalEntry = null;
 
@@ -107,6 +109,18 @@ namespace RazorScripts
                                     }
                                 }
                                 reply.buttonid = -1;
+                                break;
+                            case SumReply.SetCompact:
+                                _compactMode = true;
+                                break;
+                            case SumReply.SetClassic:
+                                _compactMode = false;
+                                break;
+                            case SumReply.ToggleTransparency:
+                                _transparancyMode = !_transparancyMode;
+                                break;
+                            case SumReply.ToggleOptions:
+                                _optionShow = !_optionShow;
                                 break;
                             default:
                                 if (Target.HasTarget())
@@ -298,13 +312,53 @@ namespace RazorScripts
             }
         }
 
+        private void HandleOptionPanel(Gumps.GumpData gump, int width)
+        {
+            var baseX = width+15;
+            var indentX = baseX+5;
+            var optionsWidth = 110;
+            if (_optionShow)
+            {
+                Gumps.AddBackground(ref gump,width,0,optionsWidth,140,1755);
+                if (_transparancyMode)
+                {
+                    Gumps.AddAlphaRegion(ref gump, width, 0, optionsWidth, 140);
+                }
+                
+                Gumps.AddLabel(ref gump,baseX, 15,0x75, "Mode");
+                Gumps.AddButton(ref gump,indentX, 40, 5601, 5601, (int)SumReply.SetCompact, 1, 1);
+                Gumps.AddLabel(ref gump,indentX+20, 40, _compactMode ? 72 : 0x7b, "Compact");
+                Gumps.AddButton(ref gump,indentX, 60, 5601, 5601, (int)SumReply.SetClassic, 1, 1);
+                Gumps.AddLabel(ref gump,indentX+20, 60,!_compactMode ? 72 : 0x7b, "Classic");
+                
+                Gumps.AddLabel(ref gump,baseX, 85,0x75, "Transparency");
+                Gumps.AddButton(ref gump,indentX, 110, 5601, 5601, (int)SumReply.ToggleTransparency, 1, 1);
+                Gumps.AddLabel(ref gump,indentX+20, 110, _transparancyMode ? 72 : 0x7b, "Ghost");
+                
+                Gumps.AddButton(ref gump, width+optionsWidth-25, 10, 9781, 9781, (int)SumReply.ToggleOptions, 1, 1);
+                Gumps.AddTooltip(ref gump, "Hide Options");
+            }
+            else
+            {
+                Gumps.AddButton(ref gump, width-25, 10, 9780, 9780, (int)SumReply.ToggleOptions, 1, 1);
+                Gumps.AddTooltip(ref gump, "Show Options");
+            }
+            
+        }
+
         private void UpdateGump()
         {
             var sumGump = Gumps.CreateGump();
-            var width = (_compactMode ? (Summons.Count * 58) + 100 : 480);
+            var width = (_compactMode ? (Summons.Count * 58) + 100 : 400)+10;
             sumGump.gumpId = Gumpid;
             sumGump.serial = (uint)Player.Serial;
             Gumps.AddBackground(ref sumGump,0,0, width,140,1755);
+            if (_transparancyMode)
+            {
+                Gumps.AddAlphaRegion(ref sumGump, 0, 0, width, 140);
+            }
+            
+            HandleOptionPanel(sumGump, width);
 
             foreach (var sum in Summons)
             {
@@ -345,14 +399,14 @@ namespace RazorScripts
                 }
             }
             
-            Gumps.AddButton(ref sumGump, width - 80, 10, 9903, 9904, (int)SumReply.Attack, 1, 0);
-            Gumps.AddButton(ref sumGump, width - 80, 40, 9903, 9904, (int)SumReply.Release, 1, 0);
-            Gumps.AddButton(ref sumGump, width - 80, 70, 9903, 9904, (int)SumReply.Guard, 1, 0);
-            Gumps.AddButton(ref sumGump, width - 80, 100, 9903, 9904, (int)SumReply.Follow, 1, 0);
-            Gumps.AddLabel(ref sumGump, width - 60, 10, 0x30, "Attack");
-            Gumps.AddLabel(ref sumGump, width - 60, 40, 0x6D, "Release");
-            Gumps.AddLabel(ref sumGump, width - 60, 70, 0x35, "Guard");
-            Gumps.AddLabel(ref sumGump, width - 60, 100, 0x55, "Follow");
+            Gumps.AddButton(ref sumGump, width - 90, 10, 9903, 9904, (int)SumReply.Attack, 1, 0);
+            Gumps.AddButton(ref sumGump, width - 90, 40, 9903, 9904, (int)SumReply.Release, 1, 0);
+            Gumps.AddButton(ref sumGump, width - 90, 70, 9903, 9904, (int)SumReply.Guard, 1, 0);
+            Gumps.AddButton(ref sumGump, width - 90, 100, 9903, 9904, (int)SumReply.Follow, 1, 0);
+            Gumps.AddLabel(ref sumGump, width - 70, 10, 0x30, "Attack");
+            Gumps.AddLabel(ref sumGump, width - 70, 40, 0x6D, "Release");
+            Gumps.AddLabel(ref sumGump, width - 70, 70, 0x35, "Guard");
+            Gumps.AddLabel(ref sumGump, width - 70, 100, 0x55, "Follow");
 
             if (!_compactMode || Summons.Count >= 2)
             {
@@ -415,7 +469,11 @@ namespace RazorScripts
             Attack = 1,
             Release = 2,
             Guard = 3,
-            Follow = 4
+            Follow = 4,
+            SetCompact = 5,
+            SetClassic = 6,
+            ToggleTransparency = 7,
+            ToggleOptions = 8
         }
 
         private class MockMob
