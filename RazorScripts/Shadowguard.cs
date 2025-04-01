@@ -3,7 +3,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Assistant;
 using RazorEnhanced;
@@ -15,7 +19,7 @@ namespace RazorScripts
 {
     public class Shadowguard
     {
-        private string _version = "2.0.0";
+        private string _version = "2.0.1";
         private uint _gumpId = (uint)456426886;
         private bool _runningMaster = true;
         private uint _gumpAboutId = (uint)24536236;
@@ -30,6 +34,7 @@ namespace RazorScripts
             ExitRoom = 12,
             ToggleRunning = 13,
             BelfryFly = 14,
+            FountainRouteShare = 15,
         }
 
         private List<int> philactories = new List<int>
@@ -88,6 +93,8 @@ namespace RazorScripts
 
         private Dictionary<int, Dictionary<int, List<Point>>> _puzzlePathLocations =
             new Dictionary<int, Dictionary<int, List<Point>>>();
+
+        private Dictionary<int, List<Point>> _rawPaths = new Dictionary<int, List<Point>>();
 
 
         private Dictionary<int, List<Point>> GetTemplate()
@@ -222,16 +229,17 @@ namespace RazorScripts
                 buttonId = -1;
             }
 
-            // if (gumpData.buttonid == (int)Buttons.ToggleRunning)
-            // {
-            //     ToggleRunning();
-            //     gumpData.buttonid = -1;
-            // }
+            if (buttonId == (int)Buttons.FountainRouteShare)
+            {
+                buttonId = -1;
+                ShareMaze();
+            }
 
             if (aboutButtonId == (int)Buttons.Coffee)
             {
                 System.Diagnostics.Process.Start("https://www.buymeacoffee.com/Dorana");
                 buttonId = -1;
+                aboutGumpData.buttonid = -1;
             }
 
             var width = 350;
@@ -316,7 +324,10 @@ namespace RazorScripts
 
 
             Gumps.AddBackground(ref fg, 0, marginTop, width, 195, 1755);
-
+            
+            // Gumps.AddButton(ref fg, width -38, marginTop+165, 4029,4029, (int)Buttons.FountainRouteShare, 1, 0);
+            // Gumps.AddTooltip(ref fg, "Share Paths");
+            
             var partindex = 0;
             foreach (var part in partsRemaining)
             {
@@ -394,9 +405,10 @@ namespace RazorScripts
                     if (int.TryParse(life, out int remainingLife))
                     {
                         var fraction = (decimal)remainingLife / 60;
+                        var barcolor = philactory.Hue == 0 ? 2056 : 2054;
                         Gumps.AddBackground(ref fg, 110, marginTop + 35 + timerIndex * 20, 109, 11, 2053);
                         Gumps.AddImageTiled(ref fg, 110, marginTop + 35 + timerIndex * 20,
-                            (int)Math.Floor(fraction * 109), 11, 2056);
+                            (int)Math.Floor(fraction * 109), 11, barcolor);
                         timerIndex++;
                     }
                 }
@@ -579,7 +591,9 @@ namespace RazorScripts
                 };
 
                 var tableBottle = Items.ApplyFilter(bottleFilter).FirstOrDefault();
-
+                
+                Misc.SetSharedValue("Lootmaster:Pause", 1000);
+                
                 if (backpackBottle != null || tableBottle != null)
                 {
                     var mobList = Mobiles.ApplyFilter(new Mobiles.Filter
@@ -624,8 +638,8 @@ namespace RazorScripts
                         }
                     }
                 }
-
-                Misc.Pause(400);
+                
+                Misc.Pause(600);
             }
         }
 
@@ -735,7 +749,7 @@ namespace RazorScripts
         {
 
             var brokenArmor = new List<Item>();
-            var roomData = new RoomData(ShadowGuardRoom.Armory, 28, new List<Item>(), "Enter all rooms");
+            var roomData = new RoomData(ShadowGuardRoom.Armory, 0, new List<Item>(), "Enter all rooms");
             UpdateShadowGuardGump(roomData);
 
             var philactoryFilter = new Items.Filter
@@ -806,11 +820,12 @@ namespace RazorScripts
                 roomData.Params[1] = philinBags;
 
                 UpdateShadowGuardGump(roomData);
-                ;
+                
 
                 var phil = Items.ApplyFilter(philactoryFilter).FirstOrDefault();
                 if (phil != null)
                 {
+                    Misc.SetSharedValue("Lootmaster:Pause", 1000);
                     Items.Move(phil, Player.Backpack.Serial, 1);
                     Misc.Pause(300);
                 }
@@ -825,6 +840,7 @@ namespace RazorScripts
                         Items.UseItem(philactory);
                         Target.WaitForTarget(1000);
                         Target.TargetExecute(flame);
+                        Misc.Pause(100);
                         haspaused += 100;
                     }
                 }
@@ -896,7 +912,7 @@ namespace RazorScripts
                     break;
                 }
             }
-
+            
             while (true)
             {
                 var found = Items.ApplyFilter(new Items.Filter
@@ -962,7 +978,7 @@ namespace RazorScripts
                 grid.Where(t => t.X == start.X - 1 && t.Y == start.Y).First().Cost = 50;
                 grid.Where(t => t.X == start.X && t.Y == start.Y - 1).First().Cost = 50;
 
-                BuildPath(grid, pathId, start, goal, FountainEntryPoint.North);
+                BuildPath(grid, pathId, start, goal);
 
                 foreach (var pathData in _puzzlePathLocations[pathId])
                 {
@@ -984,7 +1000,7 @@ namespace RazorScripts
                 grid.Where(t => t.X == start.X && t.Y == start.Y - 1).First().Cost = 50;
                 grid.Where(t => t.X == start.X - 1 && t.Y == start.Y).First().Cost = 50;
 
-                BuildPath(grid, pathId, start, goal, FountainEntryPoint.West);
+                BuildPath(grid, pathId, start, goal);
 
                 foreach (var pathData in _puzzlePathLocations[pathId])
                 {
@@ -994,6 +1010,7 @@ namespace RazorScripts
                     }
                 }
             }
+            
 
             //Dictionary of Locations and a bool if placed
             var positions = new Dictionary<int, Dictionary<Point, bool>>();
@@ -1024,12 +1041,19 @@ namespace RazorScripts
                     partsNeeded[canalPeice.Key] += count;
                 }
             }
+            
             var roomData = new RoomData(ShadowGuardRoom.Fountain, positions, partsNeeded);
 
+            var journal = new Journal();
+            Journal.JournalEntry lastEntry = journal.GetJournalEntry(null).OrderBy(j => j.Timestamp).LastOrDefault();
+            
             while (running)
             {
                 HandlePause(roomData);
                 UpdateShadowGuardGump(roomData);
+
+                // lastEntry = HandlePathShare(journal, lastEntry);
+                
                 if (!StillInRoom(ShadowGuardRoom.Fountain))
                 {
                     break;
@@ -1433,9 +1457,60 @@ namespace RazorScripts
                            System.StringComparison.InvariantCultureIgnoreCase)) &&
                    items.Any(i => i.Name.Equals("ankh", System.StringComparison.InvariantCultureIgnoreCase));
         }
-        
-        
-        
+
+        private Journal.JournalEntry HandlePathShare(Journal journal, Journal.JournalEntry lastEntry)
+        {
+            var lines = journal.GetJournalEntry(lastEntry).OrderBy(j => j.Timestamp).ToList();
+            if (lines.Any(j => j
+                                   .Type.Equals("Party", StringComparison.InvariantCultureIgnoreCase) &&
+                               j.Text == "ShadowGuard.Paths.Share.Init" && j.Name != Player.Name))
+            {
+                Player.HeadMessage(33, "Received Pathing Data");
+                var finishedUpdate = false;
+                while (!finishedUpdate)
+                {
+                    lines = journal.GetJournalEntry(lastEntry).OrderBy(j => j.Timestamp).ToList();
+                    var finished = lines.FirstOrDefault(j => j
+                                                                 .Type.Equals("Party",
+                                                                     StringComparison.InvariantCultureIgnoreCase) &&
+                                                             j.Text == "ShadowGuard.Paths.Share.Finished" &&
+                                                             j.Name != Player.Name);
+                    if (finished != null)
+                    {
+                        _puzzlePathLocations.Clear();
+                        var playerLines = lines.Where(l => l.Name == finished.Name).ToList();
+                        var regex = new Regex(@"^\d+:\d+:.+$");
+
+                        var playerPaths = playerLines.Where(l => regex.IsMatch(l.Text)).Select(l => l.Text).ToList();
+
+                        for (int i = 1; i >= 4; i++)
+                        {
+                            var currentPathLines = playerPaths.Where(p => p.StartsWith(i.ToString().Split(':').Last()))
+                                .ToList();
+                            var joinedString = string.Join("", currentPathLines);
+
+                            var pathPattern = Encoding.UTF8.GetString(Convert.FromBase64String(joinedString));
+
+                            RecalculatePathing(i, pathPattern);
+                        }
+
+                        finishedUpdate = true;
+                    }
+
+                    lastEntry = lines.Last();
+                }
+
+            }
+            else if (lines.Any())
+            {
+                lastEntry = lines.Last();
+            }
+
+            return lastEntry;
+        }
+
+
+
         private bool IsInRightPos(Item check)
         {
             if (!_canalPieces.Contains(check.ItemID))
@@ -1532,6 +1607,7 @@ namespace RazorScripts
             {
                 Enabled = true,
                 RangeMin = 0,
+                RangeMax = 40,
                 Name = "Cursed Suit Of Armor",
             };
             List<Item> armors = new List<Item>();
@@ -1565,21 +1641,74 @@ namespace RazorScripts
             return armors;
         }
 
-        private void BuildPath(List<Point> grid, int pathId, Point start, Point end,
-            FountainEntryPoint originalEntryPoint)
+        private void BuildPath(List<Point> grid, int pathId, Point start, Point end)
         {
-            var gridminX = grid.Min(g => g.X);
-            var gridminY = grid.Min(g => g.Y);
-            var gridmaxX = grid.Max(g => g.X);
-            var gridmaxY = grid.Max(g => g.Y);
             var solvePath = FindPath(ConvertToGrid(grid), start, end);
+            _rawPaths[pathId] = solvePath;
             var skipFirstandlast = solvePath.Skip(1).Take(solvePath.Count - 2).ToList();
             var tileIds = GetTileIdsFromPath(solvePath);
-
+            
             for (int i = 0; i < skipFirstandlast.Count; i++)
             {
                 var currentTile = tileIds[i + 1];
                 _puzzlePathLocations[pathId][currentTile].Add(skipFirstandlast[i]);
+            }
+        }
+
+        private void ShareMaze()
+        {
+            Player.ChatParty("ShadowGuard.Paths.Share.Init");
+            foreach (var path in _rawPaths)
+            {
+                SendPathToParty(path.Value, path.Key);
+            }
+            Player.ChatParty("ShadowGuard.Paths.Share.Finished");
+        }
+
+        private void SendPathToParty(List<Point> path, int pathindex)
+        {
+            var clipList = path.Select(p => $"{p.X}:{p.Y}").ToList();
+            var pstring = string.Join(",", clipList);
+            var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(pstring));
+            //break base64 into chunks of 40 chars each
+            var chunkSize = 40;
+            var chunks = Enumerable.Range(0, base64.Length / chunkSize)
+                .Select(i => base64.Substring(i * chunkSize, chunkSize)).ToList();
+            var lastChunk = base64.Substring(chunks.Count * chunkSize);
+            if (lastChunk.Length > 0)
+            {
+                chunks.Add(lastChunk);
+            }
+            
+            var chunkIndex = 0;
+            foreach (var chunk in chunks)
+            {
+                Player.ChatParty($"{pathindex}:{chunkIndex}:{chunk}");
+                Misc.Pause(200);
+                chunkIndex++;
+            }
+        }
+
+        private void RecalculatePathing(int pathIndex, string rawData)
+        {
+            var pathData = new Dictionary<int, List<Point>>();
+            var pointList = rawData.Split(',').ToList();
+            foreach (var point in pointList)
+            {
+                var xy = point.Split(',');
+                var x = Convert.ToInt32(xy[0]);
+                var y = Convert.ToInt32(xy[1]);
+                pathData[pathIndex].Add(new Point(x, y,2));
+            }
+            
+            foreach (var pd in pathData)
+            {
+                var tileIds = GetTileIdsFromPath(pd.Value);
+                for (int i = 0; i < pd.Value.Count; i++)
+                {
+                    var currentTile = tileIds[i + 1];
+                    _puzzlePathLocations[pathIndex][currentTile].Add(pd.Value[i]);
+                }
             }
         }
 

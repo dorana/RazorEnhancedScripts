@@ -17,7 +17,7 @@ namespace RazorScripts
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.8.6";
+        private readonly string _version = "v1.8.7";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -59,6 +59,9 @@ namespace RazorScripts
                 Misc.RemoveSharedValue("Lootmaster:ReconfigureBags");
                 Misc.RemoveSharedValue("Lootmaster:ClearCurrentCharacter");
                 Misc.RemoveSharedValue("Lootmaster:DirectContainerRule");
+                Misc.RemoveSharedValue("Lootmaster:Pause");
+                Misc.RemoveSharedValue("Lootmaster:OpenConfig");
+                Misc.RemoveSharedValue("Lootmaster:ForceClose");
                 //SetSpecialRules();
                 Setup();
                 UpdateLootMasterGump();
@@ -215,6 +218,20 @@ namespace RazorScripts
                         clearCurrentCharacterConfig)
                     {
                         ClearCurrentCharacterConfig();
+                    }
+
+                    if (Misc.ReadSharedValue("Lootmaster:OpenConfig") is bool openConfig &&
+                        openConfig)
+                    {
+                        Misc.RemoveSharedValue("Lootmaster:OpenConfigs");
+                        ShowConfigurator();
+                    }
+
+                    if (Misc.ReadSharedValue("Lootmaster:ForceClose") is bool forceClose &&
+                        forceClose)
+                    {
+                        Misc.RemoveSharedValue("Lootmaster:ForceClose");
+                        return;
                     }
 
                     if (Misc.ReadSharedValue("Lootmaster:DirectContainer") is int directContainerSerial &&
@@ -798,6 +815,12 @@ namespace RazorScripts
                             // Don't loot into itself
                             continue;
                         }
+
+                        if (!item.IsChildOf(container))
+                        {
+                            continue;
+                        }
+                        
                         Handler.SendMessage(MessageType.Debug, $"Adding {item.Name} to loot list");
                         lootItems.Add(new GrabTarget
                         {
@@ -2476,6 +2499,7 @@ namespace RazorScripts
             ruleUpButton.Enabled = false;
             deleteButton.Enabled = false;
             clearTargetBagButton.Enabled = false;
+            alertCheckbox.Checked = false;
             
         }
         
@@ -3123,10 +3147,35 @@ namespace RazorScripts
         {
             SetHue();
         }
-
+ 
         private void deleteButton_Click(object sender, EventArgs e)
         {
-            DeleteRule(ActiveRule.Id);
+            if (rulesList.Controls.Count == 0)
+            {
+                return;
+            }
+            
+            var controlscopy = rulesList.Controls.Cast<RuleController>().ToList();
+            
+            foreach (RuleController rulesListControl in controlscopy)
+            {
+                if(rulesListControl.IsSelected)
+                {
+                    DeleteRule(rulesListControl.RuleId, true);
+                }
+            }
+
+            if (rulesList.Controls.Count > 0)
+            {
+                var lc = rulesList.Controls[0] as RuleController;
+                lc.SetActive(true);
+                LoadRule(lc.GetRule());
+            }
+            else
+            {
+                ClearConfig();
+            }
+            
         }
 
         private void moveDownSelectedRuleMenuItem_Click(object sender, EventArgs e)
@@ -3285,8 +3334,12 @@ namespace RazorScripts
                 }
             }
         }
-        
+
         private void DeleteRule(Guid ruleId)
+        {
+            DeleteRule(ruleId,false);
+        }
+        private void DeleteRule(Guid ruleId, bool isGroupedDelete)
         {
             var character = Config.GetCharacter();
             var existing = character.Rules.FirstOrDefault(r => r.Id == ruleId);
@@ -3301,29 +3354,32 @@ namespace RazorScripts
             {
                 if (control is RuleController ruleController)
                 {
-                    if (ruleController.GetRule().Id == ruleId)
+                    if (ruleController.RuleId == ruleId)
                     {
                         rulesList.Controls.Remove(control);
-                        deleteSelected = ruleId == ActiveRule.Id;
+                        deleteSelected = ruleId == ActiveRule?.Id;
                         break;
                     }
                 }
             }
 
-            if (deleteSelected)
+            if (!isGroupedDelete)
             {
-                if(rulesList.Controls.Count > 0)
+                if (deleteSelected)
                 {
-                    var lc = rulesList.Controls[0] as RuleController;
-                    lc.SetActive(true);
-                    LoadRule(lc.GetRule());
-                }
-                else
-                {
-                    ClearConfig();
+                    if (rulesList.Controls.Count > 0)
+                    {
+                        var lc = rulesList.Controls[0] as RuleController;
+                        lc.SetActive(true);
+                        LoadRule(lc.GetRule());
+                    }
+                    else
+                    {
+                        ClearConfig();
+                    }
                 }
             }
-            
+
             Config.Save();
         }
 
@@ -4583,10 +4639,10 @@ namespace RazorScripts
     public partial class RuleController : UserControl
     {
         public bool IsSelected => checkBox1.Checked;
+
         public Guid RuleId => _rule.Id;
         public LootRule GetRule() => _rule;
         public void SetRule(LootRule rule) => _rule = rule;
-        
         
         private bool _isEnabled = false;
         private LootRule _rule;
@@ -4641,12 +4697,14 @@ namespace RazorScripts
                 panelMain.BackColor = Color.LightBlue;
                 panelMain.BorderStyle = BorderStyle.None;
                 checkBox1.Checked = true;
+                checkBox1.Enabled = false;
             }
             else
             {
                 panelMain.BackColor = SystemColors.Control;
                 panelMain.BorderStyle = BorderStyle.None;
                 checkBox1.Checked = false;
+                checkBox1.Enabled = true;
             }
         }
         
