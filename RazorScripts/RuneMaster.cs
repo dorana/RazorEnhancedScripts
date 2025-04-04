@@ -304,7 +304,7 @@ namespace Razorscripts
         private void RefreshRunes(bool merge)
         {
             var books = GetAllRuneLocations();
-            _config.UppdateLocations(books, merge);
+            _config.UpdateLocations(books, merge);
         }
 
         private List<BookData> GetAllRuneLocations()
@@ -363,7 +363,7 @@ namespace Razorscripts
                 {
                     currentBookData.Runes.Add(new RuneData
                     {
-                        Name = name,
+                        Name = name ?? "NONAME",
                         RecallIndex = 50+index,
                         GateIndex = 100+index,
                         SacredJourneyIndex = 75+index,
@@ -382,7 +382,7 @@ namespace Razorscripts
         private BookData GetAtlasData(Item atlas)
         {
             Items.WaitForProps(atlas, 1000);
-                var bookName = atlas.Properties.FirstOrDefault(p => p.Number == 1042971)?.ToString();
+                var bookName = atlas.Properties.FirstOrDefault(p => p.Number == 1042971)?.ToString() ?? "NONAME";
                 Items.UseItem(atlas);
                 Misc.Pause(200);
                 var currentBookData = new BookData
@@ -1205,7 +1205,7 @@ namespace Razorscripts
             return character;
         }
         
-        public void UppdateLocations(List<BookData> books, bool merge)
+        public void UpdateLocations(List<BookData> books, bool merge)
         {
             if (merge)
             {
