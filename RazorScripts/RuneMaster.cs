@@ -1222,7 +1222,11 @@ namespace Razorscripts
                         continue;
                     }
                     
-                    bookData.Name = book.Name;
+                    var bookItem = Items.FindBySerial(book.Serial);
+                    
+                    var bookName = bookItem.Properties.FirstOrDefault(p => p.Number == 1042971)?.ToString() ?? "NONAME";
+                    
+                    bookData.Name = bookName;
                     
                     foreach (var rune in book.Runes)
                     {
