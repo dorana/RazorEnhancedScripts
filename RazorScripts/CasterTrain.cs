@@ -21,6 +21,7 @@ namespace RazorScripts
         };
         private uint _gumpId = 1239862396;
         private bool _running = false;
+        private Item _targetWeapon = null;
         
 
         private Dictionary<string, List<SpellSkill>> _castHolder = new Dictionary<string, List<SpellSkill>>();
@@ -63,6 +64,41 @@ namespace RazorScripts
 
 
                 Setup();
+                
+                if(_spellSchools["Chivalry"] > 0)
+                {
+                    var currentSkill = Player.GetSkillValue("Chivalry");
+                    if (currentSkill < 45)
+                    {
+                        Misc.SendMessage("You need to have a weapon to train Chivalry, please target one in your backpack", 0x22);
+                        var tar = new Target();
+                        int tarSerial = 0;
+                        while (tarSerial == 0)
+                        {
+                            tarSerial = tar.PromptTarget("Select Weapon");
+                        }
+                        var tarItem = Items.FindBySerial(tarSerial);
+                        
+                        _targetWeapon = tarItem;
+                    }
+                }
+                if(_spellSchools["Spellweaving"] > 20 && _targetWeapon == null)
+                {
+                    var currentSkill = Player.GetSkillValue("Spellweaving");
+                    if (currentSkill < 44)
+                    {
+                        Misc.SendMessage("You need to have a weapon to train Spellweaving, please target one in your backpack", 0x22);
+                        var tar = new Target();
+                        int tarSerial = 0;
+                        while (tarSerial == 0)
+                        {
+                            tarSerial = tar.PromptTarget("Select Weapon");
+                        }
+                        var tarItem = Items.FindBySerial(tarSerial);
+                        
+                        _targetWeapon = tarItem;
+                    }
+                }
 
                 foreach (var caster in _castHolder)
                 {
@@ -73,19 +109,10 @@ namespace RazorScripts
                         {
                             needsWeapon = false;
                         }
-                        while (needsWeapon)
+                        if (needsWeapon)
                         {
-                            var equippedRight = Player.GetItemOnLayer("RightHand");
-                            if (equippedRight == null || equippedRight.Name.ToLower().Contains("spellbook"))
-                            {
-                                Misc.SendMessage("You need to equip a weapon in your right hand for Spellweaving",
-                                    0x22);
-                                Misc.Pause(5000);;
-                            }
-                            else
-                            {
-                                needsWeapon = true;
-                            }
+                            Player.EquipItem(_targetWeapon);
+                            Misc.Pause(500);
                         }
                     }
                     if(caster.Key == "Chivalry")
@@ -94,19 +121,10 @@ namespace RazorScripts
                         {
                             needsWeapon = false;
                         }
-                        while (needsWeapon)
+                        if (needsWeapon)
                         {
-                            var equippedRight = Player.GetItemOnLayer("RightHand");
-                            if (equippedRight == null || equippedRight.Name.ToLower().Contains("spellbook"))
-                            {
-                                Misc.SendMessage("You need to equip a weapon in your right hand for Chivalry",
-                                    0x22);
-                                Misc.Pause(5000);;
-                            }
-                            else
-                            {
-                                needsWeapon = true;
-                            }
+                            Player.EquipItem(_targetWeapon);
+                            Misc.Pause(500);
                         }
                     }
                     
