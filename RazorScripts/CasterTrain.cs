@@ -66,6 +66,42 @@ namespace RazorScripts
 
                 foreach (var caster in _castHolder)
                 {
+                    var hasWeapon = false;
+                    if(caster.Key == "Spellweaving")
+                    {
+                        while (!hasWeapon)
+                        {
+                            var equippedRight = Player.GetItemOnLayer("RightHand");
+                            if (equippedRight == null || equippedRight.Name.ToLower().Contains("spellbook"))
+                            {
+                                Misc.SendMessage("You need to equip a weapon in your right hand for Spellweaving",
+                                    0x22);
+                                Misc.Pause(5000);;
+                            }
+                            else
+                            {
+                                hasWeapon = true;
+                            }
+                        }
+                    }
+                    if(caster.Key == "Chivalry")
+                    {
+                        while (!hasWeapon)
+                        {
+                            var equippedRight = Player.GetItemOnLayer("RightHand");
+                            if (equippedRight == null || equippedRight.Name.ToLower().Contains("spellbook"))
+                            {
+                                Misc.SendMessage("You need to equip a weapon in your right hand for Chivalry",
+                                    0x22);
+                                Misc.Pause(5000);;
+                            }
+                            else
+                            {
+                                hasWeapon = true;
+                            }
+                        }
+                    }
+                    
                     TrainSkill(caster.Key);
                     UpdateGump("");
                 }
@@ -217,7 +253,7 @@ namespace RazorScripts
             gump.x = 500;
             gump.y = 500;
             
-            var height = schoolstToTrain.Any() ? 30 + (schoolstToTrain.Count() * 35) : 100 + (_spellSchools.Count() * 35);
+            var height = schoolstToTrain.Any() ? 35 + (schoolstToTrain.Count() * 35) : 100 + (_spellSchools.Count() * 35);
             
             Gumps.AddBackground(ref gump, 0, 0, 200, height, 1755);
             Gumps.AddLabel(ref gump,10,10,0x7b, "Caster Training by Dorana");
