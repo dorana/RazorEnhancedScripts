@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Xml.Schema;
 using RazorEnhanced;
 
 namespace RazorScripts
@@ -14,23 +16,69 @@ namespace RazorScripts
             {"Magery", 0},
             {"Necromancy", 0},
             {"Chivalry", 0},
-            {"Mysticism", 120},
+            {"Mysticism", 0},
             {"Spellweaving", 0}
         };
+        private uint _gumpId = 1239862396;
+        private bool _running = false;
         
 
         private Dictionary<string, List<SpellSkill>> _castHolder = new Dictionary<string, List<SpellSkill>>();
 
         public void Run()
         {
-            Setup();
-            UpdateGump("");
-            foreach (var caster in _castHolder)
+            try
             {
-                TrainSkill(caster.Key);
-            }
+                UpdateGump("");
+                while (!_running)
+                {
+                    var reply = Gumps.GetGumpData(_gumpId);
+                    if (reply.buttonid == 1)
+                    {
+                        var changes = new Dictionary<string, int>();
+                        var index = 0;
+                        foreach (var sc in _spellSchools)
+                        {
+                            var valueString = reply.text[index];
+                            if (int.TryParse(valueString, out var value))
+                            {
+                                changes[sc.Key] = value;
+                            }
 
-            UpdateGump("", true);
+                            index++;
+                        }
+
+                        foreach (var change in changes)
+                        {
+                            _spellSchools[change.Key] = change.Value;
+                        }
+
+                        UpdateGump("");
+                        reply.buttonid = -1;
+                        _running = true;
+                    }
+
+                    Misc.Pause(500);
+                }
+
+
+                Setup();
+
+                foreach (var caster in _castHolder)
+                {
+                    TrainSkill(caster.Key);
+                    UpdateGump("");
+                }
+            }
+            catch (ThreadAbortException)
+            {
+                Gumps.CloseGump(_gumpId);
+            }
+            catch (Exception e)
+            {
+                Misc.SendMessage(e);
+                throw;
+            }
         }
 
         private Action<string,Mobile,bool> GetCastFunction(string casterKey)
@@ -115,7 +163,7 @@ namespace RazorScripts
                     }
                 }
 
-                UpdateGump(casterKey, false);
+                UpdateGump(casterKey);
                 if (skill >= skillCap)
                 {
                     break;
@@ -130,6 +178,7 @@ namespace RazorScripts
                     {
                         castFunc.Invoke(spell.SpellName, _player, true);
                         Misc.Pause(spell.WaitTime);
+                        UpdateGump(casterKey);
                         break;
                     }
                 }
@@ -158,38 +207,51 @@ namespace RazorScripts
             }
         }
 
-        private void UpdateGump(string current, bool finished = false)
+        private void UpdateGump(string current)
         {
-            var bar = Gumps.CreateGump();
-            bar.buttonid = -1;
-            bar.gumpId = 1239862396;
-            bar.serial = (uint)Player.Serial;
-            bar.x = 500;
-            bar.y = 500;
+            var schoolstToTrain = _spellSchools.Where(ss => ss.Value > 0).ToList();
+            var gump = Gumps.CreateGump();
+            gump.buttonid = -1;
+            gump.gumpId = _gumpId;
+            gump.serial = (uint)Player.Serial;
+            gump.x = 500;
+            gump.y = 500;
             
-            var schooltToTrain = _spellSchools.Where(ss => ss.Value > 0).ToList();
+            var height = schoolstToTrain.Any() ? 30 + (schoolstToTrain.Count() * 35) : 100 + (_spellSchools.Count() * 35);
             
-            Gumps.AddBackground(ref bar, 0, 0, 300, 50+(schooltToTrain.Count()*50), 1755);
-            Gumps.AddLabel(ref bar,10,10,203, "Caster Training");
+            Gumps.AddBackground(ref gump, 0, 0, 200, height, 1755);
+            Gumps.AddLabel(ref gump,10,10,0x7b, "Caster Training by Dorana");
 
             var index = 0;
-            foreach (var school in schooltToTrain)
+            if (schoolstToTrain.Any())
             {
-                var currentSkill = Player.GetRealSkillValue(school.Key);
-                var cap = school.Value;
-                var crystal = school.Key == current ? 2152 : (currentSkill >= cap ? 5826 : 5832);
-                Gumps.AddImage(ref bar,10,30+(index*35),crystal);
-                Gumps.AddLabel(ref bar,60,35+(index*35),203, $"{school.Key} - {currentSkill}/{cap}");
-                index++;
+                foreach (var school in schoolstToTrain)
+                {
+                    var currentSkill = Player.GetRealSkillValue(school.Key);
+                    var cap = school.Value;
+                    var crystal = school.Key == current ? 2152 : (currentSkill >= cap ? 5826 : 5832);
+                    Gumps.AddImage(ref gump, 10, 30 + (index * 35), crystal);
+                    Gumps.AddLabel(ref gump, 45, 35 + (index * 35), 203, $"{school.Key} - {currentSkill}/{cap}");
+                    index++;
+                }
             }
-
-            if (finished)
+            else
             {
-                Gumps.AddLabel(ref bar,75,35+(index*35),704, $"ALL DONE!");
+                Gumps.AddLabel(ref gump,15,30,0x7f, $"Skill name");
+                Gumps.AddLabel(ref gump,100,30,0x7f, $"Target Skill");
+                foreach (var school in _spellSchools)
+                {
+                    var name = school.Key;
+                    var value = school.Value;
+                    Gumps.AddLabel(ref gump,15,55+(index*35),0x7b, $"{name}");
+                    Gumps.AddImageTiled(ref gump, 100, 59+(index*35), 75, 16,1803);
+                    Gumps.AddTextEntry(ref gump, 100,59+(index*35),75,32,0x16a,index+1,value > 0 ? value.ToString() : "");
+                    index++;
+                }
+                Gumps.AddButton(ref gump, 100,height-50, 247,248, 1,1,1);
             }
-            
             Gumps.CloseGump(1239862396);
-            Gumps.SendGump(bar, 500, 500);
+            Gumps.SendGump(gump, 500, 500);
         }
 
         private void Setup()
@@ -231,15 +293,16 @@ namespace RazorScripts
                 spellList.Add(new SpellSkill {SkillLevel = 60, SpellName = "Divine Fury"});
                 spellList.Add(new SpellSkill {SkillLevel = 70, SpellName = "Enemy of One"});
                 spellList.Add(new SpellSkill {SkillLevel = 90, SpellName = "Holy Light"});
+                spellList.Add(new SpellSkill {SkillLevel = 120, SpellName = "Noble Sacrifice"});
                 _castHolder.Add("Chivalry", spellList);
             }
             if(_spellSchools["Spellweaving"] > 0)
             {
                 var spellList = new List<SpellSkill>();
                 spellList.Add(new SpellSkill {SkillLevel = 20, SpellName = "Arcane Circle"});
-                spellList.Add(new SpellSkill {SkillLevel = 33, SpellName = "Immolating Weapon"});
+                spellList.Add(new SpellSkill {SkillLevel = 33, SpellName = "Immolating Weapon", WaitTime = 9000});
                 spellList.Add(new SpellSkill {SkillLevel = 44, SpellName = "Reaper Form", DoNotEndOnBuff = "Reaper Form"});
-                spellList.Add(new SpellSkill {SkillLevel = 55, SpellName = "Summon Fey"});
+                // spellList.Add(new SpellSkill {SkillLevel = 55, SpellName = "Summon Fey"});
                 spellList.Add(new SpellSkill {SkillLevel = 74, SpellName = "Essence of Wind"});
                 spellList.Add(new SpellSkill {SkillLevel = 90, SpellName = "Wildfire", WaitTime = 3000});
                 spellList.Add(new SpellSkill {SkillLevel = 120, SpellName = "Word of Death"});
