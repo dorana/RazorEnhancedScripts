@@ -31,6 +31,12 @@ namespace RazorScripts
             try
             {
                 UpdateGump("");
+
+                if (_spellSchools.Any(sc => sc.Value > 0))
+                {
+                    _running = true;
+                }
+                
                 while (!_running)
                 {
                     var reply = Gumps.GetGumpData(_gumpId);
@@ -215,6 +221,14 @@ namespace RazorScripts
                             continue;
                         }
 
+                        var spellweavingSkill = Player.GetRealSkillValue("Spellweaving");
+                        if (spellweavingSkill >= 24 && !Player.BuffsExist("Gift of Renewal"))
+                        {
+                            Spells.CastSpellweaving("Gift of Renewal", _player);
+                            Misc.Pause(7000);
+                            continue;
+                        }
+
                         var bandages = _player.Backpack.Contains.FirstOrDefault(i => i.ItemID == 0x0E21);
                         if (bandages != null)
                         {
@@ -222,6 +236,8 @@ namespace RazorScripts
                             Misc.Pause(7000);
                             continue;
                         }
+                        
+                        Misc.Pause(2000);
                     }
                 }
 
