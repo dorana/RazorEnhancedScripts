@@ -66,10 +66,14 @@ namespace RazorScripts
 
                 foreach (var caster in _castHolder)
                 {
-                    var hasWeapon = false;
+                    var needsWeapon = true;
                     if(caster.Key == "Spellweaving")
                     {
-                        while (!hasWeapon)
+                        if(Player.GetSkillValue("Spellweaving") >= 44)
+                        {
+                            needsWeapon = false;
+                        }
+                        while (needsWeapon)
                         {
                             var equippedRight = Player.GetItemOnLayer("RightHand");
                             if (equippedRight == null || equippedRight.Name.ToLower().Contains("spellbook"))
@@ -80,13 +84,17 @@ namespace RazorScripts
                             }
                             else
                             {
-                                hasWeapon = true;
+                                needsWeapon = true;
                             }
                         }
                     }
                     if(caster.Key == "Chivalry")
                     {
-                        while (!hasWeapon)
+                        if(Player.GetSkillValue("Chivalry") >= 45)
+                        {
+                            needsWeapon = false;
+                        }
+                        while (needsWeapon)
                         {
                             var equippedRight = Player.GetItemOnLayer("RightHand");
                             if (equippedRight == null || equippedRight.Name.ToLower().Contains("spellbook"))
@@ -97,7 +105,7 @@ namespace RazorScripts
                             }
                             else
                             {
-                                hasWeapon = true;
+                                needsWeapon = true;
                             }
                         }
                     }
