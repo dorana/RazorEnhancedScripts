@@ -363,7 +363,7 @@ namespace RazorScripts
                 var spellList = new List<SpellSkill>();
                 spellList.Add(new SpellSkill {SkillLevel = 20, SpellName = "Arcane Circle"});
                 spellList.Add(new SpellSkill {SkillLevel = 33, SpellName = "Immolating Weapon", WaitTime = 9000});
-                spellList.Add(new SpellSkill {SkillLevel = 44, SpellName = "Reaper Form", DoNotEndOnBuff = "Reaper Form"});
+                spellList.Add(new SpellSkill {SkillLevel = 52, SpellName = "Reaper Form", DoNotEndOnBuff = "Reaper Form"});
                 // spellList.Add(new SpellSkill {SkillLevel = 55, SpellName = "Summon Fey"});
                 spellList.Add(new SpellSkill {SkillLevel = 74, SpellName = "Essence of Wind"});
                 spellList.Add(new SpellSkill {SkillLevel = 90, SpellName = "Wildfire", WaitTime = 3000});
