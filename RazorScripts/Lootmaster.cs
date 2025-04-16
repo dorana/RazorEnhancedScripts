@@ -18,8 +18,8 @@ namespace RazorScripts
     {
         public static readonly bool Debug = false;
         private readonly string _version = "v1.8.7";
-        public static readonly bool IsOSI = false;
-        
+        public static readonly bool IsOSI = true;
+
         private Target _tar = new Target();
         private readonly List<int> ignoreList = new List<int>();
         private LootMasterConfig _config = new LootMasterConfig();
@@ -30,7 +30,7 @@ namespace RazorScripts
         private DateTime? DeathClock = null;
         readonly Journal _journal = new Journal();
         private Hue _status = Hue.Idle;
-        
+
         public void Run()
         {
             try
@@ -283,7 +283,6 @@ namespace RazorScripts
 
                             _lastEntry = _journal.GetJournalEntry(null).OrderBy(j => j.Timestamp).LastOrDefault();
                             LootContainer(corpse);
-
                             var rows = _journal.GetJournalEntry(_lastEntry);
                             if (rows == null) continue;
                         }
@@ -396,7 +395,7 @@ namespace RazorScripts
                     }
                 }
             });
-            
+
             _config.CreateRule(new LootRule
             {
                 RuleName = "Valuable Caster Jewelry",
@@ -428,7 +427,7 @@ namespace RazorScripts
                     }
                 }
             });
-            
+
             _config.CreateRule(new LootRule
             {
                 RuleName = "Valuable Gear #1",
@@ -450,7 +449,7 @@ namespace RazorScripts
                     },
                 }
             });
-            
+
             _config.CreateRule(new LootRule
             {
                 RuleName = "Valuable Gear #2",
@@ -474,11 +473,11 @@ namespace RazorScripts
             });
 
             _config.CreateRule(new LootRule("Maps", "Treasure Map"));
-            
-        }
-        
 
-        
+        }
+
+
+
 
         private void ReconfigureBags()
         {
@@ -490,7 +489,7 @@ namespace RazorScripts
 
             Setup();
         }
-        
+
         private void ClearCurrentCharacterConfig()
         {
             var confirmResult =  MessageBox.Show("Are you sure you want to clear config for current character?",
@@ -506,7 +505,7 @@ namespace RazorScripts
                 Setup();
             }
         }
-        
+
         private void LoadStarterRules(bool openConfig = false)
         {
             var current = _config.Characters.FirstOrDefault(c => c.PlayerName == Player.Name);
@@ -523,13 +522,13 @@ namespace RazorScripts
                 ReconfigureBags();
             }
         }
-        
+
         private void LootDirectContainer(int directContainerSerial) => LootDirectContainer(directContainerSerial, null);
 
         private void LootDirectContainer(int directContainerSerial, LootRule rule)
         {
             var directContainer = Items.FindBySerial(directContainerSerial);
-            
+
             if (directContainer != null)
             {
                 Handler.SendMessage(MessageType.Log, $"Looting direct container {directContainer.Name}");
@@ -634,11 +633,11 @@ namespace RazorScripts
             Gumps.AddButton(ref about, 215, 125, 5843, 5844, (int)OptionsItem.Wiki, 1, 0);
             Gumps.AddLabel(ref about, 250,164,0,"Buy me a coffee");
             Gumps.AddButton(ref about, 215, 159, 5843, 5844, (int)OptionsItem.Coffee, 1, 0);
-            
-            
+
+
             about.serial = (uint)Player.Serial;
             about.gumpId = 492828;
-            
+
             Gumps.CloseGump(492828);
             Gumps.SendGump(about, 500, 350);
         }
@@ -659,11 +658,11 @@ namespace RazorScripts
             }
             else if(_status == Hue.Paused)
             {
-                Gumps.AddButton(ref controller, 150, 55, 9721, 9722, 500, 1, 0);    
+                Gumps.AddButton(ref controller, 150, 55, 9721, 9722, 500, 1, 0);
             }
             else
             {
-                Gumps.AddButton(ref controller, 150, 55, 2152, 2151, 500, 1, 0);    
+                Gumps.AddButton(ref controller, 150, 55, 2152, 2151, 500, 1, 0);
             }
             Gumps.AddLabel(ref controller, 8, 12, (int)_status, $"Lootmaster : {_status.ToString()}");
             Gumps.AddButton(ref controller,8,58,2116,2115, (int)OptionsItem.ManualRun,1,0);
@@ -680,7 +679,7 @@ namespace RazorScripts
             Handler.SendMessage(MessageType.Debug, $"Waiting for contents of {container.Name}");
             Items.UseItem(container);
             Misc.Pause(_lootDelay);
-            
+
             var entries = _journal.GetJournalEntry(_lastEntry);
             if (entries != null && entries.Any(e => e.Type.Equals("System", StringComparison.InvariantCultureIgnoreCase) && (e.Text.Equals("you may not loot this corpse.", StringComparison.CurrentCultureIgnoreCase) || e.Text.Equals("You did not earn the right to loot this creature!", StringComparison.InvariantCultureIgnoreCase))))
             {
@@ -689,7 +688,7 @@ namespace RazorScripts
                 return;
             }
             Items.WaitForContents(container, 5000);
-            
+
             var stamp = DateTime.Now;
             Handler.SendMessage(MessageType.Debug, $"Looting {container.Name}");
             var timeValidator = DateTimeOffset.Now;
@@ -711,7 +710,7 @@ namespace RazorScripts
             while (sum != 0)
             {
                 sum = Loot(container, rule);
-                
+
 
                 if (sum == int.MinValue)
                 {
@@ -722,9 +721,9 @@ namespace RazorScripts
                     Misc.Pause(2000);
                     return;
                 }
-                
+
                 Misc.Pause(100);
-                
+
                 if (DateTimeOffset.Now - timeValidator > TimeSpan.FromSeconds(IsOSI ? 20 : 10))
                 {
                     Handler.SendMessage(MessageType.Error, "Something seems to have locked up, aborting loot cycle");
@@ -750,11 +749,15 @@ namespace RazorScripts
             }
         }
 
-        private int Loot(Item container, LootRule singleRule)
+        private int Loot(Item childContainer, LootRule singleRule)
         {
             List <GrabTarget> lootItems = new List<GrabTarget>();
-            
+
             var sum = 0;
+
+            var container = childContainer.Contains.Count == 1 && childContainer.Contains[0].ItemID == 8198
+                ? childContainer.Contains[0]
+                : childContainer;
 
             foreach (var item in container.Contains)
             {
@@ -796,13 +799,13 @@ namespace RazorScripts
                         Handler.SendMessage(MessageType.Debug, $"Container is too far away");
                         return int.MinValue;
                     }
-                    
+
                     if (rule.TargetBag == null)
                     {
                         Handler.SendMessage(MessageType.Debug, $"Target bag is null");
                         continue;
                     }
-                    
+
                     if (rule.Match(item))
                     {
                         if (rule.TargetBag == container.Serial)
@@ -820,7 +823,7 @@ namespace RazorScripts
                         {
                             continue;
                         }
-                        
+
                         Handler.SendMessage(MessageType.Debug, $"Adding {item.Name} to loot list");
                         lootItems.Add(new GrabTarget
                         {
@@ -830,14 +833,14 @@ namespace RazorScripts
                         break;
                     }
                 }
-                
+
                 Handler.SendMessage(MessageType.Debug,"All rules checked");
             }
-            
+
             Handler.SendMessage(MessageType.Debug,"Items collected, starting loot");
             Misc.Pause(_lootDelay);
             var overLimit = false;
-            
+
             foreach (var li in lootItems)
             {
                 HandlePause();
@@ -852,7 +855,7 @@ namespace RazorScripts
                     {
                         sum += GrabItem(li.Item, li.Rule);
                     }
-                    
+
                 }
             }
 
@@ -884,7 +887,7 @@ namespace RazorScripts
             }
 
             Misc.RemoveSharedValue("LootmasterDirectContainer");
-            
+
             _player = Mobiles.FindBySerial(Player.Serial);
             if (_config.BaseDelay > 0)
             {
@@ -894,7 +897,7 @@ namespace RazorScripts
             Misc.RemoveSharedValue("Lootmaster:ReconfigureBags");
 
             Handler.SendMessage(MessageType.Info, "Lootmaster is ready to loot");
-            
+
             _config.Save();
 
             return true;
@@ -904,14 +907,14 @@ namespace RazorScripts
         {
             MoveToBag(item, rule.GetTargetBag());
             // Misc.Pause(200);
-            
+
             if (rule.Alert)
             {
                 Handler.SendMessage(MessageType.Info, $"Looted item for rule {rule.RuleName}");
             }
 
-            
-            
+
+
             return item.Amount;
         }
 
@@ -979,11 +982,11 @@ namespace RazorScripts
         public bool Disabled { get; set; }
 
         public int? TargetBag { get; set; }
-        
+
         public int? PropertyMatchRequirement { get; set; }
 
         public string RegExString { get; set; }
-        
+
         public Item GetTargetBag() => Items.FindBySerial(TargetBag ?? -1);
 
         public static LootRule Gold =>
@@ -994,7 +997,7 @@ namespace RazorScripts
                     new ItemColorIdentifier(3821,0, "Gold Coin"),
                     new ItemColorIdentifier(41777,0, "Coin Purse")
                 }, //GoldStacks and GoldBags
-                
+
                 MaxWeight = 100
             };
 
@@ -1033,8 +1036,8 @@ namespace RazorScripts
                 };
             }
         }
-            
-        
+
+
         public static LootRule ReagentsMagery =>
             new LootRule
             {
@@ -1042,7 +1045,7 @@ namespace RazorScripts
                 ItemColorIds = Enum.GetValues(typeof(ReagentsMagery)).Cast<ReagentsMagery>().Select(g => new ItemColorIdentifier((int)g,0,Handler.SplitCamelCase(g.ToString()))).ToList(),
                 MaxWeight = 100
             };
-        
+
         public static LootRule ReagentsNecromancy =>
             new LootRule
             {
@@ -1050,7 +1053,7 @@ namespace RazorScripts
                 ItemColorIds = Enum.GetValues(typeof(ReagentsNecro)).Cast<ReagentsNecro>().Select(g => new ItemColorIdentifier((int)g, 0, Handler.SplitCamelCase(g.ToString()))).ToList(),
                 MaxWeight = 100
             };
-        
+
         public static LootRule ReagentsMysticism =>
             new LootRule
             {
@@ -1058,7 +1061,7 @@ namespace RazorScripts
                 ItemColorIds = Enum.GetValues(typeof(ReagentsMysticism)).Cast<ReagentsMysticism>().Select(g => new ItemColorIdentifier((int)g, 0, Handler.SplitCamelCase(g.ToString()))).ToList(),
                 MaxWeight = 100
             };
-        
+
         public static LootRule ReagentsAll =>
             new LootRule
             {
@@ -1123,7 +1126,7 @@ namespace RazorScripts
                     }
                 }
             };
-        
+
         public static LootRule Slayers =>
         new LootRule
         {
@@ -1136,7 +1139,7 @@ namespace RazorScripts
                 }
             }
         };
-        
+
         public static LootRule PureElementalWeapons =>
             new LootRule
             {
@@ -1150,7 +1153,7 @@ namespace RazorScripts
                     }
                 }
             };
-        
+
 
         public static LootRule PureEnergyWeapon =>
             new LootRule
@@ -1165,7 +1168,7 @@ namespace RazorScripts
                     }
                 }
             };
-        
+
         public LootRule(string ruleName, string itemName, bool alert = false)
         {
             RuleName = ruleName;
@@ -1186,7 +1189,7 @@ namespace RazorScripts
             var match = CheckItemIdOrName(item);
             Handler.SendMessage(MessageType.Debug,$"CheckItemId / CheckItemName : {match}");
             match = match && CheckBlackListProperties(item);
-            
+
             match = match && CheckWeightCursed(item);
             Handler.SendMessage(MessageType.Debug,$"CheckWeightCursed : {match}");
 
@@ -1201,7 +1204,7 @@ namespace RazorScripts
 
             match = match && CheckRegEx(item);
             Handler.SendMessage(MessageType.Debug,$"CheckSpecialProps : {match}");
-                
+
             return match;
 
         }
@@ -1209,7 +1212,7 @@ namespace RazorScripts
         private bool CheckName(Item item)
         {
             var nameList = ItemNames ?? new List<string>();
-            
+
 
             if (!nameList.Any())
             {
@@ -1235,7 +1238,7 @@ namespace RazorScripts
             }
 
             var matchFound = false;
-            
+
             if (EquipmentSlots.Contains(EquipmentSlot.Armour))
             {
                 var tempList = Enum.GetValues(typeof(EquipmentSlot)).Cast<EquipmentSlot>()
@@ -1245,7 +1248,7 @@ namespace RazorScripts
                         x != EquipmentSlot.RightHand &&
                         x != EquipmentSlot.LeftHand &&
                         x != EquipmentSlot.Ring &&
-                        x != EquipmentSlot.Bracelet 
+                        x != EquipmentSlot.Bracelet
                     ).ToList();
                 matchFound = tempList.Select(x => x.ToString()).Any(s => s.ToString().Equals(item.Layer, StringComparison.OrdinalIgnoreCase));
             }
@@ -1266,28 +1269,28 @@ namespace RazorScripts
             {
                 return true;
             }
-            
+
             if (ItemColorIds == null || !ItemColorIds.Any())
             {
                 return CheckName(item);
             }
-            
+
             if (ItemNames == null || !ItemNames.Any())
             {
                 return CheckItemId(item);
             }
-            
+
             return CheckItemId(item) || CheckName(item);
         }
-        
-        
+
+
         private bool CheckItemId(Item item)
         {
             if (ItemColorIds == null || !ItemColorIds.Any())
             {
                 return true;
             }
-            
+
             return ItemColorIds.Any(i => i.ItemId == item.ItemID && (i.Color == null || i.Color == item.Hue));
         }
 
@@ -1343,7 +1346,7 @@ namespace RazorScripts
             {
                 rarityProp = item.Properties.FirstOrDefault(p => p.Number == 1042971);
             }
-            
+
 
             if (rarityProp == null)
             {
@@ -1352,7 +1355,7 @@ namespace RazorScripts
 
 
             var checkRarities = Enum.GetValues(typeof(ItemRarity)).Cast<ItemRarity>().ToList();
-            
+
             if(MinimumRarity != null)
             {
                 checkRarities = checkRarities.Where(r => (int)r >= (int)MinimumRarity).ToList();
@@ -1364,7 +1367,7 @@ namespace RazorScripts
             }
 
             var matched = false;
-            
+
             var rarityString = "";
             string cleaned = String.Empty;
             if (Lootmaster.IsOSI)
@@ -1375,7 +1378,7 @@ namespace RazorScripts
             {
                 cleaned = rarityProp.Args.Substring(rarityProp.Args.IndexOf(">", StringComparison.Ordinal) + 1).Replace(" ", "");
             }
-            
+
             var length = cleaned.IndexOf("<", StringComparison.Ordinal);
             if (length == -1)
             {
@@ -1385,7 +1388,7 @@ namespace RazorScripts
             {
                 rarityString = cleaned.Substring(0, cleaned.IndexOf("<", StringComparison.Ordinal));
             }
-            
+
             foreach (var rarity in checkRarities)
             {
                 matched = rarityString.Equals(rarity.ToString(), StringComparison.OrdinalIgnoreCase);
@@ -1426,7 +1429,7 @@ namespace RazorScripts
                                 Handler.ResolvePropertyName(ItemProperty.EnergyDamage),
                                 Handler.ResolvePropertyName(ItemProperty.FireDamage)
                             };
-                            
+
                             break;
                         case ItemProperty.AnySkill:
                             var props = Enum.GetValues(typeof(ItemProperty)).Cast<ItemProperty>();
@@ -1463,7 +1466,7 @@ namespace RazorScripts
                     {
                         continue;
                     }
-                    
+
                     foreach (var prop in item.Properties)
                     {
                         if (prop.ToString().Equals(item.Name, StringComparison.InvariantCultureIgnoreCase))
@@ -1473,7 +1476,7 @@ namespace RazorScripts
                         var stringVal = prop.ToString().Replace("%", "").Replace("+","");
                         var reMatch = re.Match(stringVal);
                         var numIndex = reMatch.Success ? reMatch.Index : stringVal.Length;
-                        
+
                         if (checkProps.Any(propString => propString.Equals(stringVal.Substring(0, numIndex).Trim(), StringComparison.InvariantCultureIgnoreCase)))
                         {
                             var numstring = prop.Args;
@@ -1494,7 +1497,7 @@ namespace RazorScripts
                         {
                             continue;
                         }
-                        
+
                         var stringVal = prop.ToString().Replace("%", "").Replace("+","");
                         var reMatch = re.Match(stringVal);
                         var numIndex = reMatch.Success ? reMatch.Index : stringVal.Length;
@@ -1517,8 +1520,204 @@ namespace RazorScripts
                 Handler.SendMessage(MessageType.Debug, $"{keyValuePair.Key} = {keyValuePair.Value}");
             }
 
-            //atleast PropertyMatchRequirement properties must match if PropertyMatchRequirement is null assume All must match
-            return PropertyMatchRequirement == null ? ruleDict.All(p => p.Value) : ruleDict.Count(p => p.Value) >= PropertyMatchRequirement;
+
+
+            int matched    = ruleDict.Count(kvp => kvp.Value);
+            int totalRules = ruleDict.Count;
+
+            string[] realPropertyPrefixes = new string[]
+            {
+                "Spell Damage Increase",
+                "Enhance Potions",
+                "Faster Cast Recovery",
+                "Faster Casting",
+                "Lower Mana Cost",
+                "Lower Reagent Cost",
+                "Night Sight",
+                "Reactive Paralyze",
+                "Reactive Fireball",
+                "Reactive Curse",
+                "Reactive Lightning",
+                "Reactive Mana Drain",
+                "Hit Lower Attack",
+                "Hit Lower Defense",
+                "Reflect Physical Damage",
+                "Enhance Damage",
+                "Enhance Defense",
+                "Strength Bonus",
+                "Dexterity Bonus",
+                "Intelligence Bonus",
+                "Hit Point Increase",
+                "Stamina Increase",
+                "Mana Increase",
+                "Spell Channeling",
+                "Damage Increase",
+                "Luck",
+                "Swing Speed Increase",
+                "Hit Chance Increase",
+                "Defense Chance Increase",
+                "Hit Point Regeneration",
+                "Stamina Regeneration",
+                "Mana Regeneration",
+                "Physical Damage",
+                "Cold Damage",
+                "Fire Damage",
+                "Poison Damage",
+                "Energy Damage",
+                "Casting Focus",
+                "Hit Cold Area",
+                "Hit Fire Area",
+                "Hit Energy Area",
+                "Hit Physical Area",
+                "Hit Poison Area",
+                "Hit Magic Arrow",
+                "Hit Dispel",
+                "Hit Fireball",
+                "Hit Harm",
+                "Hit Curse",
+                "Hit Lightning",
+                "Hit Life Leech",
+                "Hit Mana Leech",
+                "Hit Stamina Leech",
+                "Physical Resist",
+                "Cold Resist",
+                "Fire Resist",
+                "Poison Resist",
+                "Energy Resist",
+                "Elves Only",
+                "Gargoyles Only",
+                "Fire Eater",
+                "Cold Eater",
+                "Poison Eater",
+                "Energy Eater",
+                "Kinetic Eater",
+                "Damage Eater",
+                "Demon Slayer",
+                "Undead Slayer",
+                "Repond Slayer",
+                "Elemental Slayer",
+                "Fey Slayer",
+                "Reptile Slayer",
+                "Arachnid Slayer",
+                "Silver",
+                "Alchemy",
+                "Anatomy",
+                "Animal Lore",
+                "Item Identification",
+                "Arms Lore",
+                "Parry",
+                "Begging",
+                "Blacksmithing",
+                "Bowcraft/Fletching",
+                "Peacemaking",
+                "Camping",
+                "Carpentry",
+                "Cartography",
+                "Cooking",
+                "Detect Hidden",
+                "Discordance",
+                "Evaluating Intelligence",
+                "Healing",
+                "Fishing",
+                "Forensic Evaluation",
+                "Herding",
+                "Hiding",
+                "Provocation",
+                "Inscription",
+                "Lockpicking",
+                "Magery",
+                "Magic Resist",
+                "Tactics",
+                "Snooping",
+                "Musicianship",
+                "Poisoning",
+                "Archery",
+                "Spirit Speak",
+                "Stealing",
+                "Tailoring",
+                "Animal Taming",
+                "Taste Identification",
+                "Tinkering",
+                "Tracking",
+                "Veterinary",
+                "Swordsmanship",
+                "Mace Fighting",
+                "Fencing",
+                "Wrestling",
+                "Lumberjacking",
+                "Mining",
+                "Meditation",
+                "Stealth",
+                "Remove Trap",
+                "Necromancy",
+                "Focus",
+                "Chivalry",
+                "Bushido",
+                "Ninjitsu",
+                "Spellweaving",
+                "Imbuing",
+                "Mysticism",
+                "Throwing"
+            };
+
+            int itemPropCount = item.Properties.Count(p =>
+            {
+                string propStr = p.ToString().ToLowerInvariant()
+                    .Replace("%", "")
+                    .Replace("+", "")
+                    .Trim();
+
+                if (propStr.Equals(item.Name.ToLowerInvariant()))
+                    return false;
+
+                return realPropertyPrefixes.Any(real =>
+                    propStr.StartsWith(real.ToLowerInvariant()));
+            });
+
+            foreach (var prop in item.Properties)
+            {
+                string propStr = prop.ToString().ToLowerInvariant()
+                    .Replace("%", "")
+                    .Replace("+", "")
+                    .Trim();
+
+                if (propStr.Equals(item.Name.ToLowerInvariant()))
+                {
+                    Handler.SendMessage(MessageType.Debug, $"[Skipped] Item name: {propStr}");
+                    continue;
+                }
+
+                if (realPropertyPrefixes.Any(real => propStr.StartsWith(real.ToLowerInvariant())))
+                {
+                    Handler.SendMessage(MessageType.Debug, $"[Counted] Real prop: {propStr}");
+                }
+                else
+                {
+                    Handler.SendMessage(MessageType.Debug, $"[Filtered Out] Non-real prop: {propStr}");
+                }
+            }
+
+            Handler.SendMessage(MessageType.Debug, $"[Real Prop Count] itemPropCount: {itemPropCount}, totalProps: {item.Properties.Count}");
+
+            Handler.SendMessage(MessageType.Debug, $"[Filtered Property Count] Real properties counted: {itemPropCount} out of {item.Properties.Count}");
+
+            bool isToLoot;
+            if (PropertyMatchRequirement == null)
+            {
+                isToLoot = matched == totalRules;
+            }
+            else if (itemPropCount <= PropertyMatchRequirement)
+            {
+                isToLoot = matched == itemPropCount;
+            }
+            else
+            {
+                isToLoot = matched >= PropertyMatchRequirement;
+            }
+
+            Handler.SendMessage(MessageType.Debug, $"[Loot Decision] matched: {matched}, totalRules: {totalRules}, itemProps: {itemPropCount}, required: {PropertyMatchRequirement}. Result: {isToLoot}");
+
+            return isToLoot;
         }
 
         private bool CheckRegEx(Item item)
@@ -1529,17 +1728,17 @@ namespace RazorScripts
             }
 
             var regEx = new Regex(RegExString, RegexOptions.IgnoreCase);
-            
+
             List<string> stringList = new List<string>();
-            
+
             stringList.Add(item.Name);
             foreach (var prop in item.Properties)
             {
                 stringList.Add(prop.ToString());
             }
-            
+
             return stringList.Any(s => regEx.Match(s).Success);
-            
+
         }
     }
 
@@ -1551,7 +1750,7 @@ namespace RazorScripts
         public List<LootMasterCharacter> Characters { get; set; }
         public bool ColorCorpses { get; set; }
         public int? ColorCorpsesColor { get; set; }
-        
+
         public List<ItemColorIdentifier> ItemColorLookup { get; set; }
         public Dictionary<int, string> ItemLookup { get; set; }
 
@@ -1563,7 +1762,7 @@ namespace RazorScripts
             ItemColorLookup = new List<ItemColorIdentifier>();
             ItemLookup = new Dictionary<int, string>();
         }
-        
+
         public void Init(string version)
         {
             Version = version;
@@ -1585,7 +1784,7 @@ namespace RazorScripts
                 {
                     PlayerName = Player.Name
                 });
-                
+
                 character = Characters.FirstOrDefault(c => c.PlayerName.Equals(checkname, StringComparison.OrdinalIgnoreCase));
             }
 
@@ -1601,7 +1800,7 @@ namespace RazorScripts
             }
             character.Rules.Add(rule);
         }
-        
+
         private void ReadConfig(string version)
         {
             try
@@ -1670,7 +1869,7 @@ namespace RazorScripts
 
                         ColorCorpses = readConfig?.ColorCorpses ?? true;
                         ColorCorpsesColor = readConfig?.ColorCorpsesColor ?? 0x3F6;
-                        
+
                         BaseDelay = readConfig?.BaseDelay ?? 200;
 
                         ItemLookup = readConfig?.ItemLookup ?? new Dictionary<int, string>();
@@ -1700,9 +1899,9 @@ namespace RazorScripts
             }
 
         }
-        
-        
-        
+
+
+
         private void WriteConfig()
         {
             try
@@ -1716,9 +1915,9 @@ namespace RazorScripts
                     {
                         data = type.InvokeMember("SerializeObject", BindingFlags.InvokeMethod, null, null, new object[] { this }) as string;
                     }
-                    
+
                 }
-                
+
                 var ms = File.Create(file);
                 var writer = new StreamWriter(ms);
                 writer.Write(data);
@@ -1736,7 +1935,7 @@ namespace RazorScripts
     public class LootMasterCharacter
     {
         public string PlayerName { get; set; }
-        
+
         public List<LootRule> Rules { get; set; }
 
         public LootMasterCharacter()
@@ -1794,7 +1993,7 @@ namespace RazorScripts
         NoxCrystal = 3982,     // 0x0F8E
         PigIron = 3983         // 0x0F8F
     }
-    
+
     internal enum ReagentsMysticism
     {
         DragonBlood = 16503,    // 0x4077
@@ -1843,7 +2042,7 @@ namespace RazorScripts
 
         public string DisplayName => Handler.ResolvePropertyName(Property);
     }
-    
+
     public class ItemColorIdentifier
     {
         public override string ToString()
@@ -1857,7 +2056,7 @@ namespace RazorScripts
             Color = color;
             Name = name;
         }
-           
+
         public int ItemId { get; set; }
         public int? Color { get; set; }
         public string Name { get; set; }
@@ -1924,7 +2123,7 @@ namespace RazorScripts
         EnergyResist = 56,
         ElvesOnly = 57,
         GargoylesOnly = 58,
-        
+
         //Slayers
         DemonSlayer = 200,
         UndeadSlayer = 201,
@@ -1934,7 +2133,7 @@ namespace RazorScripts
         FeySlayer = 205,
         ArachnidSlayer = 206,
         Silver = 207,
-        
+
         //Eaters
         FireEater = 90,
         ColdEater = 91,
@@ -1943,7 +2142,7 @@ namespace RazorScripts
         KineticEater = 94,
         DamageEater = 95,
 
-        
+
         //Skills
         Alchemy = 100,
         Anatomy = 101,
@@ -2003,13 +2202,13 @@ namespace RazorScripts
         Mysticism = 155,
         Imbuing = 156,
         Throwing = 157,
-        
+
         AnySkill = 1000,
         AnySlayer = 1001,
         AnyElement = 1002,
         AnyStat = 1003,
         AnyEater = 1004,
-        
+
         //Negatives
         Cursed = 2000,
         Antique = 2001,
@@ -2059,7 +2258,7 @@ namespace RazorScripts
 
     public static class Handler
     {
-        
+
         public static string ResolvePropertyName(ItemProperty prop)
         {
             switch (prop)
@@ -2196,8 +2395,8 @@ namespace RazorScripts
                     return "Kinetic Eater";
                 case ItemProperty.DamageEater:
                     return "Damage Eater";
-                
-                
+
+
                 //Slayers
                 case ItemProperty.DemonSlayer:
                     return "Demon Slayer";
@@ -2215,7 +2414,7 @@ namespace RazorScripts
                     return "Arachnid Slayer";
                 case ItemProperty.Silver:
                     return "Silver";
-                
+
                 //Anys
                 case ItemProperty.AnySlayer:
                     return "Any Slayer";
@@ -2227,7 +2426,7 @@ namespace RazorScripts
                     return "Any Stat";
                 case ItemProperty.AnyEater:
                     return "Any Eater";
-                
+
                 //Map all enum values between 100 and 999 (skills)
                 case ItemProperty.Alchemy:
                     return "Alchemy";
@@ -2345,7 +2544,7 @@ namespace RazorScripts
                     return "Mysticism";
                 case ItemProperty.Throwing:
                     return "Throwing";
-                
+
                 //Negatives
                 case ItemProperty.Cursed:
                     return "Cursed";
@@ -2377,7 +2576,7 @@ namespace RazorScripts
                     Misc.SendMessage(message, 33);
                     Player.HeadMessage(0x23, message);
                     throw new LootMasterException(message);
-                    
+
                 case MessageType.Info:
                     Misc.SendMessage(message, 0x99);
                     Player.HeadMessage(0x99, message);
@@ -2393,7 +2592,7 @@ namespace RazorScripts
                     break;
             }
         }
-        
+
         public static string SplitCamelCase(string str)
         {
             return Regex.Replace(
@@ -2414,7 +2613,7 @@ namespace RazorScripts
                 //Read Config has no known version, the means it's either older or nonexisting
                 return true;
             }
-            
+
             var svStrip = scriptVersion.Replace("v", "");
             var rvStrip = readConfigVersion.Replace("v", "");
             //split version into parts
@@ -2463,12 +2662,12 @@ namespace RazorScripts
         private List<DropDownItem> Properties = new List<DropDownItem>();
         private LootMasterConfig Config;
         private LootRule ActiveRule { get; set; }
-        
+
         public Configurator()
         {
             InitializeComponent();
         }
-        
+
         private void addButton_Click(object sender, EventArgs e)
         {
             ClearConfig();
@@ -2500,9 +2699,9 @@ namespace RazorScripts
             deleteButton.Enabled = false;
             clearTargetBagButton.Enabled = false;
             alertCheckbox.Checked = false;
-            
+
         }
-        
+
         private void colorCorpseCheckbox_CheckedChanged(object sender, EventArgs e)
         {
             Config.ColorCorpses = colorCorpseCheckbox.Checked;
@@ -2530,7 +2729,7 @@ namespace RazorScripts
                         }
                     }
                 }
-                
+
                 foreach (var val in equipmentSlotList.Controls)
                 {
                     if (val is EquipmentSlotControl eqc)
@@ -2554,8 +2753,8 @@ namespace RazorScripts
                     Disabled = !enabledCheckbox.Checked,
                     RegExString = string.IsNullOrEmpty(regExTextBox.Text.Trim()) ? null : regExTextBox.Text
                 };
-                
-                
+
+
                 // check if currentRule and originalRule differ on any property
                 return currentValues.EquipmentSlots.Count != ActiveRule.EquipmentSlots.Count ||
                        currentValues.EquipmentSlots.Except(ActiveRule.EquipmentSlots).Any() ||
@@ -2602,7 +2801,7 @@ namespace RazorScripts
             ruleNameTextBox.Text = rule.RuleName;
             rarityMinDropDown.SelectedIndex = rule.MinimumRarity == null ? 0 : Rarities.IndexOf(Rarities.First(r => r.Name == rule.MinimumRarity.ToString()));
             rarityMaxDropDown.SelectedIndex = rule.MaximumRarity == null ? 0 : Rarities.IndexOf(Rarities.First(r => r.Name == rule.MaximumRarity.ToString()));
-            
+
             equipmentSlotList.Controls.Clear();
 
             if (rule.EquipmentSlots != null)
@@ -2614,10 +2813,10 @@ namespace RazorScripts
                 }
                 equipmentSlotList.ResumeLayout();
             }
-            
+
             itemNamesList.Controls.Clear();
             regExTextBox.Text = rule.RegExString;
-            
+
             if (rule.ItemColorIds != null)
             {
                 itemNamesList.SuspendLayout();
@@ -2646,7 +2845,7 @@ namespace RazorScripts
                 }
                 itemNamesList.ResumeLayout();
             }
-            
+
             var nameList = rule.ItemNames ?? new List<string>();
             if (rule.ItemNames != null)
             {
@@ -2666,7 +2865,7 @@ namespace RazorScripts
                     propertiesList.Controls.Add(new PropertyControl(pm, DeleteRuleData, EditRuleData));
                 }
             }
-            
+
             if (rule.BlackListedProperties != null)
             {
                 foreach (var pm in rule.BlackListedProperties)
@@ -2674,12 +2873,12 @@ namespace RazorScripts
                     propertiesIgnoreList.Controls.Add(new PropertyControl(pm, DeleteRuleData, EditRuleData, true));
                 }
             }
-            
+
             weightCurseTextBox.Text = rule.MaxWeight?.ToString() ?? string.Empty;
             alertCheckbox.Checked = rule.Alert;
             enabledCheckbox.Checked = !rule.Disabled;
             minimumMatchPropsTextBox.Text = rule.PropertyMatchRequirement?.ToString() ?? string.Empty;
-            
+
             ruleDownButton.Enabled = true;
             ruleUpButton.Enabled = true;
             deleteButton.Enabled = true;
@@ -2724,7 +2923,7 @@ namespace RazorScripts
                     break;
             }
         }
-        
+
         private void EditRuleData(Guid id, object data)
         {
             EditRuleItem editForm = null;
@@ -2748,7 +2947,7 @@ namespace RazorScripts
                         itemNamesList.ResumeLayout();
                     }
                 }
-                
+
             }
             else if (data is ItemColorIdentifier dataId)
             {
@@ -2768,9 +2967,9 @@ namespace RazorScripts
                         itemNamesList.Controls.SetChildIndex(newControl, index);
                         itemNamesList.ResumeLayout();
                     }
-                    
+
                 }
-                
+
             }
             else if (data is PropertyMatch dataProp)
             {
@@ -2790,10 +2989,10 @@ namespace RazorScripts
                         propertiesList.Controls.SetChildIndex(newControl, index);
                         propertiesList.ResumeLayout();
                     }
-                    
+
                 }
             }
-            
+
             editForm?.Dispose();
         }
 
@@ -2830,7 +3029,7 @@ namespace RazorScripts
                         }
 
                         var lookupName = Config.ItemColorLookup.GetNameFromSet(intVal, 0);
-                        
+
                         itemNamesList.Controls.Add(new IdNameControl(new ItemColorIdentifier(intVal, null, lookupName), DeleteRuleData,EditRuleData));
                     }
                     else
@@ -2848,16 +3047,16 @@ namespace RazorScripts
                             }
 
                             var lookupName = Config.ItemColorLookup.GetNameFromSet(intVal,0);
-                        
+
                             itemNamesList.Controls.Add(new IdNameControl(new ItemColorIdentifier(intVal,null, lookupName), DeleteRuleData,EditRuleData));
                         }
                         catch
                         {
                             itemNamesList.Controls.Add(new IdNameControl(itemIdAddTextBox.Text, DeleteRuleData,EditRuleData));
                         }
-                        
+
                     }
-                    
+
                     itemIdAddTextBox.Text = string.Empty;
                 }
                 else
@@ -2872,7 +3071,7 @@ namespace RazorScripts
                         }
 
                         var lookupName = Config.ItemColorLookup.GetNameFromSet(item.ItemID, item.Hue);
-                    
+
                         itemNamesList.Controls.Add(new IdNameControl(new ItemColorIdentifier(item.ItemID, item.Hue, item.Name.Replace(item.Amount.ToString(), string.Empty).Trim()), DeleteRuleData,EditRuleData));
                     }
                 }
@@ -2958,7 +3157,7 @@ namespace RazorScripts
             }
 
             var ruleIndex = Config.GetCharacter().Rules.IndexOf(Config.GetCharacter().Rules.FirstOrDefault(x => x.Id == ActiveRule?.Id));
-            
+
             if (ActiveRule != null && ruleIndex != -1)
             {
                 ActiveRule.RuleName = rule.RuleName;
@@ -2981,13 +3180,13 @@ namespace RazorScripts
                 ActiveRule.BlackListedProperties = propertiesIgnoreList.Controls.Cast<PropertyControl>().Select(pm => pm.Get()).ToList();
                 ActiveRule.PropertyMatchRequirement = matchPropCount;
                 ActiveRule.RegExString = string.IsNullOrEmpty(regExTextBox.Text) ? null : regExTextBox.Text;
-                
+
                 //Replace rule with sameID with updated activeRule
                 var existing = Config.GetCharacter().Rules;
-                
+
                 Config.GetCharacter().Rules.Remove(Config.GetCharacter().Rules.First(x => x.Id == ActiveRule.Id));
                 Config.GetCharacter().Rules.Insert(ruleIndex,ActiveRule);
-                
+
                 foreach (var ctr in rulesList.Controls)
                 {
                     if (ctr is RuleController ruleController)
@@ -2995,7 +3194,7 @@ namespace RazorScripts
                         ruleController.UpdateData();
                     }
                 }
-                
+
                 return ActiveRule.Id;
             }
 
@@ -3024,7 +3223,7 @@ namespace RazorScripts
                 }
 
                 SetActiveRule(newId);
-                
+
                 Config.Save();
             }
             catch(Exception ex)
@@ -3061,8 +3260,8 @@ namespace RazorScripts
             public string Name { get; set; }
             public int Value { get; set; }
         }
-        
-        
+
+
 
         private void presetDropDown_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -3070,7 +3269,7 @@ namespace RazorScripts
             {
                 return;
             }
-            
+
             LootRule rule = presetDropDown.SelectedItem as LootRule;
             if (ActiveRule != null && ActiveRule.Id != Guid.NewGuid())
             {
@@ -3081,7 +3280,7 @@ namespace RazorScripts
 
             LoadRule(rule);
         }
-        
+
         private void characterDropdown_SelectedIndexChanged(object sender, EventArgs e)
         {
             var name = characterDropdown.SelectedItem as string;
@@ -3090,7 +3289,7 @@ namespace RazorScripts
                 LoadRules(Config.GetCharacter(name).Rules);
             }
         }
-        
+
         private void huePicker_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (huePicker.SelectedIndex != 0)
@@ -3101,7 +3300,7 @@ namespace RazorScripts
                 Config.Save();
             }
         }
-        
+
         private void hueTextBox_KeyPress(object sender, KeyPressEventArgs e)
         {
             if (e.KeyChar == (char)Keys.Enter)
@@ -3109,7 +3308,7 @@ namespace RazorScripts
                 SetHue();
             }
         }
-        
+
         private void lootDelayTextBox_KeyPress(object sender, KeyPressEventArgs e)
         {
             if (e.KeyChar == (char)Keys.Enter)
@@ -3135,8 +3334,8 @@ namespace RazorScripts
                 Config.Save();
             }
         }
-        
-        
+
+
 
         private void lootDelayTextBox_Leave(object sender, EventArgs e)
         {
@@ -3147,16 +3346,16 @@ namespace RazorScripts
         {
             SetHue();
         }
- 
+
         private void deleteButton_Click(object sender, EventArgs e)
         {
             if (rulesList.Controls.Count == 0)
             {
                 return;
             }
-            
+
             var controlscopy = rulesList.Controls.Cast<RuleController>().ToList();
-            
+
             foreach (RuleController rulesListControl in controlscopy)
             {
                 if(rulesListControl.IsSelected)
@@ -3175,7 +3374,7 @@ namespace RazorScripts
             {
                 ClearConfig();
             }
-            
+
         }
 
         private void moveDownSelectedRuleMenuItem_Click(object sender, EventArgs e)
@@ -3193,7 +3392,7 @@ namespace RazorScripts
             try
             {
                 var selectedProp = propertyIgnoreDropDown.SelectedItem as DropDownItem;
-                
+
                 if (!propertiesIgnoreList.Controls.Cast<PropertyControl>().Any(s => s.GetName() == (propertyIgnoreDropDown.SelectedItem as DropDownItem).Name))
                 {
                     var prop = new PropertyMatch
@@ -3201,10 +3400,10 @@ namespace RazorScripts
                         Property = (ItemProperty)selectedProp.Value,
                         Value = null
                     };
-                        
+
                     propertiesIgnoreList.Controls.Add(new PropertyControl(prop, DeleteRuleData, EditRuleData, true));
                 }
-                
+
                 propertyIgnoreDropDown.SelectedIndex = 0;
 
             }
@@ -3213,8 +3412,8 @@ namespace RazorScripts
                 // ignored
             }
         }
-        
-        
+
+
         private void addPropButton_Click(object sender, EventArgs e)
         {
             try
@@ -3225,7 +3424,7 @@ namespace RazorScripts
                 {
                     value = tmpValue;
                 }
-                
+
                 if (!propertiesList.Controls.Cast<PropertyControl>().Any(s => s.GetName() == (propertyDropDown.SelectedItem as DropDownItem).Name))
                 {
                     var prop = new PropertyMatch
@@ -3233,10 +3432,10 @@ namespace RazorScripts
                         Property = (ItemProperty)selectedProp.Value,
                         Value = value
                     };
-                        
+
                     propertiesList.Controls.Add(new PropertyControl(prop, DeleteRuleData, EditRuleData));
                 }
-                
+
                 propertyDropDown.SelectedIndex = 0;
                 propertyValueTextBox.Text = string.Empty;
 
@@ -3246,7 +3445,7 @@ namespace RazorScripts
                 // ignored
             }
         }
-        
+
         private void clearTargetBagButton_Click(object sender, EventArgs e)
         {
             Config.GetCharacter().Rules.Clear();
@@ -3275,7 +3474,7 @@ namespace RazorScripts
                     {
                         data = type.InvokeMember("SerializeObject", BindingFlags.InvokeMethod, null, null, new object[] { character }) as string;
                     }
-                    
+
                 }
                 var plainTextBytes = Encoding.UTF8.GetBytes(data);
                 var enc = Convert.ToBase64String(plainTextBytes);
@@ -3286,13 +3485,13 @@ namespace RazorScripts
                 impexp.ShowDialog();
             }
         }
-        
+
         private void importCharacterButton_Click(object sender, EventArgs e)
         {
             var name = characterDropdown.SelectedItem as string;
             if (!string.IsNullOrEmpty(name))
             {
-                
+
                 var impexp = new ImpExp();
                 impexp.textField.ReadOnly = false;
                 impexp.importButton.Enabled = true;
@@ -3310,7 +3509,7 @@ namespace RazorScripts
                 }
             }
         }
-        
+
         private void LoadRules(List<LootRule> rules)
         {
             rulesList.Controls.Clear();
@@ -3329,7 +3528,7 @@ namespace RazorScripts
                 {
                     character.Rules.RemoveAt(index);
                     character.Rules.Insert(index + step, existing);
-                    
+
                     rulesList.Controls.SetChildIndex(rulesList.Controls[index], index + step);
                 }
             }
@@ -3349,7 +3548,7 @@ namespace RazorScripts
             }
 
             var deleteSelected = false;
-            
+
             foreach (Control control in rulesList.Controls)
             {
                 if (control is RuleController ruleController)
@@ -3383,72 +3582,72 @@ namespace RazorScripts
             Config.Save();
         }
 
-        
+
         public void Open(LootMasterConfig config)
         {
-            
+
             Config = config;
-            
+
             characterDropdown.Items.Clear();
             characterDropdown.Items.AddRange(Config.Characters.Select(c => c.PlayerName).OrderBy(n => n).ToArray());
             characterDropdown.SelectedIndex = characterDropdown.Items.IndexOf(Player.Name);
-            
+
             LoadRules(Config.GetCharacter((string)characterDropdown.SelectedValue).Rules);
             colorCorpseCheckbox.Checked = Config.ColorCorpses;
-            
+
             Rarities.Add(new DropDownItem
             {
                 Name = "None",
                 Value = 999
             });
-            
+
             Rarities.AddRange(Enum.GetValues(typeof(ItemRarity)).Cast<ItemRarity>().Select(x => new DropDownItem
             {
                 Name = x.ToString(),
                 Value = (int)x
             }).ToArray());
-            
+
             EquipmentSlots.AddRange(Enum.GetValues(typeof(EquipmentSlot)).Cast<EquipmentSlot>().Where(x => x == EquipmentSlot.Armour || x == EquipmentSlot.Jewellery).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = x.ToString(),
                 Value = (int)x
             }).ToArray());
-            
+
             EquipmentSlots.AddRange(Enum.GetValues(typeof(EquipmentSlot)).Cast<EquipmentSlot>().Where(x => x != EquipmentSlot.Armour && x != EquipmentSlot.Jewellery).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = x.ToString(),
                 Value = (int)x
             }).ToArray());
             var props = Enum.GetValues(typeof(ItemProperty)).Cast<ItemProperty>();
-            
+
             //Add All Option
             Properties.AddRange(props.Where(x => (int)x >= 1000 && (int)x < 1100).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
+
             //Add Slayers
             Properties.AddRange(props.Where(x => (int)x >= 200 && (int)x <= 299).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
+
             //Add Damage Types
             Properties.AddRange(props.Where(x => (int)x >= 32 && (int)x <= 36).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
+
             //Add Raw Damage
             Properties.AddRange(props.Where(x => x == ItemProperty.DamageIncrease || x == ItemProperty.SwingSpeedIncrease || x == ItemProperty.HitChanceIncrease).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
+
             //Add Casting
             Properties.AddRange(props.Where(x => x == ItemProperty.SpellDamageIncrease
                                                  || x == ItemProperty.LowerManaCost
@@ -3461,45 +3660,45 @@ namespace RazorScripts
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
+
             //Add Stats
             Properties.AddRange(props.Where(x => (int)x >= 17 && (int)x <= 22).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
+
             //Add Eaters
-            
+
             Properties.AddRange(props.Where(x => (int)x >= 90 && (int)x <= 95).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
-            
+
+
             //Add Properties
             Properties.AddRange(props.Where(x => (int)x < 100 && !Properties.Select(p => p.Name).Contains(Handler.ResolvePropertyName(x))).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
+
             //Add Skills
             Properties.AddRange(props.Where(x => (int)x >= 100 && (int)x < 1000).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
+
             //Add Negatives
             Properties.AddRange(props.Where(x => (int)x >= 2000).OrderBy(x => x.ToString()).Select(x => new DropDownItem
             {
                 Name = Handler.ResolvePropertyName(x),
                 Value = (int)x
             }).ToArray());
-            
-            
+
+
             var presets = new List<LootRule>
             {
                 new LootRule
@@ -3520,13 +3719,13 @@ namespace RazorScripts
                 LootRule.ReagentsNecromancy,
                 LootRule.ReagentsMysticism,
                 LootRule.ReagentsAll,
-                
+
             }.ToArray();
 
             presetDropDown.Items.Clear();
             presetDropDown.Items.AddRange(presets);
-            
-            
+
+
             rarityMinDropDown.Items.AddRange(Rarities.ToArray());
             rarityMaxDropDown.Items.AddRange(Rarities.ToArray());
             slotDropDown.Items.AddRange(EquipmentSlots.ToArray());
@@ -3607,8 +3806,8 @@ namespace RazorScripts
                 Name = "Darkness",
                 Value = 0x0497
             });
-            
-            
+
+
             hueTextBox.Text = Config.ColorCorpsesColor?.ToString() ?? String.Empty;
             lootDelayTextBox.Text = Config.BaseDelay.ToString();
             var foundColorMatch = huePicker.Items.Cast<Hue>().FirstOrDefault(h => h.Value == Config.ColorCorpsesColor);
@@ -3620,15 +3819,15 @@ namespace RazorScripts
             {
                 huePicker.SelectedIndex = 0;
             }
-            
+
             rarityMinDropDown.SelectedIndex = 0;
             rarityMaxDropDown.SelectedIndex = 0;
             slotDropDown.SelectedIndex = 0;
             propertyDropDown.SelectedIndex = 0;
             presetDropDown.SelectedIndex = 0;
-            
+
             enabledCheckbox.Checked = true;
-            
+
             ShowDialog();
         }
 
@@ -3691,7 +3890,7 @@ namespace RazorScripts
             huePicker = new ComboBox();
             label8 = new Label();
             lootDelayTextBox = new TextBox();
-            
+
             this.listContainer.SuspendLayout();
             this.ruleContainer.SuspendLayout();
             this.settingContainer.SuspendLayout();
@@ -3699,27 +3898,27 @@ namespace RazorScripts
             this.slotContainer.SuspendLayout();
             this.propertiesContainer.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // colorCorpseCheckbox
-            // 
+            //
             this.colorCorpseCheckbox.AutoSize = true;
             this.colorCorpseCheckbox.Location = new System.Drawing.Point(471, 12);
             this.colorCorpseCheckbox.Name = "colorCorpseCheckbox";
             this.colorCorpseCheckbox.Size = new System.Drawing.Size(149, 17);
             this.colorCorpseCheckbox.TabIndex = 0;
-            this.colorCorpseCheckbox.Text = "Color Corpses after looting";// 
+            this.colorCorpseCheckbox.Text = "Color Corpses after looting";//
             this.colorCorpseCheckbox.CheckedChanged += this.colorCorpseCheckbox_CheckedChanged;
             //
             // label4
-            // 
+            //
             this.label4.Location = new System.Drawing.Point(626, 12);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(35, 23);
             this.label4.TabIndex = 4;
             this.label4.Text = "Hue";
-            // 
+            //
             // hueTextBox
-            // 
+            //
             this.hueTextBox.Location = new System.Drawing.Point(659, 8);
             this.hueTextBox.Name = "hueTextBox";
             this.hueTextBox.Size = new System.Drawing.Size(56, 20);
@@ -3728,24 +3927,24 @@ namespace RazorScripts
             this.hueTextBox.Leave += this.hueTextBox_Leave;
             //
             // label10
-            // 
+            //
             this.label10.Location = new System.Drawing.Point(360, 12);
             this.label10.Name = "label10";
             this.label10.Size = new System.Drawing.Size(35, 23);
             this.label10.TabIndex = 4;
             this.label10.Text = "Wait";
-            // 
+            //
             // lootDelayTextBox
-            // 
+            //
             this.lootDelayTextBox.Location = new System.Drawing.Point(395,8);
             this.lootDelayTextBox.Name = "lootDelayTextBox";
             this.lootDelayTextBox.Size = new System.Drawing.Size(56, 20);
             this.lootDelayTextBox.TabIndex = 5;
             this.lootDelayTextBox.KeyPress += this.lootDelayTextBox_KeyPress;
             this.lootDelayTextBox.Leave += this.lootDelayTextBox_Leave;
-            // 
+            //
             // huePicker
-            // 
+            //
             this.huePicker.FormattingEnabled = true;
             this.huePicker.Location = new System.Drawing.Point(726, 8);
             this.huePicker.Name = "huePicker";
@@ -3754,18 +3953,18 @@ namespace RazorScripts
             this.huePicker.SelectedIndexChanged += this.huePicker_SelectedIndexChanged;
             this.huePicker.ValueMember = "Value";
             this.huePicker.DisplayMember = "Name";
-            // 
+            //
             // characterDropdown
-            // 
+            //
             this.characterDropdown.FormattingEnabled = true;
             this.characterDropdown.Location = new System.Drawing.Point(17, 8);
             this.characterDropdown.Name = "characterDropdown";
             this.characterDropdown.Size = new System.Drawing.Size(138, 21);
             this.characterDropdown.TabIndex = 0;
             this.characterDropdown.SelectedIndexChanged += new System.EventHandler(this.characterDropdown_SelectedIndexChanged);
-            // 
+            //
             // exportCharacterButton
-            // 
+            //
             this.exportCharacterButton.Location = new System.Drawing.Point(171, 8);
             this.exportCharacterButton.Name = "exportCharacterButton";
             this.exportCharacterButton.Size = new System.Drawing.Size(73, 22);
@@ -3773,9 +3972,9 @@ namespace RazorScripts
             this.exportCharacterButton.Text = "Export";
             this.exportCharacterButton.UseVisualStyleBackColor = true;
             this.exportCharacterButton.Click += new System.EventHandler(this.exportCharacterButton_Click);
-            // 
+            //
             // importCharacterButton
-            // 
+            //
             this.importCharacterButton.Location = new System.Drawing.Point(270, 8);
             this.importCharacterButton.Name = "importCharacterButton";
             this.importCharacterButton.Size = new System.Drawing.Size(73, 22);
@@ -3783,9 +3982,9 @@ namespace RazorScripts
             this.importCharacterButton.Text = "Import";
             this.importCharacterButton.UseVisualStyleBackColor = true;
             this.importCharacterButton.Click += new System.EventHandler(this.importCharacterButton_Click);
-            // 
+            //
             // listContainer
-            // 
+            //
             this.listContainer.Controls.Add(this.rulesList);
             this.listContainer.Controls.Add(this.ruleUpButton);
             this.listContainer.Controls.Add(this.ruleDownButton);
@@ -3798,9 +3997,9 @@ namespace RazorScripts
             this.listContainer.TabIndex = 2;
             this.listContainer.TabStop = false;
             this.listContainer.Text = "Current Rules";
-            // 
+            //
             // rulesList
-            // 
+            //
             this.rulesList.ContextMenuStrip = this.ruleDropDownMenu;
             this.rulesList.Dock = System.Windows.Forms.DockStyle.Top;
             this.rulesList.Location = new System.Drawing.Point(3, 16);
@@ -3810,9 +4009,9 @@ namespace RazorScripts
             this.rulesList.VerticalScroll.Enabled = true;
             this.rulesList.VerticalScroll.Visible = true;
             this.rulesList.AutoScroll = true;
-            // 
+            //
             // ruleUpButton
-            // 
+            //
             this.ruleUpButton.Location = new System.Drawing.Point(5, 389);
             this.ruleUpButton.Name = "ruleUpButton";
             this.ruleUpButton.Size = new System.Drawing.Size(73, 22);
@@ -3820,9 +4019,9 @@ namespace RazorScripts
             this.ruleUpButton.Text = "Move Up";
             this.ruleUpButton.UseVisualStyleBackColor = true;
             this.ruleUpButton.Click += this.moveUpSelectedRuleMenuItem_Click;
-            // 
+            //
             // ruleDownButton
-            // 
+            //
             this.ruleDownButton.Location = new System.Drawing.Point(5, 414);
             this.ruleDownButton.Name = "ruleDownButton";
             this.ruleDownButton.Size = new System.Drawing.Size(73, 22);
@@ -3830,9 +4029,9 @@ namespace RazorScripts
             this.ruleDownButton.Text = "Move Down";
             this.ruleDownButton.UseVisualStyleBackColor = true;
             this.ruleDownButton.Click += this.moveDownSelectedRuleMenuItem_Click;
-            // 
+            //
             // addButton
-            // 
+            //
             this.addButton.Location = new System.Drawing.Point(80, 389);
             this.addButton.Name = "addButton";
             this.addButton.Size = new System.Drawing.Size(47, 22);
@@ -3840,9 +4039,9 @@ namespace RazorScripts
             this.addButton.Text = "New";
             this.addButton.UseVisualStyleBackColor = true;
             this.addButton.Click += new System.EventHandler(this.addButton_Click);
-            // 
+            //
             // deleteButton
-            // 
+            //
             this.deleteButton.Location = new System.Drawing.Point(80, 415);
             this.deleteButton.Name = "deleteButton";
             this.deleteButton.Size = new System.Drawing.Size(47, 22);
@@ -3850,9 +4049,9 @@ namespace RazorScripts
             this.deleteButton.Text = "Delete";
             this.deleteButton.UseVisualStyleBackColor = true;
             this.deleteButton.Click += new System.EventHandler(this.deleteButton_Click);
-            // 
+            //
             // clearTargetBagButton
-            // 
+            //
             this.clearTargetBagButton.Location = new System.Drawing.Point(5, 441);
             this.clearTargetBagButton.Name = "clearTargetBagButton";
             this.clearTargetBagButton.Size = new System.Drawing.Size(122, 22);
@@ -3860,9 +4059,9 @@ namespace RazorScripts
             this.clearTargetBagButton.Text = "Clear Target Bags";
             this.clearTargetBagButton.UseVisualStyleBackColor = true;
             this.clearTargetBagButton.Click += this.clearTargetBagButton_Click;
-            // 
+            //
             // saveButton
-            // 
+            //
             this.saveButton.Location = new System.Drawing.Point(410, 15);
             this.saveButton.Name = "saveButton";
             this.saveButton.Size = new System.Drawing.Size(85, 23);
@@ -3870,9 +4069,9 @@ namespace RazorScripts
             this.saveButton.Text = "Save Rule";
             this.saveButton.UseVisualStyleBackColor = true;
             this.saveButton.Click += new System.EventHandler(this.saveButton_Click);
-            // 
+            //
             // ruleContainer
-            // 
+            //
             this.ruleContainer.Controls.Add(this.settingContainer);
             this.ruleContainer.Controls.Add(this.label1);
             this.ruleContainer.Controls.Add(this.presetDropDown);
@@ -3883,9 +4082,9 @@ namespace RazorScripts
             this.ruleContainer.TabIndex = 3;
             this.ruleContainer.TabStop = false;
             this.ruleContainer.Text = "Rule Settings";
-            // 
+            //
             // settingContainer
-            // 
+            //
             this.settingContainer.Controls.Add(this.label6);
             this.settingContainer.Controls.Add(this.weightCurseTextBox);
             this.settingContainer.Controls.Add(this.propertiesIgnoreContainer);
@@ -3908,39 +4107,39 @@ namespace RazorScripts
             this.settingContainer.TabIndex = 10;
             this.settingContainer.TabStop = false;
             this.settingContainer.Text = "Settings";
-            // 
+            //
             // label6
-            // 
+            //
             this.label6.Location = new System.Drawing.Point(584, 23);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(69, 18);
             this.label6.TabIndex = 16;
             this.label6.Text = "Max Weight";
-            // 
+            //
             // label9
-            // 
+            //
             this.label9.Location = new System.Drawing.Point(379, 47);
             this.label9.Name = "label7";
             this.label9.Size = new System.Drawing.Size(40, 23);
             this.label9.TabIndex = 15;
             this.label9.Text = "Regex";
-            // 
+            //
             // regExTextBox
-            // 
+            //
             this.regExTextBox.Location = new System.Drawing.Point(420, 45);
             this.regExTextBox.Name = "regExTextBox";
             this.regExTextBox.Size = new System.Drawing.Size(344, 20);
             this.regExTextBox.TabIndex = 15;
-            // 
+            //
             // weightCurseTextBox
-            // 
+            //
             this.weightCurseTextBox.Location = new System.Drawing.Point(654, 18);
             this.weightCurseTextBox.Name = "weightCurseTextBox";
             this.weightCurseTextBox.Size = new System.Drawing.Size(31, 20);
             this.weightCurseTextBox.TabIndex = 15;
-            // 
+            //
             // propertiesIgnoreContainer
-            // 
+            //
             this.propertiesIgnoreContainer.Controls.Add(this.addPropIgnoreButton);
             this.propertiesIgnoreContainer.Controls.Add(this.propertyIgnoreDropDown);
             this.propertiesIgnoreContainer.Controls.Add(this.propertiesIgnoreList);
@@ -3950,9 +4149,9 @@ namespace RazorScripts
             this.propertiesIgnoreContainer.TabIndex = 14;
             this.propertiesIgnoreContainer.TabStop = false;
             this.propertiesIgnoreContainer.Text = "Ignore Properties";
-            // 
+            //
             // addPropIgnoreButton
-            // 
+            //
             this.addPropIgnoreButton.Location = new System.Drawing.Point(155, 18);
             this.addPropIgnoreButton.Name = "addPropIgnoreButton";
             this.addPropIgnoreButton.Size = new System.Drawing.Size(48, 22);
@@ -3960,9 +4159,9 @@ namespace RazorScripts
             this.addPropIgnoreButton.Text = "Add";
             this.addPropIgnoreButton.UseVisualStyleBackColor = true;
             this.addPropIgnoreButton.Click += this.addPropIgnoreButton_Click;
-            // 
+            //
             // propertyIgnoreDropDown
-            // 
+            //
             this.propertyIgnoreDropDown.DisplayMember = "Name";
             this.propertyIgnoreDropDown.FormattingEnabled = true;
             this.propertyIgnoreDropDown.Location = new System.Drawing.Point(5, 19);
@@ -3970,9 +4169,9 @@ namespace RazorScripts
             this.propertyIgnoreDropDown.Size = new System.Drawing.Size(145, 21);
             this.propertyIgnoreDropDown.TabIndex = 1;
             this.propertyIgnoreDropDown.ValueMember = "Value";
-            // 
+            //
             // propertiesIgnoreList
-            // 
+            //
             this.propertiesIgnoreList.Location = new System.Drawing.Point(6, 69);
             this.propertiesIgnoreList.Name = "propertiesIgnoreList";
             this.propertiesIgnoreList.Size = new System.Drawing.Size(205, 277);
@@ -3980,9 +4179,9 @@ namespace RazorScripts
             this.propertiesIgnoreList.VerticalScroll.Enabled = true;
             this.propertiesIgnoreList.VerticalScroll.Visible = true;
             this.propertiesIgnoreList.AutoScroll = true;
-            // 
+            //
             // enabledCheckbox
-            // 
+            //
             this.enabledCheckbox.AutoSize = true;
             this.enabledCheckbox.Location = new System.Drawing.Point(382, 21);
             this.enabledCheckbox.Name = "enabledCheckbox";
@@ -3990,9 +4189,9 @@ namespace RazorScripts
             this.enabledCheckbox.TabIndex = 13;
             this.enabledCheckbox.Text = "Enabled";
             this.enabledCheckbox.UseVisualStyleBackColor = true;
-            // 
+            //
             // alertCheckbox
-            // 
+            //
             this.alertCheckbox.AutoSize = true;
             this.alertCheckbox.Location = new System.Drawing.Point(452, 21);
             this.alertCheckbox.Name = "alertCheckbox";
@@ -4000,9 +4199,9 @@ namespace RazorScripts
             this.alertCheckbox.TabIndex = 13;
             this.alertCheckbox.Text = "Notify When Looting";
             this.alertCheckbox.UseVisualStyleBackColor = true;
-            // 
+            //
             // propertiesContainer
-            // 
+            //
             this.propertiesContainer.Controls.Add(this.label7);
             this.propertiesContainer.Controls.Add(this.minimumMatchPropsTextBox);
             this.propertiesContainer.Controls.Add(this.label5);
@@ -4016,40 +4215,40 @@ namespace RazorScripts
             this.propertiesContainer.TabIndex = 12;
             this.propertiesContainer.TabStop = false;
             this.propertiesContainer.Text = "Properties";
-            // 
+            //
             // label7
-            // 
+            //
             this.label7.Location = new System.Drawing.Point(6, 328);
             this.label7.Name = "label7";
             this.label7.Size = new System.Drawing.Size(97, 23);
             this.label7.TabIndex = 15;
             this.label7.Text = "Minumum Matches";
-            // 
+            //
             // minimumMatchPropsTextBox
-            // 
+            //
             this.minimumMatchPropsTextBox.Location = new System.Drawing.Point(109, 325);
             this.minimumMatchPropsTextBox.Name = "minimumMatchPropsTextBox";
             this.minimumMatchPropsTextBox.Size = new System.Drawing.Size(81, 20);
             this.minimumMatchPropsTextBox.TabIndex = 14;
-            // 
+            //
             // label5
-            // 
+            //
             this.label5.AutoSize = true;
             this.label5.Location = new System.Drawing.Point(5, 48);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(54, 13);
             this.label5.TabIndex = 13;
             this.label5.Text = "Min Value";
-            // 
+            //
             // propertyValueTextBox
-            // 
+            //
             this.propertyValueTextBox.Location = new System.Drawing.Point(94, 44);
             this.propertyValueTextBox.Name = "propertyValueTextBox";
             this.propertyValueTextBox.Size = new System.Drawing.Size(43, 20);
             this.propertyValueTextBox.TabIndex = 5;
-            // 
+            //
             // addPropButton
-            // 
+            //
             this.addPropButton.Location = new System.Drawing.Point(160, 18);
             this.addPropButton.Name = "addPropButton";
             this.addPropButton.Size = new System.Drawing.Size(48, 22);
@@ -4057,9 +4256,9 @@ namespace RazorScripts
             this.addPropButton.Text = "Add";
             this.addPropButton.UseVisualStyleBackColor = true;
             this.addPropButton.Click += new System.EventHandler(this.addPropButton_Click);
-            // 
+            //
             // propertyDropDown
-            // 
+            //
             this.propertyDropDown.DisplayMember = "Name";
             this.propertyDropDown.FormattingEnabled = true;
             this.propertyDropDown.Location = new System.Drawing.Point(5, 19);
@@ -4067,9 +4266,9 @@ namespace RazorScripts
             this.propertyDropDown.Size = new System.Drawing.Size(145, 21);
             this.propertyDropDown.TabIndex = 1;
             this.propertyDropDown.ValueMember = "Value";
-            // 
+            //
             // propertiesList
-            // 
+            //
             this.propertiesList.Location = new System.Drawing.Point(6, 69);
             this.propertiesList.Name = "propertiesList";
             this.propertiesList.Size = new System.Drawing.Size(205, 251);
@@ -4077,9 +4276,9 @@ namespace RazorScripts
             this.propertiesList.VerticalScroll.Enabled = true;
             this.propertiesList.VerticalScroll.Visible = true;
             this.propertiesList.AutoScroll = true;
-            // 
+            //
             // slotContainer
-            // 
+            //
             this.slotContainer.Controls.Add(this.slotDropDown);
             this.slotContainer.Controls.Add(this.slotAddButton);
             this.slotContainer.Controls.Add(this.equipmentSlotList);
@@ -4089,9 +4288,9 @@ namespace RazorScripts
             this.slotContainer.TabIndex = 11;
             this.slotContainer.TabStop = false;
             this.slotContainer.Text = "Equipment Slots";
-            // 
+            //
             // slotDropDown
-            // 
+            //
             this.slotDropDown.DisplayMember = "Name";
             this.slotDropDown.FormattingEnabled = true;
             this.slotDropDown.Location = new System.Drawing.Point(5, 20);
@@ -4099,9 +4298,9 @@ namespace RazorScripts
             this.slotDropDown.Size = new System.Drawing.Size(115, 21);
             this.slotDropDown.TabIndex = 6;
             this.slotDropDown.ValueMember = "Value";
-            // 
+            //
             // slotAddButton
-            // 
+            //
             this.slotAddButton.Location = new System.Drawing.Point(122, 19);
             this.slotAddButton.Name = "slotAddButton";
             this.slotAddButton.Size = new System.Drawing.Size(48, 22);
@@ -4109,9 +4308,9 @@ namespace RazorScripts
             this.slotAddButton.Text = "Add";
             this.slotAddButton.UseVisualStyleBackColor = true;
             this.slotAddButton.Click += new System.EventHandler(this.addSlotButton_Click);
-            // 
+            //
             // eqipmentSlotList
-            // 
+            //
             this.equipmentSlotList.ContextMenuStrip = this.slotDropDownMenu;
             this.equipmentSlotList.Location = new System.Drawing.Point(5, 48);
             this.equipmentSlotList.Name = "equipmentSlotList";
@@ -4120,14 +4319,14 @@ namespace RazorScripts
             this.equipmentSlotList.VerticalScroll.Enabled = true;
             this.equipmentSlotList.VerticalScroll.Visible = true;
             this.equipmentSlotList.AutoScroll = true;
-            // 
+            //
             // slotDropDownMenu
-            // 
+            //
             this.slotDropDownMenu.Name = "slotDropDownMenu";
             this.slotDropDownMenu.Size = new System.Drawing.Size(155, 26);
-            // 
+            //
             // itemNameContainer
-            // 
+            //
             this.itemNameContainer.Controls.Add(this.itemNamesList);
             this.itemNameContainer.Controls.Add(this.itemIdAddTextBox);
             this.itemNameContainer.Controls.Add(this.idAddButton);
@@ -4137,9 +4336,9 @@ namespace RazorScripts
             this.itemNameContainer.TabIndex = 10;
             this.itemNameContainer.TabStop = false;
             this.itemNameContainer.Text = "Names / Id\'s";
-            // 
+            //
             // itemNamesList
-            // 
+            //
             this.itemNamesList.Location = new System.Drawing.Point(5, 48);
             this.itemNamesList.Name = "itemNamesList";
             this.itemNamesList.Size = new System.Drawing.Size(175, 303);
@@ -4147,16 +4346,16 @@ namespace RazorScripts
             this.itemNamesList.VerticalScroll.Enabled = true;
             this.itemNamesList.VerticalScroll.Visible = true;
             this.itemNamesList.AutoScroll = true;
-            // 
+            //
             // itemIdAddTextBox
-            // 
+            //
             this.itemIdAddTextBox.Location = new System.Drawing.Point(5, 19);
             this.itemIdAddTextBox.Name = "itemIdAddTextBox";
             this.itemIdAddTextBox.Size = new System.Drawing.Size(102, 20);
             this.itemIdAddTextBox.TabIndex = 1;
-            // 
+            //
             // idAddButton
-            // 
+            //
             this.idAddButton.Location = new System.Drawing.Point(111, 19);
             this.idAddButton.Name = "idAddButton";
             this.idAddButton.Size = new System.Drawing.Size(48, 22);
@@ -4164,25 +4363,25 @@ namespace RazorScripts
             this.idAddButton.Text = "Add";
             this.idAddButton.UseVisualStyleBackColor = true;
             this.idAddButton.Click += new System.EventHandler(this.idAddButton_Click);
-            // 
+            //
             // ruleNameTextBox
-            // 
+            //
             this.ruleNameTextBox.Location = new System.Drawing.Point(69, 19);
             this.ruleNameTextBox.Name = "ruleNameTextBox";
             this.ruleNameTextBox.Size = new System.Drawing.Size(289, 20);
             this.ruleNameTextBox.TabIndex = 3;
-            // 
+            //
             // label2
-            // 
+            //
             this.label2.AutoSize = true;
             this.label2.Location = new System.Drawing.Point(8, 22);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(60, 13);
             this.label2.TabIndex = 2;
             this.label2.Text = "Rule Name";
-            // 
+            //
             // rarityMinDropDown
-            // 
+            //
             this.rarityMinDropDown.DisplayMember = "Name";
             this.rarityMinDropDown.FormattingEnabled = true;
             this.rarityMinDropDown.Location = new System.Drawing.Point(69, 44);
@@ -4190,9 +4389,9 @@ namespace RazorScripts
             this.rarityMinDropDown.Size = new System.Drawing.Size(104, 21);
             this.rarityMinDropDown.TabIndex = 4;
             this.rarityMinDropDown.ValueMember = "Value";
-            // 
+            //
             // rarityMinDropDown
-            // 
+            //
             this.rarityMaxDropDown.DisplayMember = "Name";
             this.rarityMaxDropDown.FormattingEnabled = true;
             this.rarityMaxDropDown.Location = new System.Drawing.Point(252, 44);
@@ -4200,36 +4399,36 @@ namespace RazorScripts
             this.rarityMaxDropDown.Size = new System.Drawing.Size(104, 21);
             this.rarityMaxDropDown.TabIndex = 4;
             this.rarityMaxDropDown.ValueMember = "Value";
-            // 
+            //
             // label3
-            // 
+            //
             this.label3.AutoSize = true;
             this.label3.Location = new System.Drawing.Point(8, 47);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(54, 13);
             this.label3.TabIndex = 5;
             this.label3.Text = "Min Rarity";
-            // 
+            //
             // label3
-            // 
+            //
             this.label8.AutoSize = true;
             this.label8.Location = new System.Drawing.Point(190, 47);
             this.label8.Name = "label3";
             this.label8.Size = new System.Drawing.Size(54, 13);
             this.label8.TabIndex = 5;
             this.label8.Text = "Max Rarity";
-            // 
+            //
             // label1
-            // 
+            //
             this.label1.AutoSize = true;
             this.label1.Location = new System.Drawing.Point(5, 19);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(37, 13);
             this.label1.TabIndex = 1;
             this.label1.Text = "Preset";
-            // 
+            //
             // presetDropDown
-            // 
+            //
             this.presetDropDown.DisplayMember = "RuleName";
             this.presetDropDown.FormattingEnabled = true;
             this.presetDropDown.Location = new System.Drawing.Point(44, 16);
@@ -4237,9 +4436,9 @@ namespace RazorScripts
             this.presetDropDown.Size = new System.Drawing.Size(319, 21);
             this.presetDropDown.TabIndex = 0;
             this.presetDropDown.SelectedIndexChanged += new System.EventHandler(this.presetDropDown_SelectedIndexChanged);
-            // 
+            //
             // Form1
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1020, 524);
@@ -4318,7 +4517,7 @@ namespace RazorScripts
         private ContextMenuStrip ruleDropDownMenu;
         private CheckBox alertCheckbox;
         private CheckBox enabledCheckbox;
-        
+
         private TextBox weightCurseTextBox;
         private Label label6;
         private Label label7;
@@ -4338,9 +4537,9 @@ namespace RazorScripts
         private System.Windows.Forms.ComboBox huePicker;
 
         private System.ComponentModel.IContainer components = null;
-        
-            
-        
+
+
+
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -4353,13 +4552,13 @@ namespace RazorScripts
 
     public class EditRuleItem : Form
     {
-        
+
         private PropertyMatch _propMatch { get; set; }
         private ItemColorIdentifier _idColor { get; set; }
         private string _name { get; set; }
-        
+
         private TypeObject _typeObject { get; set; }
-        
+
         private enum TypeObject
         {
             PropertyMatch,
@@ -4383,7 +4582,7 @@ namespace RazorScripts
         {
             _name = idColor.Name;
             _idColor = new ItemColorIdentifier(idColor.ItemId, idColor.Color, idColor.Name);
-            
+
             _typeObject = TypeObject.ItemColorIdentifier;
             InitializeComponent();
             value1Tb.Text = $"0x{idColor.ItemId.ToString("X")}";
@@ -4401,21 +4600,21 @@ namespace RazorScripts
                 Property = propMatch.Property,
                 Value = propMatch.Value,
             };
-            
+
             InitializeComponent();
-            
+
             nameLbl.Text = propMatch.DisplayName;
             value1Lbl.Text = "Value";
             value1Tb.Text = _propMatch.Value.ToString();
             value2Lbl.Text = "N/A";
             value2Tb.Enabled = false;
             value1Tb.Focus();
-            
+
             _typeObject = TypeObject.PropertyMatch;
         }
-        
-        
-        
+
+
+
         public T GetResponse<T>()
         {
             if(typeof(T) == typeof(PropertyMatch))
@@ -4424,10 +4623,10 @@ namespace RazorScripts
                 return (T)Convert.ChangeType(_idColor, typeof(T));
             if(typeof(T) == typeof(string))
                 return (T)Convert.ChangeType(_name, typeof(T));
-            
+
             return default(T);
         }
-        
+
         private void saveButton_Click(object sender, EventArgs e)
         {
             switch (_typeObject)
@@ -4470,12 +4669,12 @@ namespace RazorScripts
                 default:
                     break;
             }
-            
+
             DialogResult = DialogResult.OK;
             Close();
         }
-        
-        
+
+
         public Button saveButton;
         public TextBox value1Tb;
         public TextBox value2Tb;
@@ -4496,14 +4695,14 @@ namespace RazorScripts
 
             //
             // nameLbl
-            // 
+            //
             this.nameLbl.Location = new System.Drawing.Point(3, 4);
             this.nameLbl.Name = "nameLbl";
             this.nameLbl.Size = new System.Drawing.Size(120, 14);
             this.nameLbl.TabIndex = 1;
             //
             // value1Lbl
-            // 
+            //
             this.value1Lbl.Location = new System.Drawing.Point(3, 28);
             this.value1Lbl.Name = "value1Lbl";
             this.value1Lbl.Size = new System.Drawing.Size(50, 14);
@@ -4511,7 +4710,7 @@ namespace RazorScripts
             this.value1Lbl.Text = "Label1";
             //
             // value1Tb
-            // 
+            //
             this.value1Tb.Location = new System.Drawing.Point(56, 28);
             this.value1Tb.Name = "value1Tb";
             this.value1Tb.Size = new System.Drawing.Size(120, 14);
@@ -4519,7 +4718,7 @@ namespace RazorScripts
             this.value1Tb.Enabled = true;
             //
             // value2Lbl
-            // 
+            //
             this.value2Lbl.Location = new System.Drawing.Point(3, 52);
             this.value1Lbl.Name = "value2Lbl";
             this.value2Lbl.Size = new System.Drawing.Size(120, 14);
@@ -4527,14 +4726,14 @@ namespace RazorScripts
             this.value2Lbl.Text = "Label2";
             //
             // value2Tb
-            // 
+            //
             this.value2Tb.Location = new System.Drawing.Point(56, 52);
             this.value2Tb.Name = "value2Tb";
             this.value2Tb.Size = new System.Drawing.Size(50, 14);
             this.value2Tb.TabIndex = 4;
             //
             // saveButton
-            // 
+            //
             this.saveButton.Location = new System.Drawing.Point(123, 4);
             this.saveButton.Name = "saveButton";
             this.saveButton.Size = new System.Drawing.Size(50, 24);
@@ -4556,7 +4755,7 @@ namespace RazorScripts
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Text = "Edit value";
-            
+
             this.ResumeLayout();
         }
     }
@@ -4571,34 +4770,34 @@ namespace RazorScripts
         {
             InitializeComponent();
         }
-        
+
         void InitializeComponent()
         {
             this.SuspendLayout();
-            
+
             textField = new TextBox();
             importButton = new Button();
 
 
             this.Size = new System.Drawing.Size(400, 400);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-            
+
             textField.Multiline = true;
             textField.Location = new System.Drawing.Point(0, 0);
             textField.Size = new System.Drawing.Size(380, 300);
-            
+
             importButton.Location = new System.Drawing.Point(0, 310);
             importButton.Size = new System.Drawing.Size(380, 45);
             importButton.Text = "Import Character Config";
             importButton.Click += new System.EventHandler(Decode);
-            
+
             this.Controls.Add(this.textField);
             this.Controls.Add(this.importButton);
             this.Text = "Import Export";
-            
+
             this.ResumeLayout(false);
             this.PerformLayout();
-            
+
         }
 
         private void Decode(object sender, EventArgs e)
@@ -4609,7 +4808,7 @@ namespace RazorScripts
                 {
                     var plainTextBytes = Convert.FromBase64String(textField.Text);
                     var plainText = Encoding.UTF8.GetString(plainTextBytes);
-                    
+
                     LootMasterCharacter readConfig = null;
                     var ns = Assembly.LoadFile(Path.Combine(Engine.RootPath, "Newtonsoft.Json.dll"));
                     foreach (Type type in ns.GetExportedTypes())
@@ -4622,20 +4821,20 @@ namespace RazorScripts
                             readConfig = func.Invoke(type, BindingFlags.InvokeMethod, null, new object[] { plainText }, null) as LootMasterCharacter;
                         }
                     }
-                    
+
                     DecodedCharacter = readConfig;
                 }
-                
+
                 this.Close();
             }
             catch
             {
                 MessageBox.Show("Invalid Config String");
             }
-            
+
         }
     }
-    
+
     public partial class RuleController : UserControl
     {
         public bool IsSelected => checkBox1.Checked;
@@ -4643,7 +4842,7 @@ namespace RazorScripts
         public Guid RuleId => _rule.Id;
         public LootRule GetRule() => _rule;
         public void SetRule(LootRule rule) => _rule = rule;
-        
+
         private bool _isEnabled = false;
         private LootRule _rule;
         Action<Guid> _deleteAction;
@@ -4660,22 +4859,22 @@ namespace RazorScripts
             ruleNameLbl.Text = _rule.RuleName;
             SetEnabled(!_rule.Disabled);
         }
-        
+
         public RuleController(LootRule rule, Action<Guid> deleteAction, Action<Guid,int> moveAction, Action<Guid> selectRule)
         {
             _rule = rule;
             _isEnabled = !rule.Disabled;
-            
+
             _deleteAction = deleteAction;
             _moveAction = moveAction;
             _selectRule = selectRule;
             InitializeComponent();
-            
-            
+
+
             ruleNameLbl.Text = rule.RuleName;
             SetEnabled(_isEnabled);
         }
-        
+
         public void SetEnabled(bool enabled)
         {
             if (enabled)
@@ -4689,7 +4888,7 @@ namespace RazorScripts
                 enabledLbl.Text = "X";
             }
         }
-        
+
         public void SetActive(bool active)
         {
             if (active)
@@ -4707,7 +4906,7 @@ namespace RazorScripts
                 checkBox1.Enabled = true;
             }
         }
-        
+
         private void deleteSelectedRuleMenuItem_Click(object sender, EventArgs e)
         {
             _deleteAction(_rule.Id);
@@ -4728,11 +4927,11 @@ namespace RazorScripts
         {
             _moveAction(_rule.Id, -1);
         }
-        
+
         //Designer items
         private IContainer components = null;
 
-        /// <summary> 
+        /// <summary>
         /// Clean up any resources being used.
         /// </summary>
         /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
@@ -4767,9 +4966,9 @@ namespace RazorScripts
             this.panelMain.SuspendLayout();
             this.ruleDropDownMenu.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // panelMain
-            // 
+            //
             this.panelMain.Controls.Add(this.enabledLbl);
             this.panelMain.Controls.Add(this.checkBox1);
             this.panelMain.Controls.Add(this.ruleNameLbl);
@@ -4780,9 +4979,9 @@ namespace RazorScripts
             this.panelMain.TabIndex = 0;
             this.panelMain.Click += new System.EventHandler(this.SetActiveClick);
             this.panelMain.ContextMenuStrip = this.ruleDropDownMenu;
-            // 
+            //
             // panelMain
-            // 
+            //
             this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelTop.Location = new System.Drawing.Point(0, 0);
             this.panelTop.Name = "panelTop";
@@ -4790,67 +4989,67 @@ namespace RazorScripts
             this.panelTop.TabIndex = 0;
             this.panelTop.Click += new System.EventHandler(this.SetActiveClick);
             this.panelTop.Visible = false;
-            
-            // 
+
+            //
             // enabledLbl
-            // 
+            //
             this.enabledLbl.Location = new System.Drawing.Point(106, 4);
             this.enabledLbl.Name = "enabledLbl";
             this.enabledLbl.Size = new System.Drawing.Size(17, 14);
             this.enabledLbl.TabIndex = 4;
             this.enabledLbl.Click += new System.EventHandler(this.SetActiveClick);
             this.enabledLbl.ContextMenuStrip = this.ruleDropDownMenu;
-            // 
+            //
             // checkBox1
-            // 
+            //
             this.checkBox1.Location = new System.Drawing.Point(129, 4);
             this.checkBox1.Name = "checkBox1";
             this.checkBox1.Size = new System.Drawing.Size(18, 14);
             this.checkBox1.TabIndex = 3;
             this.checkBox1.UseVisualStyleBackColor = true;
-            // 
+            //
             // ruleNameLbl
-            // 
+            //
             this.ruleNameLbl.Location = new System.Drawing.Point(3, 4);
             this.ruleNameLbl.Name = "ruleNameLbl";
             this.ruleNameLbl.Size = new System.Drawing.Size(97, 14);
             this.ruleNameLbl.TabIndex = 2;
             this.ruleNameLbl.Text = "label1";
             this.ruleNameLbl.Click += new System.EventHandler(this.SetActiveClick);
-            
+
             this.ruleNameLbl.ContextMenuStrip = this.ruleDropDownMenu;
-            // 
+            //
             // ruleDropDownMenu
-            // 
+            //
             this.ruleDropDownMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { this.moveUpSelectedRuleMenuItem, this.moveDownSelectedRuleMenuItem, this.deleteSelectedRuleMenuItem });
             this.ruleDropDownMenu.Name = "ruleDropDownMenu";
             this.ruleDropDownMenu.Size = new System.Drawing.Size(155, 70);
             this.ruleDropDownMenu.Opened += new System.EventHandler(this.ruleDropDownMenu_Opened);
             this.ruleDropDownMenu.Closed += new System.Windows.Forms.ToolStripDropDownClosedEventHandler(this.ruleDropDownMenu_Closed);
-            // 
+            //
             // moveUpSelectedRuleMenuItem
-            // 
+            //
             this.moveUpSelectedRuleMenuItem.Name = "moveUpSelectedRuleMenuItem";
             this.moveUpSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
             this.moveUpSelectedRuleMenuItem.Text = "Move Up";
             this.moveUpSelectedRuleMenuItem.Click += new System.EventHandler(this.moveUpSelectedRuleMenuItem_Click);
-            // 
+            //
             // moveDownSelectedRuleMenuItem
-            // 
+            //
             this.moveDownSelectedRuleMenuItem.Name = "moveDownSelectedRuleMenuItem";
             this.moveDownSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
             this.moveDownSelectedRuleMenuItem.Text = "Move Down";
             this.moveDownSelectedRuleMenuItem.Click += new System.EventHandler(this.moveDownSelectedRuleMenuItem_Click);
-            // 
+            //
             // deleteSelectedRuleMenuItem
-            // 
+            //
             this.deleteSelectedRuleMenuItem.Name = "deleteSelectedRuleMenuItem";
             this.deleteSelectedRuleMenuItem.Size = new System.Drawing.Size(154, 22);
             this.deleteSelectedRuleMenuItem.Text = "Delete Rule";
             this.deleteSelectedRuleMenuItem.Click += new System.EventHandler(this.deleteSelectedRuleMenuItem_Click);
-            // 
+            //
             // RuleController
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.panelMain);
@@ -4905,7 +5104,7 @@ namespace RazorScripts
 
         #endregion
     }
-    
+
     public partial class IdNameControl : UserControl
     {
         private Action<Guid,Type> _deleteAction;
@@ -4913,7 +5112,7 @@ namespace RazorScripts
         private Guid _tempId = Guid.NewGuid();
         private ItemColorIdentifier _idcolor = null;
         private string _name;
-        
+
         public ItemColorIdentifier Get() => _idcolor;
         public string GetName() => _name;
         public bool IsIdColor { get; set; }
@@ -4958,12 +5157,12 @@ namespace RazorScripts
         {
             _deleteAction(_tempId, IsIdColor ? typeof(ItemColorIdentifier) : typeof(string));
         }
-        
-        
+
+
         //Designer items
         private IContainer components = null;
 
-        /// <summary> 
+        /// <summary>
         /// Clean up any resources being used.
         /// </summary>
         /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
@@ -4995,9 +5194,9 @@ namespace RazorScripts
             this.deleteBtn = new System.Windows.Forms.Button();
             this.panelMain.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // panelMain
-            // 
+            //
             this.panelMain.Controls.Add(this.idLbl);
             this.panelMain.Controls.Add(this.colorLbl);
             this.panelMain.Controls.Add(this.nameLbl);
@@ -5006,9 +5205,9 @@ namespace RazorScripts
             this.panelMain.Name = "panelMain";
             this.panelMain.Size = new System.Drawing.Size(155, 36);
             this.panelMain.TabIndex = 0;
-            // 
+            //
             // panelTop
-            // 
+            //
             this.panelTop.Controls.Add(this.idLbl);
             this.panelTop.Controls.Add(this.colorLbl);
             this.panelTop.Controls.Add(this.nameLbl);
@@ -5018,9 +5217,9 @@ namespace RazorScripts
             this.panelTop.Size = new System.Drawing.Size(155, 1);
             this.panelTop.TabIndex = 0;
             this.panelTop.BackColor = SystemColors.ControlDark;
-            // 
+            //
             // panelMain
-            // 
+            //
             this.panelMain.Controls.Add(this.idLbl);
             this.panelMain.Controls.Add(this.colorLbl);
             this.panelMain.Controls.Add(this.nameLbl);
@@ -5031,35 +5230,35 @@ namespace RazorScripts
             this.panelMain.Name = "panelMain";
             this.panelMain.Size = new System.Drawing.Size(157, 35);
             this.panelMain.TabIndex = 0;
-            // 
+            //
             // idLbl
-            // 
+            //
             this.idLbl.Location = new System.Drawing.Point(3, 20);
             this.idLbl.Name = "idLbl";
             this.idLbl.Size = new System.Drawing.Size(55, 14);
             this.idLbl.TabIndex = 2;
             this.idLbl.Text = "label1";
             this.idLbl.BorderStyle = BorderStyle.FixedSingle;
-            // 
+            //
             // colorLbl
-            // 
+            //
             this.colorLbl.Location = new System.Drawing.Point(60, 20);
             this.colorLbl.Name = "colorLbl";
             this.colorLbl.Size = new System.Drawing.Size(55, 14);
             this.colorLbl.TabIndex = 2;
             this.colorLbl.Text = "label1";
             this.colorLbl.BorderStyle = BorderStyle.FixedSingle;
-            // 
+            //
             // nameLbl
-            // 
+            //
             this.nameLbl.Location = new System.Drawing.Point(3, 4);
             this.nameLbl.Name = "nameLbl";
             this.nameLbl.Size = new System.Drawing.Size(110, 14);
             this.nameLbl.TabIndex = 2;
             this.nameLbl.Text = "label1";
-            // 
+            //
             // editBtn
-            // 
+            //
             this.editBtn.Location = new System.Drawing.Point(115, 2);
             this.editBtn.Name = "editBtn";
             this.editBtn.Size = new System.Drawing.Size(18, 18);
@@ -5069,9 +5268,9 @@ namespace RazorScripts
             this.editBtn.Padding = Padding.Empty;
             this.editBtn.Margin = Padding.Empty;
             this.editBtn.Click += new System.EventHandler(this.editBtn_Click);
-            // 
+            //
             // deleteBtn
-            // 
+            //
             this.deleteBtn.Location = new System.Drawing.Point(135, 2);
             this.deleteBtn.Name = "deleteBtn";
             this.deleteBtn.Size = new System.Drawing.Size(18, 18);
@@ -5081,9 +5280,9 @@ namespace RazorScripts
             this.deleteBtn.Padding = Padding.Empty;
             this.deleteBtn.Margin = Padding.Empty;
             this.deleteBtn.Click += new System.EventHandler(this.deleteBtn_Click);
-            // 
+            //
             // idControl
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.panelTop);
@@ -5107,7 +5306,7 @@ namespace RazorScripts
 
         #endregion
     }
-    
+
     public partial class EquipmentSlotControl : UserControl
     {
         private Action<Guid,Type> _deleteAction;
@@ -5117,7 +5316,7 @@ namespace RazorScripts
         public string GetName() => _slot.ToString();
         public Guid UniqueId => _tempId;
 
-        
+
         public EquipmentSlotControl(string slot, Action<Guid,Type> deleteAction)
         {
             if (Enum.TryParse(slot, out EquipmentSlot enumSlot))
@@ -5145,12 +5344,12 @@ namespace RazorScripts
         {
             _deleteAction(_tempId, typeof(EquipmentSlot));
         }
-        
-        
+
+
         //Designer items
         private IContainer components = null;
 
-        /// <summary> 
+        /// <summary>
         /// Clean up any resources being used.
         /// </summary>
         /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
@@ -5179,18 +5378,18 @@ namespace RazorScripts
             this.deleteBtn = new System.Windows.Forms.Button();
             this.panelMain.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // panelMain
-            // 
+            //
             this.panelMain.Controls.Add(this.nameLbl);
             this.panelMain.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelMain.Location = new System.Drawing.Point(0, 0);
             this.panelMain.Name = "panelMain";
             this.panelMain.Size = new System.Drawing.Size(155, 36);
             this.panelMain.TabIndex = 0;
-            // 
+            //
             // panelTop
-            // 
+            //
             this.panelTop.Controls.Add(this.nameLbl);
             this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelTop.Location = new System.Drawing.Point(0, 0);
@@ -5198,9 +5397,9 @@ namespace RazorScripts
             this.panelTop.Size = new System.Drawing.Size(155, 1);
             this.panelTop.TabIndex = 0;
             this.panelTop.BackColor = SystemColors.ControlDark;
-            // 
+            //
             // panelMain
-            // 
+            //
             this.panelMain.Controls.Add(this.nameLbl);
             this.panelMain.Controls.Add(this.deleteBtn);
             this.panelMain.Dock = System.Windows.Forms.DockStyle.Bottom;
@@ -5208,17 +5407,17 @@ namespace RazorScripts
             this.panelMain.Name = "panelMain";
             this.panelMain.Size = new System.Drawing.Size(157, 23);
             this.panelMain.TabIndex = 0;
-            // 
+            //
             // nameLbl
-            // 
+            //
             this.nameLbl.Location = new System.Drawing.Point(3, 4);
             this.nameLbl.Name = "nameLbl";
             this.nameLbl.Size = new System.Drawing.Size(110, 14);
             this.nameLbl.TabIndex = 2;
             this.nameLbl.Text = "label1";
-            // 
+            //
             // deleteBtn
-            // 
+            //
             this.deleteBtn.Location = new System.Drawing.Point(135, 2);
             this.deleteBtn.Name = "deleteBtn";
             this.deleteBtn.Size = new System.Drawing.Size(18, 18);
@@ -5228,9 +5427,9 @@ namespace RazorScripts
             this.deleteBtn.Padding = Padding.Empty;
             this.deleteBtn.Margin = Padding.Empty;
             this.deleteBtn.Click += new System.EventHandler(this.deleteBtn_Click);
-            // 
+            //
             // EquipmentSlotControl
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.panelTop);
@@ -5251,7 +5450,7 @@ namespace RazorScripts
 
         #endregion
     }
-    
+
     public partial class PropertyControl : UserControl
     {
         private Action<Guid,Type> _deleteAction;
@@ -5264,14 +5463,14 @@ namespace RazorScripts
         public int? GetValue() => _property.Value;
         public Guid UniqueId => _tempId;
         public bool IsIgnoreProperty => _isIgnoreProperty;
-        
+
         public PropertyControl(PropertyMatch property, Action<Guid,Type> deleteAction, Action<Guid,object> editAction, bool ignore = false)
         {
             if (property.DisplayName.Contains("Slayer") || property.DisplayName.Equals("Silver"))
             {
                 property.Value = null;
             }
-            
+
             InitializeComponent();
             nameLbl.Text = property.DisplayName;
             valueLbl.Text = property.Value?.ToString() ?? "ANY";
@@ -5296,12 +5495,12 @@ namespace RazorScripts
         {
             _editAction(_tempId, _property);
         }
-        
-        
+
+
         //Designer items
         private IContainer components = null;
 
-        /// <summary> 
+        /// <summary>
         /// Clean up any resources being used.
         /// </summary>
         /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
@@ -5332,18 +5531,18 @@ namespace RazorScripts
             this.editBtn = new System.Windows.Forms.Button();
             this.panelMain.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // panelMain
-            // 
+            //
             this.panelMain.Controls.Add(this.nameLbl);
             this.panelMain.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelMain.Location = new System.Drawing.Point(0, 0);
             this.panelMain.Name = "panelMain";
             this.panelMain.Size = new System.Drawing.Size(185, 36);
             this.panelMain.TabIndex = 0;
-            // 
+            //
             // panelTop
-            // 
+            //
             this.panelTop.Controls.Add(this.nameLbl);
             this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelTop.Location = new System.Drawing.Point(0, 0);
@@ -5351,9 +5550,9 @@ namespace RazorScripts
             this.panelTop.Size = new System.Drawing.Size(185, 1);
             this.panelTop.TabIndex = 0;
             this.panelTop.BackColor = SystemColors.ControlDark;
-            // 
+            //
             // panelMain
-            // 
+            //
             this.panelMain.Controls.Add(this.nameLbl);
             this.panelMain.Controls.Add(this.valueLbl);
             this.panelMain.Controls.Add(this.deleteBtn);
@@ -5363,25 +5562,25 @@ namespace RazorScripts
             this.panelMain.Name = "panelMain";
             this.panelMain.Size = new System.Drawing.Size(185, 35);
             this.panelMain.TabIndex = 0;
-            // 
+            //
             // nameLbl
-            // 
+            //
             this.nameLbl.Location = new System.Drawing.Point(3, 4);
             this.nameLbl.Name = "nameLbl";
             this.nameLbl.Size = new System.Drawing.Size(140, 14);
             this.nameLbl.TabIndex = 2;
             this.nameLbl.Text = "label1";
-            // 
-            // valueLbl 
-            // 
+            //
+            // valueLbl
+            //
             this.valueLbl.Location = new System.Drawing.Point(3, 18);
             this.valueLbl.Name = "valueLbl";
             this.valueLbl.Size = new System.Drawing.Size(50, 14);
             this.valueLbl.TabIndex = 2;
             this.valueLbl.Text = "label2";
-            // 
+            //
             // editBtn
-            // 
+            //
             this.editBtn.Location = new System.Drawing.Point(145, 2);
             this.editBtn.Name = "editBtn";
             this.editBtn.Size = new System.Drawing.Size(18, 18);
@@ -5391,9 +5590,9 @@ namespace RazorScripts
             this.editBtn.Padding = Padding.Empty;
             this.editBtn.Margin = Padding.Empty;
             this.editBtn.Click += new System.EventHandler(this.editBtn_Click);
-            // 
+            //
             // deleteBtn
-            // 
+            //
             this.deleteBtn.Location = new System.Drawing.Point(165, 2);
             this.deleteBtn.Name = "deleteBtn";
             this.deleteBtn.Size = new System.Drawing.Size(18, 18);
@@ -5403,9 +5602,9 @@ namespace RazorScripts
             this.deleteBtn.Padding = Padding.Empty;
             this.deleteBtn.Margin = Padding.Empty;
             this.deleteBtn.Click += new System.EventHandler(this.deleteBtn_Click);
-            // 
+            //
             // EquipmentSlotControl
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.panelTop);
@@ -5453,7 +5652,7 @@ namespace RazorScripts
         Looting = 72,
         Paused = 914,
     }
-    
+
     public static class ListExtension
     {
         public static string GetNameFromSet(this List<ItemColorIdentifier> items, int itemId, int? color)
@@ -5464,7 +5663,7 @@ namespace RazorScripts
         {
             return items.FirstOrDefault(k => k.ItemId == item.ItemId && k.Color == item.Color)?.Name;
         }
-        
+
         public static void AddUnique<T>(this List<T> list, T item)
         {
             if (list.Contains(item))
@@ -5480,11 +5679,8 @@ namespace RazorScripts
                     return;
                 }
             }
-            
+
             list.Add(item);
         }
     }
-    
-    
-    
 }
