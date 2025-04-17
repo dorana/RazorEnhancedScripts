@@ -11,6 +11,7 @@ using System.Threading;
 using System.Windows.Forms;
 using RazorEnhanced;
 using Engine = Assistant.Engine;
+using Client = Assistant.Client;
 
 namespace RazorScripts
 {
@@ -18,7 +19,7 @@ namespace RazorScripts
     {
         public static readonly bool Debug = false;
         private readonly string _version = "v1.8.7";
-        public static readonly bool IsOSI = true;
+        public static readonly bool IsOSI = Client.IsOSI;
 
         private Target _tar = new Target();
         private readonly List<int> ignoreList = new List<int>();
@@ -755,7 +756,7 @@ namespace RazorScripts
 
             var sum = 0;
 
-            var container = childContainer.Contains.Count == 1 && childContainer.Contains[0].ItemID == 8198
+            Item container = IsOsi
                 ? childContainer.Contains[0]
                 : childContainer;
 
