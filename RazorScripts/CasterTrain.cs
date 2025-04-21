@@ -361,6 +361,7 @@ namespace RazorScripts
                 spellList.Add(new SpellSkill {SkillLevel = 50, SpellName = "Pain Spike"});
                 spellList.Add(new SpellSkill {SkillLevel = 70, SpellName = "Horrific Beast", DoNotEndOnBuff = "Horrific Beast"});
                 spellList.Add(new SpellSkill {SkillLevel = 90, SpellName = "Wither"});
+                spellList.Add(new SpellSkill {SkillLevel = 95, SpellName = "Lich Form", DoNotEndOnBuff = "Lich Form"});
                 spellList.Add(new SpellSkill {SkillLevel = 120, SpellName = "Vampiric Embrace"});
                 _castHolder.Add("Necromancy", spellList);
             }

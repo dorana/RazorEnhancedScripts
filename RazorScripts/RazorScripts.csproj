@@ -49,6 +49,7 @@
         <Compile Include="CasterTrain.cs" />
         <Compile Include="ChestBreaker.cs" />
         <Compile Include="CottonPicker.cs" />
+        <Compile Include="Ranger.cs" />
         <Compile Include="RuneBookFinder.cs" />
         <Compile Include="SampMaster.cs" />
         <Compile Include="Debugger.cs" />
