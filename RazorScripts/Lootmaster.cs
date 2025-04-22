@@ -1325,9 +1325,10 @@ namespace RazorScripts
 
         private bool CheckWeightCursed(Item item)
         {
+            float weight = Items.GetPropValue(item, "weight");
             if (MaxWeight != null)
             {
-                return item.Weight <= MaxWeight;
+                return weight <= MaxWeight;
             }
 
             return true;
