@@ -15,14 +15,10 @@ namespace Razorscripts
         private int _lastMap = 0;
         private Item _lastHeldWeapon = null;
         private bool _runAutoReload = false;
+        private string lastPowerChecksum = string.Empty;
+        private string _lastLoadedSpecial = string.Empty;
 
-        private List<Power> LoadedPowers = new List<Power>
-        {
-            new Power { Name = "None", Type = PowerType.None, GumpId = 21016 },
-            new Power { Name = "Armor Ingore", Type = PowerType.WeaponPrimary, GumpId = 20992 },
-            new Power { Name = "Lightening Strike", Type = PowerType.Bushido, GumpId = 21540 },
-            new Power { Name = "Momentum Strike", Type = PowerType.Bushido, GumpId = 21541 },
-        };
+        private List<Power> LoadedPowers = new List<Power>();
         
         private Power _selectedPower;
         
@@ -36,12 +32,26 @@ namespace Razorscripts
                     Player.HeadMessage(0x23, "You do not have a quiver equipped");
                     return;
                 }
-                
-                _selectedPower = LoadedPowers[0];
+
+                SetPowers();
+                _selectedPower = LoadedPowers.FirstOrDefault();
                 
                 UpdateGump();
                 while (Player.Connected)
                 {
+                    var powerStringChecksum = SetPowers();
+                    if (powerStringChecksum != lastPowerChecksum)
+                    {
+                        lastPowerChecksum = powerStringChecksum;
+                        UpdateGump();
+                    }
+
+                    if (_lastLoadedSpecial != _selectedPower?.Name && _lastLoadedSpecial != "None")
+                    {
+                        _selectedPower = LoadedPowers.FirstOrDefault(p => p.Name == _lastLoadedSpecial) ??
+                                         _selectedPower;
+                    }
+                    
                     var arrows = Quiver.Contains.Where(i => i.ItemID == 3903).Sum(i => i.Amount);
                     var bolts = Quiver.Contains.Where(i => i.ItemID == 7163).Sum(i => i.Amount);
                     var ammoChecksum = arrows+bolts*1000;
@@ -108,12 +118,58 @@ namespace Razorscripts
             }
         }
 
+        private string SetPowers()
+        {
+            LoadedPowers.Clear();
+            LoadedPowers.Add(new Power { Name = "None", Type = PowerType.None, GumpId = 21013 });
+            if (Player.PrimarySpecial == 20992)
+            {
+                LoadedPowers.Add(new Power { Name = "Armor Ingore", Type = PowerType.WeaponPrimary, GumpId = 20992 });
+            }
+            else if (Player.SecondarySpecial == 20992)
+            {
+                LoadedPowers.Add(new Power { Name = "Armor Ingore", Type = PowerType.WeaponSecondary, GumpId = 20992 });
+            }
+            if (Player.PrimarySpecial == 21016)
+            {
+                LoadedPowers.Add(new Power { Name = "Force Arrow", Type = PowerType.WeaponPrimary, GumpId = 21016 });
+            }
+            else if (Player.SecondarySpecial == 21016)
+            {
+                LoadedPowers.Add(new Power { Name = "Force Arrow", Type = PowerType.WeaponSecondary, GumpId = 21016 });
+            }
+            if (Player.PrimarySpecial == 20994)
+            {
+                LoadedPowers.Add(new Power { Name = "Crushing Blow", Type = PowerType.WeaponPrimary, GumpId = 20994 });
+            }
+            else if (Player.SecondarySpecial == 20994)
+            {
+                LoadedPowers.Add(new Power { Name = "Crushing Blow", Type = PowerType.WeaponSecondary, GumpId = 20994 });
+            }
+            if (Player.PrimarySpecial == 20998)
+            {
+                LoadedPowers.Add(new Power { Name = "Double Strike", Type = PowerType.WeaponPrimary, GumpId = 20998 });
+            }
+            else if (Player.SecondarySpecial == 20998)
+            {
+                LoadedPowers.Add(new Power { Name = "Double Strike", Type = PowerType.WeaponSecondary, GumpId = 20998 });
+            }
+            if(Player.GetSkillValue("Bushido") > 70)
+            {
+                LoadedPowers.Add(new Power { Name = "Lightening Strike", Type = PowerType.Bushido, GumpId = 21540 });
+                LoadedPowers.Add(new Power { Name = "Momentum Strike", Type = PowerType.Bushido, GumpId = 21541 });
+            }
+
+            return string.Join(":", LoadedPowers.Select(p => p.Name));
+        }
+
         private void HandleReply()
         {
             var reply = Gumps.GetGumpData(_gumpId);
             if (reply.buttonid > 0 && reply.buttonid < 100)
             {
                 _selectedPower = LoadedPowers[reply.buttonid - 1];
+                _lastLoadedSpecial = _selectedPower.Name;
                 UpdateGump();
             }
             else if (reply.buttonid == 100)
@@ -226,6 +282,11 @@ namespace Razorscripts
             {
                 return;
             }
+            var held = Player.GetItemOnLayer("LeftHand");
+            if (held == null)
+            {
+                return;
+            }
             switch (_selectedPower.Type)
             {
                 case PowerType.Bushido:
@@ -237,13 +298,19 @@ namespace Razorscripts
                 case PowerType.WeaponPrimary:
                     if (!Player.HasPrimarySpecial)
                     {
-                        Player.WeaponPrimarySA();
+                        if (Player.PrimarySpecial == _selectedPower.GumpId)
+                        {
+                            Player.WeaponPrimarySA();
+                        }
                     }
                     break;
                 case PowerType.WeaponSecondary:
                     if (!Player.HasSecondarySpecial)
                     {
-                        Player.WeaponSecondarySA();
+                        if (Player.SecondarySpecial == _selectedPower.GumpId)
+                        {
+                            Player.WeaponSecondarySA();
+                        }
                     }
                     break;
                 case PowerType.None:
@@ -289,7 +356,12 @@ namespace Razorscripts
 
             if (_selectedPower != null)
             {
-                var index = LoadedPowers.IndexOf(_selectedPower);
+                var selected = LoadedPowers.FirstOrDefault(i => i.Name == _selectedPower.Name);
+                var index = LoadedPowers.IndexOf(selected);
+                if (index < 0)
+                {
+                    index = 0;
+                }
                 Gumps.AddImage(ref gump, (60 * index-17),0,30071);
             }
         }
@@ -326,7 +398,7 @@ namespace Razorscripts
             
             Gumps.AddButton(ref gump, width-105, baseY+15 , buttonId,buttonId,200,1,1);
             
-            Gumps.AddButton(ref gump, width-80,baseY+15,40018,40018,1,1,1);
+            Gumps.AddButton(ref gump, width-80,baseY+15,40018,40018,100,1,1);
             Gumps.AddLabel(ref gump, width-65,baseY+15,0x481, "Reload");
         }
         

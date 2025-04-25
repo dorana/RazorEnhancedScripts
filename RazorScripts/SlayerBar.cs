@@ -17,7 +17,7 @@ namespace RazorScripts
         private readonly List<SlayerItem> _slayerItems = new List<SlayerItem>();
         private BaseSkill _skill;
         // private static string _version = "1.0.1";
-        private int _nonSlayerSerial = -1;
+        private int _nonSlayerSerial = Player.Name == "Mia Dorana" ? -1 : 0x65BB8975;
         //Set to true if you want to open containers to find slayers
         //(note that this will open any and all containers in your backpack untill a slayer container is found)
         private bool _allowOpeningContainers = false; 
@@ -31,6 +31,7 @@ namespace RazorScripts
             SlayerType.ReptileSlayer,
             SlayerType.DragonSlayer,
             SlayerType.ArachnidSlayer,
+            SlayerType.SpiderSlayer,
             SlayerType.ElementalSlayer,
             SlayerType.AirElementalSlayer,
             SlayerType.FireElementalSlayer,
@@ -39,6 +40,7 @@ namespace RazorScripts
             SlayerType.BloodElementalSlayer,
             SlayerType.DemonSlayer,
             SlayerType.FeySlayer,
+            SlayerType.EodonSlayer,
         };
         
         private TextInfo _tinfo;
@@ -111,7 +113,7 @@ namespace RazorScripts
             var resolved = _slayerItems.FirstOrDefault(b => b.Serial == held?.Serial);
             if (_SlayerBag == null)
             {
-                Misc.SendMessage("Unable to find book binder");
+                Misc.SendMessage("Unable to find slayer bag");
             }
             
             if (held != null && resolved != null)
@@ -125,7 +127,7 @@ namespace RazorScripts
                 var index = _slayerList.IndexOf(resolved.Slayer);
                 var offset = index > 5 ? 6 : 0;
                 Items.Move(gameEquipped, _SlayerBag, 1,(index-offset)*20+45, offset == 0 ? 95 : 125);
-                Misc.Pause(600);
+                Misc.Pause(650);
             }
             else
             {
@@ -137,11 +139,16 @@ namespace RazorScripts
             }
             
             var gameTarget = Items.FindBySerial(book.Serial);
-            Player.EquipItem(gameTarget);
-            Misc.Pause(200);
+
+            while (GetEquippedWeapon()?.ItemID != gameTarget.ItemID)
+            {
+                Player.EquipItem(gameTarget);
+                Misc.Pause(100);
+            }
+            Misc.Pause(300);
         }
         
-        private int GetActiveBookIndex()
+        private int GetActiveSlayerIndex()
         {
             var held = GetEquippedWeapon();
             var booksSorted = _slayerItems.OrderBy(b => _slayerList.IndexOf(b.Slayer)).ToList();
@@ -156,7 +163,7 @@ namespace RazorScripts
         
         private void UpdateBar()
         {
-            var activeBookIndex = GetActiveBookIndex();
+            var activeBookIndex = GetActiveSlayerIndex();
             var bar = Gumps.CreateGump();
             bar.buttonid = -1;
             bar.gumpId = 788435749;
@@ -228,6 +235,7 @@ namespace RazorScripts
             item = Player.GetItemOnLayer("LeftHand");
             if (item != null)
             {
+                Items.WaitForProps(item,1000);
                 if (item.Properties.Any(p => p.ToString().ToLower().Contains("two-handed")))
                 {
                     return item;
@@ -352,8 +360,8 @@ namespace RazorScripts
             foreach (var item in compoundList.Where(_searchFilter))
             {
                 Items.WaitForProps(item,1000);
-                var prop = item.Properties.FirstOrDefault(p => p.ToString().Contains("slayer")) ?? item.Properties.FirstOrDefault(p => p.Number == 1071451);
-                var slayerString = prop.ToString().ToLower();
+                var prop = item.Properties.FirstOrDefault(p => p.ToString().Contains("slayer")) ?? item.Properties.FirstOrDefault(p => p.Number == 1071451 || p.Number == 1156126);
+                var slayerString = prop?.ToString().ToLower();
                 if (slayerString == "silver")
                 {
                     slayerString = "undead slayer";
@@ -395,6 +403,7 @@ namespace RazorScripts
             UndeadSlayer = 20486,
             ReptileSlayer = 21282,
             ArachnidSlayer = 20994,
+            SpiderSlayer = 20994,
             ElementalSlayer = 24014,
             AirElementalSlayer = 2299,
             FireElementalSlayer = 2302,
@@ -404,6 +413,7 @@ namespace RazorScripts
             DemonSlayer = 2300,
             DragonSlayer = 21010,
             FeySlayer = 23006,
+            EodonSlayer = 24011,
             UnKnown = 24015
         }
         

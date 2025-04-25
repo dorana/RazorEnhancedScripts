@@ -19,7 +19,7 @@ namespace RazorScripts
 {
     public class Shadowguard
     {
-        private string _version = "2.0.1";
+        private string _version = "2.0.2";
         private uint _gumpId = (uint)456426886;
         private bool _runningMaster = true;
         private uint _gumpAboutId = (uint)24536236;
@@ -225,8 +225,9 @@ namespace RazorScripts
 
             if (buttonId == (int)Buttons.ExitRoom)
             {
-                Misc.WaitForContext(_player, 500);
-                Misc.ContextReply(_player, 1);
+                var options = Misc.WaitForContext(_player, 500,false);
+                var located = options.Where(i => i.Entry.Equals("Exit Shadowguard",StringComparison.InvariantCultureIgnoreCase)).ToList();
+                Misc.ContextReply(_player, options.IndexOf(located.FirstOrDefault()));
                 buttonId = -1;
             }
 
@@ -625,6 +626,7 @@ namespace RazorScripts
                             useBottle = tableBottle ?? backpackBottle;
                             Items.UseItem(useBottle);
                             Target.WaitForTarget(150);
+                            Misc.Pause(50);
                             Target.TargetExecute(target.Serial);
                         }
                     }
@@ -1573,27 +1575,15 @@ namespace RazorScripts
         private Dictionary<int, int> FindPairs(List<int> numbers)
         {
             var pairs = new Dictionary<int, int>();
-            var orderred = numbers.OrderBy(n => n).ToList();
-            var cutList = orderred;
-            while (cutList.Any())
+            // split this up in groups of 2
+            for (int i = 0; i < numbers.Count; i += 2)
             {
-                if(cutList.Count < 2)
+                if (i + 1 < numbers.Count)
                 {
-                    break;
+                    pairs.Add(numbers[i], numbers[i + 1]);
+                    pairs.Add(numbers[i+1], numbers[i]);
                 }
-                
-                var first = cutList[0];
-                var second = cutList[1];
-                
-                if(Math.Abs(first - second) == 2)
-                {
-                    pairs[first] = second;
-                    pairs[second] = first;
-                }
-                
-                cutList = cutList.Skip(2).ToList();
             }
-
             return pairs;
         }
 
