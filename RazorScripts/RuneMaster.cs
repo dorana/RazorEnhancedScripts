@@ -968,19 +968,33 @@ namespace Razorscripts
                 {
                     if(Gumps.HasGump(0x59))
                     {
-                        Gumps.SendAction(0x59, rune.GateIndex);
+                         Gumps.SendAction(0x59, rune.RecallIndex);
                     }
                 }
-                else if (rune.Book.Type == BookType.RuneAtlas)
+                else
                 {
                     if(Gumps.HasGump(0x1f2))
-                    {
+                    { 
+                        //Make sure we get to the correct page
+                        var simplifiedIndex = rune.GateIndex - 100;
+                        while(simplifiedIndex>15)
+                        {
+                            Gumps.SendAction(0x1f2, 1150);
+                            simplifiedIndex -= 16;
+                            Misc.Pause(200);
+                            while(!Gumps.HasGump(0x1f2))
+                            {
+                                Misc.Pause(50);
+                            }
+                        }
                         Gumps.SendAction(0x1f2, rune.GateIndex);
                         while (!Gumps.HasGump(0x1f2))
                         {
                             Misc.Pause(50);
                         }
+                        Misc.Pause(100);
                         Gumps.SendAction(0x1f2, 6);
+                        RegisterRuneLocation(rune);
                     }
                 }
             }
@@ -1025,6 +1039,7 @@ namespace Razorscripts
                         {
                             Misc.Pause(50);
                         }
+                        Misc.Pause(100);
                         Gumps.SendAction(0x1f2, UseMagery ? 4 : 7);
                         RegisterRuneLocation(rune);
                     }
