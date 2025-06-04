@@ -18,6 +18,7 @@ namespace RazorScripts
         private BaseSkill _skill;
         // private static string _version = "1.0.1";
         private int _nonSlayerSerial = -1;
+        private uint _gumpId = 788435749;
         //Set to true if you want to open containers to find slayers
         //(note that this will open any and all containers in your backpack until a slayer container is found)
         private bool _allowOpeningContainers = false; 
@@ -61,6 +62,19 @@ namespace RazorScripts
             SlayerType.FeySlayer,
             SlayerType.EodonSlayer,
         };
+
+        private bool IsSlayer(Item checkItem)
+        {
+            Items.WaitForProps(checkItem,1000);
+            return checkItem.Properties.Any(p => p.ToString().ToLower().Contains("slayer"))
+                        || checkItem.Properties.Any(p => p.ToString().ToLower().Contains("silver"));
+        }
+
+        private bool IsCorrectSkill(Item checkItem)
+        {
+            Items.WaitForProps(checkItem,1000);
+            return checkItem.Properties.Any(p => p.Number == GetProperyNumber(_skill));
+        }
         
         private TextInfo _tinfo;
 
@@ -74,14 +88,11 @@ namespace RazorScripts
                 if (_skill == BaseSkill.Magery)
                 {
                     _searchFilter = i => IsSpellBook(i)
-                                         && (i.Properties.Any(p => p.ToString().ToLower().Contains("slayer"))
-                                             || i.Properties.Any(p => p.ToString().ToLower().Contains("silver")));
+                                         && (IsSlayer(i));
                 }
                 else
                 {
-                    _searchFilter = i => (i.Properties.Any(p => p.ToString().ToLower().Contains("slayer"))
-                                          || i.Properties.Any(p => p.ToString().ToLower().Contains("silver")))
-                                         && i.Properties.Any(p => p.Number == GetProperyNumber(_skill));
+                    _searchFilter = i => IsSlayer(i) && IsCorrectSkill(i);
                 }
 
 
@@ -123,7 +134,10 @@ namespace RazorScripts
                 Misc.SendMessage(e.ToString());
                 throw;
             }
-
+            finally
+            {
+                Gumps.CloseGump(_gumpId);
+            }
         }
 
         private void EquipSlayer(SlayerItem book)
@@ -185,7 +199,7 @@ namespace RazorScripts
             var activeBookIndex = GetActiveSlayerIndex();
             var bar = Gumps.CreateGump();
             bar.buttonid = -1;
-            bar.gumpId = 788435749;
+            bar.gumpId = _gumpId;
             bar.serial = (uint)Player.Serial;
             bar.x = 500;
             bar.y = 500;
@@ -205,7 +219,7 @@ namespace RazorScripts
                 Gumps.AddImage(ref bar, (60 * activeBookIndex-17),0,30071);
             }
             
-            Gumps.CloseGump(788435749);
+            Gumps.CloseGump(_gumpId);
             Gumps.SendGump(bar, 500,500);
         }
 
@@ -275,7 +289,16 @@ namespace RazorScripts
             var held = GetEquippedWeapon();
             if (held != null)
             {
-                slayersFound++;
+                var match = IsSlayer(held);
+                if (match && !IsSpellBook(held))
+                {
+                    match = IsCorrectSkill(held);
+                }
+                
+                if (match)
+                {
+                    slayersFound++;
+                }
             }
 
             if (_allowOpeningContainers)
