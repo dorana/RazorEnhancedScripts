@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -17,10 +17,29 @@ namespace RazorScripts
         private readonly List<SlayerItem> _slayerItems = new List<SlayerItem>();
         private BaseSkill _skill;
         // private static string _version = "1.0.1";
-        private int _nonSlayerSerial = Player.Name == "Mia Dorana" ? -1 : 0x65BB8975;
+        private int _nonSlayerSerial = -1;
         //Set to true if you want to open containers to find slayers
-        //(note that this will open any and all containers in your backpack untill a slayer container is found)
+        //(note that this will open any and all containers in your backpack until a slayer container is found)
         private bool _allowOpeningContainers = false; 
+        
+        private Dictionary<BaseSkill, int> _propertyMapper = new Dictionary<BaseSkill, int>
+        {
+            {BaseSkill.Swordsmanship, 1061172},
+            {BaseSkill.MaceFighting, 1061173},
+            {BaseSkill.Fencing, 1061174},
+            {BaseSkill.Archery, 1061175},
+            {BaseSkill.Throwing, 1112075}
+        };
+        
+        private int GetProperyNumber(BaseSkill skill)
+        {
+            if (_propertyMapper.TryGetValue(skill, out var value))
+            {
+                return value;
+            }
+
+            return 0;
+        }
 
         private Func<Item, bool> _searchFilter;
         private readonly List<SlayerType> _slayerList = new List<SlayerType>
@@ -62,7 +81,7 @@ namespace RazorScripts
                 {
                     _searchFilter = i => (i.Properties.Any(p => p.ToString().ToLower().Contains("slayer"))
                                           || i.Properties.Any(p => p.ToString().ToLower().Contains("silver")))
-                                         && i.Properties.Any(p => p.ToString().ToLower().Contains(_tinfo.ToTitleCase(_skill.ToString()).ToLower()));
+                                         && i.Properties.Any(p => p.Number == GetProperyNumber(_skill));
                 }
 
 
@@ -211,7 +230,7 @@ namespace RazorScripts
                 case BaseSkill.Swordsmanship:
                     return "Swords";
                 case BaseSkill.MaceFighting:
-                    return "Macing";
+                    return "Mace Fighting";
                 case BaseSkill.Fencing:
                     return "Fencing";
                 case BaseSkill.Archery:
