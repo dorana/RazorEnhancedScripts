@@ -52,7 +52,8 @@ namespace Razorscripts
                 Notorieties = new List<byte>
                 {
                     3, 4, 5, 6
-                }
+                },
+                CheckLineOfSight = true
             };
 
             var mobs = Mobiles.ApplyFilter(filter);

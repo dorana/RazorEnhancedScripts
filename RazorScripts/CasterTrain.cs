@@ -172,7 +172,7 @@ namespace RazorScripts
         {
             var skillList = _castHolder[casterKey];
             var skillCap = _spellSchools[casterKey];
-            var skill = Player.GetRealSkillValue(casterKey);
+            var skill = Player.GetSkillValue(casterKey);
             if (skill >= skillCap)
             {
                 return;
@@ -187,7 +187,7 @@ namespace RazorScripts
                 {
                     while (_player.Hits < Player.HitsMax)
                     {
-                        var magerySkill = Player.GetRealSkillValue("Magery");
+                        var magerySkill = Player.GetSkillValue("Magery");
                         if (magerySkill >= 50)
                         {
                             CheckMana();
@@ -204,7 +204,7 @@ namespace RazorScripts
                             continue;
                         }
 
-                        var chivalrySkill = Player.GetRealSkillValue("Chivalry");
+                        var chivalrySkill = Player.GetSkillValue("Chivalry");
                         if (chivalrySkill >= 30)
                         {
                             CheckMana();
@@ -213,7 +213,7 @@ namespace RazorScripts
                             continue;
                         }
 
-                        var spiritSpeakSkill = Player.GetRealSkillValue("Spirit Speak");
+                        var spiritSpeakSkill = Player.GetSkillValue("Spirit Speak");
                         if (spiritSpeakSkill >= 30)
                         {
                             Player.UseSkill("Spirit Speak");
@@ -221,7 +221,7 @@ namespace RazorScripts
                             continue;
                         }
 
-                        var spellweavingSkill = Player.GetRealSkillValue("Spellweaving");
+                        var spellweavingSkill = Player.GetSkillValue("Spellweaving");
                         if (spellweavingSkill >= 24 && !Player.BuffsExist("Gift of Renewal"))
                         {
                             Spells.CastSpellweaving("Gift of Renewal", _player);

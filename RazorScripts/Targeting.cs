@@ -83,9 +83,26 @@ namespace RazorScripts
                 if(mobs.Any())
                 {
                     var sorted = mobs.OrderBy(m => m.DistanceTo(_player)).ToList();
-                    Target.TargetExecute(sorted.First());
-                    Target.SetLast(mobs.First());
-                    return;
+
+                    Mobile selected = null;
+                    
+                    for (int i = 0; i < mobs.Count; i++)
+                    {
+                        selected = sorted[i];
+                        Mobiles.WaitForProps(selected,1000);
+                        if (selected.Properties.All(p => p.Number != 1049646))
+                        {
+                            break;
+                        }
+                    }
+
+                    if (selected != null)
+                    {
+                        Target.TargetExecute(selected);
+                        Target.SetLast(selected);
+
+                        return;
+                    }
                 }
                 
 

@@ -5,22 +5,40 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms.ComponentModel.Com2Interop;
-using System.Windows.Forms.VisualStyles;
-using System.Xml;
 using Assistant;
 using RazorEnhanced;
-using Ultima;
 using Gumps = RazorEnhanced.Gumps;
 using Item = RazorEnhanced.Item;
 
 namespace Razorscripts
 {
-    public class MiningMasterPilot
+    public class MiningMaster
     {
+        private List<int> _runeIds = new List<int>
+        {
+            0x1F14, 
+            0x1F15,
+            0x1F16,
+            0x1F17
+        };
+        
+        private List<int> _scrollIds = new List<int>
+        {
+            0x0E34, 
+            0x0E35,
+            0x0E36,
+            0x0E37,
+            0x0E38,
+            0x0E39,
+            0x0E3A
+        };
+        
+        private string _version = "1.0.2";
+        
         private bool _useBagOfSending = false;
         private MiningTool _tool = MiningTool.Shovel;
+        private bool _pathSelectorEnabled = false;
+        private PathData _editPath = null;
         
         
         
@@ -62,7 +80,6 @@ namespace Razorscripts
                     if (_state == ScriptState.Idle)
                     {
                         var gd = Gumps.GetGumpData(786543548);
-                        var pgd = Gumps.GetGumpData(26432189);
                         if (gd.buttonid == (int)Button.RecordingStart)
                         {
                             _state = ScriptState.Recording;
@@ -70,15 +87,44 @@ namespace Razorscripts
                         }
                         else if (gd.buttonid == (int)Button.PathSelect)
                         {
-                            LoadPathsGump();
+                            _pathSelectorEnabled = !_pathSelectorEnabled;
                             gd.buttonid = -1;
                             UpdateGump();
                         }
-                        else if (pgd != null && pgd.buttonid != -1 && pgd.buttonid != 0)
+                        else if (gd != null && gd.buttonid != -1 && gd.buttonid != 0)
                         {
-                            _selectedPath = _config.Paths[pgd.buttonid-1].Name;
+                            if (gd.buttonid == -2)
+                            {
+                                _editPath = null;
+                                gd.buttonid = -1;
+                                UpdateGump();
+                                continue;
+                            }
+                            var index = gd.buttonid - 1;
+                            if (index >= 20000)
+                            {
+                                index -= 20000;
+                                _config.Paths.RemoveAt(index);
+                                _editPath = null;
+                                SaveConfig();
+                                gd.buttonid = -1;
+                                UpdateGump();
+                                continue;
+                            }
+                            
+                            if (index >= 10000)
+                            {
+                                index -= 10000;
+                                _editPath = _config.Paths[index];
+                                gd.buttonid = -1;
+                                UpdateGump();
+                                continue;
+                            }
+                            
+                            _selectedPath = _config.Paths[index].Name;
                             _state = ScriptState.Playback;
-                            pgd.buttonid = -1;
+                            gd.buttonid = -1;
+                            _pathSelectorEnabled = false;
                             UpdateGump();
                             continue;
                         }
@@ -109,13 +155,10 @@ namespace Razorscripts
                                 Misc.Pause(200);
                                 if (Gumps.HasGump(0x59))
                                 {
-                                    var lines = Gumps.GetLineList(0x59);
-                                    var pattern = @"\d+o \d+'[SN], \d+o \d+'[EW]";
-                                    var matches = lines.Where(s => Regex.IsMatch(s, pattern)).ToList();
-                                    //get the lines above each of the obeserved matches
-                                    var runeNameLines = matches.Select(m => lines[lines.IndexOf(m) - 1]).ToList();
+                                    var gd = Gumps.GetGumpData(0x59);
+                                    List<string> runeNameLines = gd.stringList.Skip(2).Take(16).Where(s => !s.Equals("Empty", StringComparison.OrdinalIgnoreCase)).Select(x => x.ToLower()).ToList();
 
-                                    runeIndex = runeNameLines.IndexOf(_selectedPath);
+                                    runeIndex = runeNameLines.IndexOf(_selectedPath.ToLower());
                                     if (runeIndex != -1)
                                     {
                                         binder = RuneBinder.Book;
@@ -289,6 +332,7 @@ namespace Razorscripts
                                     UpdateGump();
                                     continue;
                                 }
+                                
                                 _config.Paths.Add(new PathData
                                 {
                                     Name = pathName,
@@ -297,6 +341,176 @@ namespace Razorscripts
                                 
                                 SaveConfig();
                                 Player.HeadMessage(33, "Path saved");
+
+                                if (gd.switches.Any(s => s == 1))
+                                {
+                                    var magerySkill = Player.GetSkillValue("Magery");
+                                    var runes = Player.Backpack.Contains.Where(i => _runeIds.Contains(i.ItemID))
+                                        .ToList();
+                                    
+                                    runes.ForEach(rune => Items.WaitForProps(rune, 1000));
+                                    var blank = runes.FirstOrDefault(r => r.Properties.Count == 2);
+                                    if (blank == null)
+                                    {
+                                        var markBook = Player.Backpack.Contains.FirstOrDefault(i => i.Name.Equals("Recall Rune Tome", StringComparison.InvariantCultureIgnoreCase));
+                                        if (markBook != null)
+                                        {
+                                            Items.UseItem(markBook);
+                                            blank = Player.Backpack.Contains.FirstOrDefault(r => _runeIds.Contains(r.ItemID) && r.Properties.Count == 2);
+                                            while (blank == null)
+                                            {
+                                                blank = Player.Backpack.Contains.FirstOrDefault(r => _runeIds.Contains(r.ItemID) && r.Properties.Count == 2);
+                                            }
+                                        }
+                                    }
+
+                                    if (blank != null)
+                                    {
+                                        if (magerySkill >= 70)
+                                        {
+                                            var success = false;
+                                            while (!success)
+                                            {
+                                                Spells.CastMagery("Mark");
+                                                Target.WaitForTarget(3000);
+                                                Misc.Pause(100);
+                                                Target.TargetExecute(blank);
+                                                Misc.Pause(1000);
+                                                Items.WaitForProps(blank, 1000);
+                                                if (blank.Properties.Count > 2)
+                                                {
+                                                    success = true;
+                                                }
+                                                else
+                                                {
+                                                    Misc.Pause(2000);
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            var success = false;
+                                            while (!success)
+                                            {
+                                                var markScrolls = Player.Backpack.Contains.Where(i => _scrollIds.Contains(i.ItemID) && i.Name.EndsWith("Mark")).ToList();
+                                                if (!markScrolls.Any())
+                                                {
+                                                    Misc.SendMessage("No mark Scrolls found");
+                                                    break;
+                                                }
+                                                
+                                                Items.UseItem(markScrolls.First());
+                                                Target.WaitForTarget(3000);
+                                                Misc.Pause(100);
+                                                Target.TargetExecute(blank);
+                                                Misc.Pause(1000);
+                                                Items.WaitForProps(blank, 1000);
+                                                if (blank.Properties.Count > 2)
+                                                {
+                                                    success = true;
+                                                }
+                                                else
+                                                {
+                                                    Misc.Pause(2000);
+                                                }
+                                            }
+                                        }
+
+                                        Items.UseItem(blank);
+                                            Misc.Pause(500);
+                                            Misc.ResponsePrompt(pathName);
+                                            Misc.Pause(500);
+                                            
+                                            var books = Player.Backpack.Contains.Where(i => i.ItemID == 0x22C5).ToList();
+                                            var atlases = Player.Backpack.Contains.Where(i => i.ItemID == 0x9C16).ToList();
+                                            
+                                            var totalFound = books.Count() + atlases.Count();
+
+                                            Item targetBook = null;
+                                            
+                                            if (totalFound > 1)
+                                            {
+                                                var targetAccepted = false;
+                                                books.ForEach(b => Items.WaitForProps(b, 1000));
+                                                atlases.ForEach(a => Items.WaitForProps(a, 1000));
+                                                
+                                                var mbooks = books.Where(b => b.Properties.Any(p => p.Number == 1042971 && p.Args.StartsWith("Mining"))).ToList();
+                                                if (mbooks.Any())
+                                                {
+                                                    if (mbooks.Count == 1)
+                                                    {
+                                                        targetBook = mbooks.First();
+                                                        targetAccepted = true;
+                                                    }
+                                                    else
+                                                    {
+                                                        foreach (var mbook in mbooks)
+                                                        {
+                                                            Items.UseItem(mbook);
+                                                            while (!Gumps.HasGump(0x59))
+                                                            {
+                                                                Misc.Pause(200);
+                                                            }
+                                                            
+                                                            var mbookGumpData = Gumps.GetGumpData(0x59);
+                                                            var hasRoom = mbookGumpData.stringList.Any(s =>
+                                                                s.Equals("Empty",
+                                                                    StringComparison.InvariantCultureIgnoreCase));
+                                                            if (hasRoom)
+                                                            {
+                                                                targetBook = mbook;
+                                                                targetAccepted = true;
+                                                            }
+                                                            
+                                                            Gumps.SendAction(0x59,0);
+                                                            Misc.Pause(300);
+                                                        }
+                                                    }
+                                                }
+
+                                                while (!targetAccepted)
+                                                {
+                                                    Misc.SendMessage("Multiple rune books found, please select the one to add the rune to");
+                                                    var tar = new Target();
+                                                    var bookSerial = tar.PromptTarget();
+                                                    if (bookSerial == -1)
+                                                    {
+                                                        break;
+                                                    }
+                                                    var targetBookCandidate = Items.FindBySerial(bookSerial);
+                                                    
+                                                    if (targetBookCandidate.ItemID == 0x22C5 ||
+                                                        targetBookCandidate.ItemID == 0x9C16)
+                                                    {
+                                                        targetBook = targetBookCandidate;
+                                                        targetAccepted = true;
+                                                    }
+                                                    else
+                                                    {
+                                                        Misc.SendMessage("That is not a valid book for your rune, please try again");
+                                                    }
+                                                }
+
+                                            }
+                                            else
+                                            {
+                                                targetBook = books.FirstOrDefault() ?? atlases.FirstOrDefault();
+                                            }
+
+                                            if (targetBook != null)
+                                            {
+                                                if (Gumps.HasGump(0x59))
+                                                {
+                                                    Gumps.SendAction(0x59,0);
+                                                    Misc.Pause(300);
+                                                }
+                                                
+                                                Misc.Pause(200);
+                                                
+                                                Items.Move(blank, targetBook,1);
+                                            }
+                                    }
+                                }
                                 
                                 gd.buttonid = -1;
                                 _state = ScriptState.Idle;
@@ -643,70 +857,149 @@ namespace Razorscripts
 
         private void UpdateGump()
         {
+            var allowMark = false;
+
+            var magerySkill = Player.GetSkillValue("Magery");
+            if (magerySkill >= 70)
+            {
+                allowMark = true;
+            }
+
+            if (!allowMark)
+            {
+                var scroll = Player.Backpack.Contains.FirstOrDefault(i => _scrollIds.Contains(i.ItemID) && i.Name.Contains("Mark"));
+                if (scroll != null)
+                {
+                    allowMark = true;
+                }
+            }
+
+            if (allowMark)
+            {
+                var runes = Player.Backpack.Contains.Where(i => _runeIds.Contains(i.ItemID)).ToList();
+                runes.ForEach(rune => Items.WaitForProps(rune, 1000));
+                var hasBlanks = runes.Any(r => r.Properties.Count == 2);
+
+                if (hasBlanks == false)
+                {
+                    var markBook = Player.Backpack.Contains.FirstOrDefault(i => i.Name.Equals("Recall Rune Tome", StringComparison.InvariantCultureIgnoreCase));
+                    if (markBook != null)
+                    {
+                        hasBlanks = true;
+                    }
+                }
+
+                if (hasBlanks == false)
+                {
+                    allowMark = false;
+                }
+            }
+
+
             var gump = Gumps.CreateGump();
             gump.gumpId = 786543548;
             gump.serial = (uint)Player.Serial;
-            Gumps.AddBackground(ref gump, 0, 0, 300, 200, 1755);
-            Gumps.AddLabel(ref gump, 15,15,0x7b, "Mining Master Pilot");
-            Gumps.AddLabel(ref gump, 15,40,0x7b, "Status :");
-            Gumps.AddLabel(ref gump, 75,40,0x16a, _state.ToString());
+            var width = 230;
+            
+            Gumps.AddBackground(ref gump, 0, 0, width, 200, 1755);
+            Gumps.AddLabel(ref gump, 15,15,0x7b, "Mining Master");
+            Gumps.AddLabel(ref gump, 15,35,0x7b, "Status");
+            Gumps.AddLabel(ref gump, 60,35,0x7b, ":");
+            Gumps.AddLabel(ref gump, 70,35,0x16a, _state.ToString());
+            Gumps.AddLabel(ref gump, 15,55,0x7b, "Version");
+            Gumps.AddLabel(ref gump, 60,55,0x7b, ":");
+            Gumps.AddLabel(ref gump, 70,55,0x16a, _version);
             
             if (_state == ScriptState.Idle)
             {
-                Gumps.AddButton(ref gump, 160, 16, 11410, 11411, (int)Button.RecordingStart, 1, 0);
-                Gumps.AddLabel(ref gump, 180, 15, 0x16a, "Start Recording");
-                Gumps.AddLabel(ref gump, 180, 40, 0x16a, "Open path select");
-                Gumps.AddButton(ref gump, 160, 41, 11400, 11401, (int)Button.PathSelect, 1, 0);
+                Gumps.AddButton(ref gump, 130, 15, 40018, 40018, (int)Button.RecordingStart, 1, 0);
+                Gumps.AddLabel(ref gump, 138, 15, 0x16a, "Record");
             }
             else if(_state == ScriptState.Recording)
             {
-                Gumps.AddLabel(ref gump, 180, 15, 0x16a, "Discard Recording");
-                Gumps.AddButton(ref gump, 160, 16, 11400, 11401, (int)Button.RecordingDiscard, 1, 0);
-                Gumps.AddLabel(ref gump, 180, 40, 0x16a, "Save Recording");
-                Gumps.AddButton(ref gump, 160, 41, 11400, 11401, (int)Button.RecordingSave, 1, 0);
-                Gumps.AddLabel(ref gump, 35, 80, 0x16a, "Add Waypoint");
-                Gumps.AddButton(ref gump, 15, 79, 11400, 11401, (int)Button.AddWaypoint, 1, 0);
-                Gumps.AddLabel(ref gump, 15, 120, 0x16a, "Name");
-                Gumps.AddImageTiled(ref gump, 15, 160, 270, 16,1803);
-                Gumps.AddTextEntry(ref gump, 15,160,270,32,0x16a,1,"");
+                Gumps.AddButton(ref gump, 130, 15, 40018, 40018, (int)Button.RecordingDiscard, 1, 0);
+                Gumps.AddLabel(ref gump, 135, 17, 0xF1, "Discard");
+                Gumps.AddButton(ref gump, 130, 40, 40018, 40018, (int)Button.RecordingSave, 1, 0);
+                Gumps.AddLabel(ref gump, 135, 42, 0x16a, "Save");
+                Gumps.AddButton(ref gump, 130, 65, 40018, 40018, (int)Button.AddWaypoint, 1, 0);
+                Gumps.AddLabel(ref gump, 135, 67, 0x16a, "Waypoint");
+                Gumps.AddLabel(ref gump, 15, 140, 0x16a, "Name");
+                
+                if (allowMark)
+                {
+                    Gumps.AddLabel(ref gump, 100, 140, 0x16a, "Auto Mark :");
+                    Gumps.AddCheck(ref gump, 180, 140, 9028, 9027, false, 1);
+                }
+
+                Gumps.AddImageTiled(ref gump, 15, 165, width-30, 16,1803);
+                Gumps.AddTextEntry(ref gump, 15,165,width-30,32,0x16a,1,"");
             }
             else if(_state == ScriptState.Playback || _state == ScriptState.Paused)
             {
-                Gumps.AddButton(ref gump, 160, 16, 11410, 11411, (int)Button.PlaybackStop, 1, 0);
-                Gumps.AddLabel(ref gump, 180, 15, 0x16a, "Stop Playback");
+                Gumps.AddButton(ref gump, 130, 15, 40018, 40018, (int)Button.PlaybackStop, 1, 0);
+                Gumps.AddLabel(ref gump, 148, 17, 0x16a, "Stop");
                 if (_state == ScriptState.Paused)
                 {
-                    Gumps.AddButton(ref gump, 160, 46, 11410, 11411, (int)Button.PlaybackResume, 1, 0);
-                    Gumps.AddLabel(ref gump, 180, 46, 0x16a, "Resume Playback");
+                    Gumps.AddButton(ref gump, 130, 45, 40018, 40018, (int)Button.PlaybackResume, 1, 0);
+                    Gumps.AddLabel(ref gump, 142, 47, 0x16a, "Resume");
                 }
                 else
                 {
-                    Gumps.AddButton(ref gump, 160, 46, 11410, 11411, (int)Button.PlaybackPause, 1, 0);
-                    Gumps.AddLabel(ref gump, 180, 46, 0x16a, "Pause Playback");
+                    Gumps.AddButton(ref gump, 130, 45, 40018, 40018, (int)Button.PlaybackPause, 1, 0);
+                    Gumps.AddLabel(ref gump, 145, 47, 0x16a, "Pause");
                 }
             }
+            if(_editPath != null && _state == ScriptState.Idle)
+            {
+                ShowEdit(gump, width);
+            }
+            else if (_pathSelectorEnabled && _state == ScriptState.Idle)
+            {
+                ShowPaths(gump, width);
+            }
+            
+            var flagId = _pathSelectorEnabled ? 9781 : 9780;
+            var flagX = !_pathSelectorEnabled && _editPath == null ? width-25 : width+300-25;
+
+            if (_state == ScriptState.Idle)
+            {
+                Gumps.AddButton(ref gump, flagX, 10, flagId, flagId, (int)Button.PathSelect, 1, 1);
+                Gumps.AddTooltip(ref gump, "Toggle Path Selector");
+
+            }
+            
             Gumps.CloseGump(786543548);
             Gumps.SendGump(gump, 500,500);
         }
 
-        private void LoadPathsGump()
+        private void ShowPaths(Gumps.GumpData gump, int baseX)
         {
-            var gump = Gumps.CreateGump();
-            gump.gumpId = 26432189;
-            gump.serial = (uint)Player.Serial;
-            gump.x = 500;
-            gump.y = 500;
             var paths = _config.Paths.OrderBy(g => g.Name).ToList();
-            Gumps.AddBackground(ref gump, 0,0,200, 30+paths.Count * 25,1755);
+            Gumps.AddBackground(ref gump, baseX,0,300, 30+paths.Count * 25,1755);
             foreach (var path in paths)
             {
-                Gumps.AddLabel(ref gump, 30, 15 + (paths.IndexOf(path) * 25), 0x7b, path.Name);
-                Gumps.AddButton(ref gump, 15, 16 + (paths.IndexOf(path) * 25), 11410, 11411, _config.Paths.IndexOf(path)+1, 1, 0);
+                Gumps.AddLabel(ref gump, baseX+15, 15 + (paths.IndexOf(path) * 25), 0x7b, path.Name);
+                // Gumps.AddButton(ref gump, baseX+15, 16 + (paths.IndexOf(path) * 25), 11410, 11411, _config.Paths.IndexOf(path)+1, 1, 0);
+                Gumps.AddButton(ref gump, baseX+120,  15 + (paths.IndexOf(path) * 25), 40018, 40018, _config.Paths.IndexOf(path)+1, 1, 0);
+                Gumps.AddLabel(ref gump, baseX+135,  17 + (paths.IndexOf(path) * 25), 0x16a, "Select");
+                Gumps.AddButton(ref gump, baseX+185,  15 + (paths.IndexOf(path) * 25), 40018, 40018, _config.Paths.IndexOf(path)+1+10000, 1, 0);
+                Gumps.AddLabel(ref gump, baseX+205,  17 + (paths.IndexOf(path) * 25), 0x16a, "Edit");
             }
+            
             Gumps.CloseGump(26432189);
             Gumps.SendGump(gump,500,500);
         }
 
+        private void ShowEdit(Gumps.GumpData gump, int baseX)
+        {
+            Gumps.AddBackground(ref gump, baseX,0,300, 100,1755);
+            Gumps.AddLabel(ref gump, baseX+15,  17 , 0x7b, _editPath.Name);
+            Gumps.AddButton(ref gump, baseX+35,  45, 40018, 40018, _config.Paths.IndexOf(_editPath)+1+20000, 1, 0);
+            Gumps.AddLabel(ref gump, baseX+50,  47,  0x16a, "Delete");
+            Gumps.AddButton(ref gump, baseX+105,  45, 40018, 40018, -2, 1, 0);
+            Gumps.AddLabel(ref gump, baseX+120,  47,  0x16a, "Cancel");
+        }
+        
         private void SaveConfig()
         {
             var ns = Assembly.LoadFile(Path.Combine(Engine.RootPath, "Newtonsoft.Json.dll"));
@@ -716,7 +1009,7 @@ namespace Razorscripts
                 if (type.Name == "JsonConvert")
                 {
                     data = type.InvokeMember("SerializeObject", BindingFlags.InvokeMethod, null, null, new object[] { _config }) as string;
-                    File.WriteAllText(Path.Combine(Engine.RootPath, "MiningMasterPilot.config"), data);
+                    File.WriteAllText(Path.Combine(Engine.RootPath, "MiningMaster.config"), data);
                     break;
                 }
             }
@@ -724,12 +1017,17 @@ namespace Razorscripts
 
         private void LoadConfig()
         {
-            var configFile = Path.Combine(Engine.RootPath, "MiningMasterPilot.config");
+            var configFile = Path.Combine(Engine.RootPath, "MiningMaster.config");
             if (!File.Exists(configFile))
             {
-                _config = new MiningConfig();
-                return;
+                configFile = Path.Combine(Engine.RootPath, "MiningMasterPilot.config");
+                if (!File.Exists(configFile))
+                {
+                    _config = new MiningConfig();
+                    return;
+                }
             }
+            
             var data = File.ReadAllText(configFile);
             var ns = Assembly.LoadFile(Path.Combine(Engine.RootPath, "Newtonsoft.Json.dll"));
             foreach (Type type in ns.GetExportedTypes())
@@ -813,14 +1111,14 @@ namespace Razorscripts
 
         internal enum Button
         {
-            RecordingStart = 1,
-            RecordingSave = 2,
-            RecordingDiscard = 3,
-            AddWaypoint = 4,
-            PathSelect = 5,
-            PlaybackStop = 6,
-            PlaybackPause = 7,
-            PlaybackResume = 8
+            RecordingStart = 100,
+            RecordingSave = 200,
+            RecordingDiscard = 300,
+            AddWaypoint = 400,
+            PathSelect = 500,
+            PlaybackStop = 600,
+            PlaybackPause = 700,
+            PlaybackResume = 800
         }
     }
 }
