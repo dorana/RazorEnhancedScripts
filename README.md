@@ -74,3 +74,26 @@ This script is aimed at people who has done several runs of Shadowguard and know
 
 This script also is a great tool for people with any type of disability that prevents them from playing the game normally,
 such as a motor disability or visual impairment since it removes the tedious tasks of clicking items in fast succession.
+
+## The Ranger
+
+This is a script designed towards archers.
+It will track thr ammo in your quiver, and allows for automatic restocking of your quiver from your backpack.
+It can also be manually reloaded at any time.
+Changing between bows and crossbows will automatically restock the ammo in your quiver for the equipped weapon.
+
+It will check the weapon you have equipped along with the skills you have to present a list of special attacks available
+and keep the selected one primed at all times, removing the need to constantly priming things like Armor ignore or Lightening Strike
+
+## Healmaster
+
+A simple script tht will heal you when run (best to bind to a keymap) the script will check your skills and mana in order to pick the best healing option for you
+Examples : if the player has high enough magery for a greater heal it will cast greater heal if enough health is missing, else it will cast normal heal.
+If your health pool is almost full it will cast a normal heal.
+
+Other healing options supported are Close Wounds for Chivalry and Bandages for dexers.
+It also supports healing potions if no other option is available.
+
+If the player is poisoned the script will instead use spells such as Cure or Cleanse By Fire.
+Support for Cleansing Winds, Gift of Renewal and Gift of Life is coming shortly
+

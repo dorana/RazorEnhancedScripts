@@ -128,7 +128,7 @@ internal static class Helper
             var lastBarabPotString = Misc.ReadSharedValue("Healmaster:LastBarrabPotion").ToString();
             DateTime? lastBarabPot = lastpotString != "0" ? DateTime.Parse(lastpotString) : null as DateTime?;
             var blockQuickpot = lastPot != null && (DateTime.UtcNow - lastPot).Value.TotalSeconds < 5;
-            var blockBarrabPot = lastPot != null && (DateTime.UtcNow - lastPot).Value.TotalSeconds < 1200;
+            var blockBarrabPot = true;//lastPot != null && (DateTime.UtcNow - lastPot).Value.TotalSeconds < 1200;
             
             //Todo, check LRC Value in order to validate if the player might have died and won't have regs, if so check for Spirit Speak Skill to heal
             if(!blockBarrabPot && barrabPot != null && Hits < 40)

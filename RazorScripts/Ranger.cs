@@ -1,4 +1,7 @@
-﻿using System;
+﻿// This script is redundant as the features are not included in "TheRanger" instead along with the Reloader functionality
+
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
