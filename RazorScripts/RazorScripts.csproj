@@ -49,7 +49,17 @@
         <Compile Include="CasterTrain.cs" />
         <Compile Include="ChestBreaker.cs" />
         <Compile Include="CottonPicker.cs" />
+        <Compile Include="Greed.cs" />
+        <Compile Include="Hiding.cs" />
+        <Compile Include="IdocScanner.cs" />
+        <Compile Include="MineNode.cs" />
+        <Compile Include="MiningMaster.cs" />
+        <Compile Include="MountUp.cs" />
         <Compile Include="Ranger.cs" />
+        <Compile Include="RuneMaster.cs" />
+        <Compile Include="ScriptMonitor.cs" />
+        <Compile Include="Targeting.cs" />
+        <Compile Include="TheRanger.cs" />
         <Compile Include="RuneBookFinder.cs" />
         <Compile Include="SampMaster.cs" />
         <Compile Include="Debugger.cs" />
@@ -74,6 +84,7 @@
         <Compile Include="TargetAllOfType.cs" />
         <Compile Include="LootmasterDirectContainer.cs" />
         <Compile Include="TeleTalk.cs" />
+        <Compile Include="Weak.cs" />
         <Compile Include="WeaponMaster.cs" />
         <Compile Include="WeedPuller.cs" />
     </ItemGroup>
