@@ -2,7 +2,7 @@
 
 This is my bundle of script for Razor Enhanced, Some are useful, some not so much, as they are designed for a very specific purpose upon request from someone.
 
-Below you can see some hghlights of the larger scripts I have made.
+Below you can see some highlights of the larger scripts I have made.
 
 Some have a more detailed Wiki page for further documentation.
 
