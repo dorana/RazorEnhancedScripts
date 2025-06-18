@@ -1,3 +1,10 @@
+/// IMPORTANT:  This script allows complete automation of mining in Ultima Online, including path recording and playback.
+///             Depending on the rules of your respective server, this may be considered an exploit or against the rules.
+///             If your server does not allow AFK resource gathering, please do not leave this script running unattended.
+///             It's intended to use while actively playing the game to simplyfy the mining process
+///             and take stress of the clicking.
+
+
 using System;
 using System.Collections.Generic;
 using System.IO;
