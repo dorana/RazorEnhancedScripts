@@ -17,7 +17,7 @@ namespace RazorScripts
     public class Lootmaster
     {
         public static readonly bool Debug = false;
-        private readonly string _version = "v1.8.7";
+        private readonly string _version = "v1.8.8";
         public static readonly bool IsOSI = false;
         
         private Target _tar = new Target();
@@ -803,24 +803,35 @@ namespace RazorScripts
                         continue;
                     }
                     
+                    if (rule.TargetBag == container.Serial)
+                    {
+                        Handler.SendMessage(MessageType.Debug, $"Target bag is same as container");
+                        continue;
+                    }
+
+                    if (!item.IsChildOf(container))
+                    {
+                        var itemContainer = Items.FindBySerial(item.Container);
+                        
+                        Handler.SendMessage(MessageType.Debug, $"Item is not a child of container {container.Name} but {itemContainer?.Name ?? "of nonexiting container"}");
+                        if (itemContainer != null)
+                        {
+                            if (itemContainer.IsChildOf(container))
+                            {
+                                Handler.SendMessage(MessageType.Debug, $"Item is in a sub container");
+                            }
+                        }
+                        continue;
+                    }
+                    
+                    if (rule.TargetBag == item.Serial)
+                    {
+                        Handler.SendMessage(MessageType.Debug, $"Target bag is same as item");
+                        continue;
+                    }
+                    
                     if (rule.Match(item))
                     {
-                        if (rule.TargetBag == container.Serial)
-                        {
-                            // don't loot to the same container
-                            continue;
-                        }
-                        if (rule.TargetBag == item.Serial)
-                        {
-                            // Don't loot into itself
-                            continue;
-                        }
-
-                        if (!item.IsChildOf(container))
-                        {
-                            continue;
-                        }
-                        
                         Handler.SendMessage(MessageType.Debug, $"Adding {item.Name} to loot list");
                         lootItems.Add(new GrabTarget
                         {
@@ -1184,23 +1195,23 @@ namespace RazorScripts
         public bool Match(Item item)
         {
             var match = CheckItemIdOrName(item);
-            Handler.SendMessage(MessageType.Debug,$"CheckItemId / CheckItemName : {match}");
+            Handler.SendMessage(MessageType.Debug,$"Check ItemId / ItemName : {match}");
             match = match && CheckBlackListProperties(item);
             
             match = match && CheckWeightCursed(item);
-            Handler.SendMessage(MessageType.Debug,$"CheckWeightCursed : {match}");
+            Handler.SendMessage(MessageType.Debug,$"Check WeightCursed : {match}");
 
             match = match && CheckRarityProps(item);
-            Handler.SendMessage(MessageType.Debug,$"CheckRarityProps : {match}");
+            Handler.SendMessage(MessageType.Debug,$"Check RarityProps : {match}");
 
             match = match && CheckEquipmentSlot(item);
-            Handler.SendMessage(MessageType.Debug,$"CheckEquipmentSlot : {match}");
+            Handler.SendMessage(MessageType.Debug,$"Check EquipmentSlot : {match}");
 
             match = match && CheckSpecialProps(item);
-            Handler.SendMessage(MessageType.Debug,$"CheckSpecialProps : {match}");
+            Handler.SendMessage(MessageType.Debug,$"Check SpecialProps : {match}");
 
             match = match && CheckRegEx(item);
-            Handler.SendMessage(MessageType.Debug,$"CheckSpecialProps : {match}");
+            Handler.SendMessage(MessageType.Debug,$"CheckRegex : {match}");
                 
             return match;
 
