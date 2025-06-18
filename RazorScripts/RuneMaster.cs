@@ -24,13 +24,14 @@ namespace Razorscripts
         private bool UseMagery => Magery > Chivalry;
         private RuneConfig _config;
         private List<Cord> _trackingArrows = new List<Cord>();
+        private string _version = "1.1.0";
         
         Func<RuneDisplay,bool> _searchFilter = (rl) => true;
         
         public void Run()
         {
-            Magery = Player.GetRealSkillValue("Magery");
-            Chivalry = Player.GetRealSkillValue("Chivalry");
+            Magery = Player.GetSkillValue("Magery");
+            Chivalry = Player.GetSkillValue("Chivalry");
             
             try
             {
@@ -575,6 +576,9 @@ namespace Razorscripts
                 Gumps.AddTooltip(ref gump, "Size of each page");
                 Gumps.AddButton(ref gump,xPosition+50, 255, 247, 248, (int)Buttons.SetPageSize, 1, 1);
                 
+                Gumps.AddLabel(ref gump,indentX, optionsHeight-85,0x7b, "Version");
+                Gumps.AddLabel(ref gump,indentX+50, optionsHeight-85,0x7b, _version);
+                
                 Gumps.AddButton(ref gump,baseX, optionsHeight-65, 5601, 5601, (int)Buttons.UpdateRunes, 1, 1);
                 Gumps.AddTooltip(ref gump, "Checks for changes and updates the runes");
                 Gumps.AddLabel(ref gump,indentX, optionsHeight-65,0x7b, "Update Runes");
@@ -968,7 +972,7 @@ namespace Razorscripts
                 {
                     if(Gumps.HasGump(0x59))
                     {
-                         Gumps.SendAction(0x59, rune.RecallIndex);
+                         Gumps.SendAction(0x59, rune.GateIndex);
                     }
                 }
                 else
