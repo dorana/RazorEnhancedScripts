@@ -85,7 +85,7 @@ Changing between bows and crossbows will automatically restock the ammo in your 
 It will check the weapon you have equipped along with the skills you have to present a list of special attacks available
 and keep the selected one primed at all times, removing the need to constantly priming things like Armor ignore or Lightening Strike
 
-## Healmaster
+## HealMaster
 
 A simple script tht will heal you when run (best to bind to a keymap) the script will check your skills and mana in order to pick the best healing option for you
 Examples : if the player has high enough magery for a greater heal it will cast greater heal if enough health is missing, else it will cast normal heal.
