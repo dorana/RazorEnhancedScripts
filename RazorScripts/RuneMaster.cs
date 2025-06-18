@@ -487,13 +487,16 @@ namespace Razorscripts
                 Gumps.AddLabel(ref gump,38, 15,0x7b, "G");
             }
             
-            Gumps.AddImageTiled(ref gump, 55, 15, 100, 16,1803);
-            Gumps.AddTextEntry(ref gump, 55,15,100,32,0x16a,1,lastSearch);
-            Gumps.AddTooltip(ref gump,"Enter a text to filter runes");
-            Gumps.AddButton(ref gump,160, 15, 11400, 11401, (int)Buttons.Search, 1, 1);
-            Gumps.AddTooltip(ref gump,"Search");
-            Gumps.AddButton(ref gump,180, 15, 11410, 11411, (int)Buttons.ClearSearch, 1, 1);
-            Gumps.AddTooltip(ref gump,"Clear Search");
+            // Gumps.AddImageTiled(ref gump, 55, 15, 100, 16,1803);
+            // Gumps.AddTextEntry(ref gump, 55,15,100,32,0x16a,1,lastSearch);
+            // Gumps.AddTooltip(ref gump,"Enter a text to filter runes");
+            // Gumps.AddButton(ref gump,160, 15, 11400, 11401, (int)Buttons.Search, 1, 1);
+            // Gumps.AddTooltip(ref gump,"Search");
+            // Gumps.AddButton(ref gump,180, 15, 11410, 11411, (int)Buttons.ClearSearch, 1, 1);
+            // Gumps.AddTooltip(ref gump,"Clear Search");
+                
+            Gumps.AddLabel(ref gump,65, 15,0x7b, "RuneMaster");
+            Gumps.AddLabel(ref gump,170, 15,0x7b, $"v {_version}");
             
             HandleSuperPanel(gump, height, width);
             HandleOptionPanel(gump, height, width);
@@ -575,9 +578,6 @@ namespace Razorscripts
                 Gumps.AddTextEntry(ref gump, xPosition+25,258,20,32,0x16a,1,_config.GetPageSize().ToString());
                 Gumps.AddTooltip(ref gump, "Size of each page");
                 Gumps.AddButton(ref gump,xPosition+50, 255, 247, 248, (int)Buttons.SetPageSize, 1, 1);
-                
-                Gumps.AddLabel(ref gump,indentX, optionsHeight-85,0x7b, "Version");
-                Gumps.AddLabel(ref gump,indentX+50, optionsHeight-85,0x7b, _version);
                 
                 Gumps.AddButton(ref gump,baseX, optionsHeight-65, 5601, 5601, (int)Buttons.UpdateRunes, 1, 1);
                 Gumps.AddTooltip(ref gump, "Checks for changes and updates the runes");
