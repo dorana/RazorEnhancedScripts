@@ -1512,7 +1512,7 @@ namespace RazorScripts
                         var propString = Handler.ResolvePropertyName(ruleProp.Property);
                         if (propString.Equals(stringVal.Substring(0, numIndex).Trim(), StringComparison.InvariantCultureIgnoreCase))
                         {
-                            var numstring = prop.Args;
+                            var numstring = prop.Args.Split('\t').Last();
                             int.TryParse(numstring, out var parseValue);
                             if (ruleProp.Value == null || parseValue >= ruleProp.Value || !reMatch.Success)
                             {
