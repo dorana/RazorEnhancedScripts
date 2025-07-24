@@ -1574,14 +1574,16 @@ namespace RazorScripts
         
         private Dictionary<int, int> FindPairs(List<int> numbers)
         {
+            var orderred = numbers.OrderBy(n => n).ToList();
+            
             var pairs = new Dictionary<int, int>();
             // split this up in groups of 2
-            for (int i = 0; i < numbers.Count; i += 2)
+            for (int i = 0; i < orderred.Count; i += 2)
             {
-                if (i + 1 < numbers.Count)
+                if (i + 1 < orderred.Count)
                 {
-                    pairs.Add(numbers[i], numbers[i + 1]);
-                    pairs.Add(numbers[i+1], numbers[i]);
+                    pairs.Add(orderred[i], orderred[i + 1]);
+                    pairs.Add(orderred[i+1], orderred[i]);
                 }
             }
             return pairs;
