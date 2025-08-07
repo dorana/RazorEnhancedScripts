@@ -10,16 +10,16 @@ If you have feature requests to any of my scripts or you find a bug, please repo
 
 ## LootMaster
 
-This is an autolooter that uses a set of rules, each rule has it's own settings, and each characters has his or hers own ruleset
+This is an autolooter that uses a set of rules, each rule has its own settings, and each characters has his or hers own ruleset
 More info on how this works can be found here
 https://gamebible.net/wiki/doku.php?id=lootmaster
 
 ## SlayerBar
 
 This is a hotbar script. it will look though your skills to find your primary damage skill,
-then check your enventory for a bag that contains slayers on weapons that matches that skill.
+then check your inventory for a bag that contains slayers on weapons that matches that skill.
 
-It will then generate a bar with buttons, clicking hese buttons will swap to the corresponding slayer,  and return your current weapon to the previously designated slayer bag.
+It will then generate a bar with buttons, clicking these buttons will swap to the corresponding slayer,  and return your current weapon to the previously designated slayer bag.
 
 It's highly recomended to put all your players in a designated bag, rather than having them loose in your backpack, The backpack works,
 but if you might have multiple slayers of the same type and thus the script would list both.
@@ -45,8 +45,8 @@ It allows the player to record a path and store the locations where the user min
 You may then save this path and mark a rune for it with the same name(this can be done automatically).
 These paths can later be replayed automatically.
 
-The script will handle smelting, and supports the use of mining satchelm it can also be toggled to use Bag of sending to send the largest ingot pile to your bank.
-This happens when you go over your carry capcity after the smelting process.
+The script will handle smelting, and supports the use of mining satchel it can also be toggled to use Bag of sending to send the largest ingot pile to your bank.
+This happens when you go over your carry capacity after the smelting process.
 
 The script does not handle ambushes or approaching players, while the script can run unattended it's not recommended, and may violate server rules,
 
@@ -54,12 +54,12 @@ The script does not handle ambushes or approaching players, while the script can
 
 ## ShadowGuard
 
-A semi automated helper script for Shadowguard.
+A semi-automated helper script for Shadowguard.
 This script will automatically detect the current room you are in and load the corresponding helper.
 This script will automate...
 - Automatically pickup and throw bottle in the bar
 - Automatically detect the Tree and Apple matches in Orchard
-- Automatically pick up, purify and throw phillacteries in the Armory
+- Automatically pick up, purify and throw phylacteries in the Armory
 - Automatically detect, calculate, pick up and place canal pieces in the Fountain
 - Automaticaly pickup wings in the Belfry, a button will show in the gump that allows you to use the wing to fly up to the dragon
 
@@ -87,7 +87,7 @@ and keep the selected one primed at all times, removing the need to constantly p
 
 ## HealMaster
 
-A simple script tht will heal you when run (best to bind to a keymap) the script will check your skills and mana in order to pick the best healing option for you
+A simple script that will heal you when run (best to bind to a keymap) the script will check your skills and mana in order to pick the best healing option for you
 Examples : if the player has high enough magery for a greater heal it will cast greater heal if enough health is missing, else it will cast normal heal.
 If your health pool is almost full it will cast a normal heal.
 
@@ -97,3 +97,22 @@ It also supports healing potions if no other option is available.
 If the player is poisoned the script will instead use spells such as Cure or Cleanse By Fire.
 Support for Cleansing Winds, Gift of Renewal and Gift of Life is coming shortly
 
+## CasterTrain
+
+A rather simple script in itsself.
+Load thr script, enter the target Skill level of each caster related skills you want to train,
+and the script will automatically train them for you.
+
+A full LRC suit is recommended, as the script will not check for reagents.
+The script has built in safety for killing yourself and it will meditate when needed.
+
+Supported skills are:
+- Magery
+- Necromancy
+- Chivalry
+- Mysticism
+- Spellweaving
+
+The following skills will gain naturally if not locked
+- Focus
+- Meditation
