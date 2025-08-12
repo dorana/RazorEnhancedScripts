@@ -10,9 +10,9 @@ namespace Razorscripts
         private readonly bool TakeLeather = false; //should we keep leather
         private readonly bool TakeMeat = false; //should we keep meats
         private readonly bool TakeFeathers = false; //should we keep feathers
-        private readonly bool TakeWool = false; //should we keep feathers
+        private readonly bool TakeWool = false; //should we keep Wool
         private readonly bool TakeScales = true; //should we keep scales
-        private readonly bool TakeBlood = true; //should we keep scales
+        private readonly bool TakeBlood = true; //should we keep blood
 
         private int _leather = 0x1081;
         private int _hide = 0x1079;
