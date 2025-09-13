@@ -14,10 +14,10 @@ namespace RazorScripts
         // please edit this section with your own scripts, it's important that you add the file extension as well sicne this is part of the key that Razor uses to identify the script.
         // The script you add must also already be added into the script grid in Razor Enhance for this to work.
         //Always add the line with false (this is used internally and should not be changed)
-        private Dictionary<string,bool> _scriptStatus = new Dictionary<string, bool>
+        private List<ScriptData> _scriptStatus = new List<ScriptData>()
         {
-            {"Lootmaster.cs", false},
-            {"SlayerBar.cs", false}
+            new ScriptData("Lootmaster.cs"),
+            new ScriptData("SlayerBar.cs", "Slayer Bar"),
         };
         
         public void Run()
@@ -61,17 +61,16 @@ namespace RazorScripts
             {
                 UpdateGump();
                 reply.buttonid = -1;
-                var script = _scriptStatus.Keys.ToList()[replyIndex];
-                var status = _scriptStatus[script];
-                if (status)
+                var script = _scriptStatus[replyIndex];
+                if (script.IsRunning)
                 {
-                    Misc.ScriptStop(script);
+                    Misc.ScriptStop(script.ScriptFile);
                 }
                 else
                 {
-                    Misc.ScriptRun(script);
+                    Misc.ScriptRun(script.ScriptFile);
                 }
-                Misc.Pause(3000);
+                Misc.Pause(500);
             
                 UpdateGump();
             }
@@ -87,9 +86,9 @@ namespace RazorScripts
             var index = 0;
             foreach (var script in _scriptStatus)
             {
-                var marker = script.Value ? 11400 : 11410;
+                var marker = script.IsRunning ? 11400 : 11410;
                 Gumps.AddButton(ref gump, 15, 15 + index * 20, marker,marker,index+1,1,0);
-                Gumps.AddLabel(ref gump, 40,15 + index * 20, 0x7b, script.Key.Split('.').FirstOrDefault() ?? "N/A");
+                Gumps.AddLabel(ref gump, 40,15 + index * 20, 0x7b, script.Name);
                 index++;
             }
             
@@ -102,12 +101,11 @@ namespace RazorScripts
         {
             var checkSum = 0;
             string checksumString = string.Empty;
-            var keys = _scriptStatus.Keys.ToList();
-            foreach (var script in keys)
+            foreach (var script in _scriptStatus)
             {
-                var result = Misc.ScriptStatus(script);
+                var result = Misc.ScriptStatus(script.ScriptFile);
                 checksumString += result ? "1" : "0";
-                _scriptStatus[script] = result;
+                script.IsRunning = result;
             }
             
             checkSum = Convert.ToInt32(checksumString, 2);
@@ -119,6 +117,25 @@ namespace RazorScripts
             }
 
             return false;
+        }
+        
+        private class ScriptData
+        {
+            public string Name { get; set; }
+            public string ScriptFile { get; set; }
+            public bool IsRunning { get; set; }
+
+            //Chain this to the ScriptData(string scriptFile, name) constructor
+            public ScriptData(string scriptFile) : this(scriptFile, scriptFile.Split('.').FirstOrDefault() ?? "N/A")
+            {
+                
+            }
+            
+            public ScriptData(string scriptFile, string name)
+            {
+                Name = name;
+                ScriptFile = scriptFile;
+            }
         }
     }
 }
