@@ -24,6 +24,7 @@ namespace Razorscripts
         private int _lambLeg = 0x1609;
         private int _dragonscale = 0x26B4;
         private int _dragonblood = 0x4077;
+		private int _scissors = 0x0F9F;
 
         private readonly List<int> _daggers =
             new[]
@@ -35,6 +36,8 @@ namespace Razorscripts
                 0x13F6, //Butchers Knife
                 0x13B6, //Butchers Knife
             }.ToList();
+            
+        private Item _scissorsItem;
 
         public void Run()
         {
@@ -78,6 +81,13 @@ namespace Razorscripts
             }
 
             var isHarvestersBlade = dagger.Name == "Harvester's Blade";
+
+            _scissorsItem = DigDeep(Player.Backpack, _scissors);
+
+            if (_scissorsItem == null)
+            {
+                Misc.SendMessage("Scissors not found, hides will not be cut.", 201);
+            }
 
             var corpses = Items.ApplyFilter(new Items.Filter
             {
@@ -201,9 +211,23 @@ namespace Razorscripts
         private void LootItems(Item corpse, int itemId, string name = null)
         {
             var stack = corpse.Contains.Where(i => i.ItemID == itemId && (string.IsNullOrEmpty(name) || i.Name.Contains(name))).ToList();
-            foreach (var feather in stack)
+            foreach (var stackItem in stack)
             {
-                Items.Move(feather, Player.Backpack.Serial, feather?.Amount ?? int.MaxValue);
+                Items.Move(stackItem, Player.Backpack.Serial, stackItem?.Amount ?? int.MaxValue);
+                
+                if (stackItem.ItemID == _hide && _scissorsItem != null) 
+                {
+                    Misc.SendMessage("Cutting hides", 201);
+                    Misc.Pause(300);
+                    // After moving, find the item again inside backpack
+                    var moved = Player.Backpack.Contains.FirstOrDefault(i => i.ItemID == itemId);
+                    if (moved != null && moved.ItemID == _hide)
+                    {
+                        Items.UseItem(_scissorsItem);
+                        Target.WaitForTarget(2000);
+                        Target.TargetExecute(moved);
+                    }
+                }
                 Misc.Pause(100);
             }
         }
